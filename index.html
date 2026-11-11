@@ -4139,7 +4139,7 @@ async function leggiXlsx(buf){ const u8=new Uint8Array(buf), dv=new DataView(buf
       if(t==='s') val=v?ss[+v.textContent]||'':''; else if(t==='inlineStr') val=[...c.getElementsByTagNameNS('*','t')].map(x=>x.textContent).join(''); else val=v?v.textContent:'';
       out[c.getAttribute('r')?col(c.getAttribute('r')):ci]=String(val).trim(); }); });
   return [...rows].map(r=>r?[...r].map(x=>x==null?'':x):[]); }
-function leggiCsv(t){ t=t.replace(/^﻿/,''); const first=(t.split(/\r?\n/).find(l=>l.trim())||''); const sep=[';','\t',','].map(c=>[c,first.split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+function leggiCsv(t){ t=t.replace(/^﻿/,''); const prime=t.split(/\r?\n/).filter(l=>l.trim()).slice(0,20); const sep=['\t',';',','].map(c=>[c,Math.max(0,...prime.map(l=>l.split(c).length))]).sort((a,b)=>b[1]-a[1])[0][0];
   const rows=[]; let row=[], cur='', q=false; for(let i=0;i<t.length;i++){ const ch=t[i];
     if(q){ if(ch==='"'){ if(t[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=ch; continue; }
     if(ch==='"') q=true; else if(ch===sep){ row.push(cur.trim()); cur=''; } else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&t[i+1]==='\n') i++; row.push(cur.trim()); rows.push(row); row=[]; cur=''; } else cur+=ch; }
@@ -4150,42 +4150,59 @@ const IMP_CAMPI=[['codice','Codice visibile',true,['codice','code','cod','n','nr
   ['capOp','Capacità operativa',false,['capacita_operativa','operativa','cap_operativa','capacita_utile']],
   ['gruppo','Fila / gruppo',false,['gruppo','fila','scaffale','campata','riga']],['posto','Posto',false,['posto','posizione','pos','colonna']],
   ['note','Note',false,['note','nota','descrizione','osservazioni']],['x','Coordinata x',false,['x']],['y','Coordinata y',false,['y']],['diam','Diametro (pianta)',false,['diametro','diam','d']]];
+/* parole che fanno riconoscere le colonne anche con intestazioni lunghe («Identificativo contenitori», «Capacità (hL)») */
+const IMP_PAROLE={cap:['capacita','capienza','volume','hl','ettolitri','litri','lt'],codice:['codice','cod','identificativo','identificativi','id','sigla','nome','numero','nr','n','contenitore','contenitori','vasca','vasche','serbatoio','serbatoi','botte','botti','recipiente','recipienti','barrique']};
 const normH = h=>String(h||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
 function formImportCont(locId){ let rows=null, hdr=[], body=[], map={}, nome='';
   modal('Importa contenitori · '+locNome(locId),`<div class="fg">
     <label class="f wide">File Excel (.xlsx) o CSV<input type="file" id="im-f" accept=".xlsx,.csv,.txt,text/csv"></label>
     <label class="f wide">…oppure incolla le righe (copiate da Excel, con l'intestazione)<textarea id="im-t" style="min-height:70px" placeholder="codice;capacita_hl;tipo&#10;24;50;vasca"></textarea></label></div>
-    <p class="hint">Servono almeno le colonne <b>codice</b> e <b>capacità</b>; facoltative tipo, locale, capacità operativa, fila/gruppo, posto, note, x, y, diametro. Nessun contenitore esistente viene sovrascritto senza che tu lo scelga.</p>
+    <p class="hint">Servono almeno una colonna con il <b>codice</b> (es. «Codice», «Identificativo», «Vasca») e una con la <b>capacità</b>; facoltative tipo, locale, capacità operativa, fila/gruppo, posto, note, x, y, diametro. Le righe di titolo sopra l'intestazione vengono saltate e le tabelle affiancate con le stesse colonne lette una dopo l'altra. Se una colonna non viene riconosciuta, sceglila qui sotto. Nessun contenitore esistente viene sovrascritto senza che tu lo scelga.</p>
     <div id="im-w"></div><div id="msg" class="err"></div>
     <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri" id="im-ok" disabled>Importa</button></div>`,(b,close)=>{
     const W=$('#im-w',b), m=$('#msg',b);
-    const carica=r=>{ rows=(r||[]).filter(x=>x&&x.some(c=>String(c).trim())); if(rows.length<2){ m.textContent='Il file non contiene righe da importare (serve una riga di intestazione e almeno una riga).'; W.innerHTML=''; $('#im-ok',b).disabled=true; return; }
-      m.textContent=''; hdr=rows[0].map(String); body=rows.slice(1); map={};
+    const carica=r=>{ rows=(r||[]).map((x,i)=>{ const y=(x||[]).map(c=>c==null?'':String(c)); y.__riga=i+1; return y; }).filter(x=>x.some(c=>c.trim()));
+      if(rows.length<2){ m.textContent='Il file non contiene righe da importare (serve una riga di intestazione e almeno una riga).'; W.innerHTML=''; $('#im-ok',b).disabled=true; return; }
+      m.textContent='';
       const hN=h=>{ const n=normH(h); return [n,n.replace(/_(hl|l|lt|litri|ettolitri)$/,'')]; };
-      IMP_CAMPI.forEach(([k,,,syn])=>{ const i=hdr.findIndex(h=>hN(h).some(x=>syn.includes(x))); if(i>=0&&!Object.values(map).includes(i)) map[k]=i; });
+      const parole=h=>normH(h).split('_').filter(Boolean);
+      const isCap=h=>{ const w=parole(h); return w.some(x=>IMP_PAROLE.cap.includes(x))||hN(h).some(x=>IMP_CAMPI[1][3].includes(x)); };
+      const isCod=h=>!isCap(h)&&(parole(h).some(x=>IMP_PAROLE.codice.includes(x))||hN(h).some(x=>IMP_CAMPI[0][3].includes(x)));
+      /* intestazione: la prima riga (fra le prime 15) con una colonna del codice e una della capacità; le righe di titolo sopra si saltano */
+      let hi=rows.slice(0,15).findIndex(x=>x.some(isCod)&&x.some(isCap)); if(hi<0) hi=rows.slice(0,15).findIndex(x=>x.some(isCod)||x.some(isCap)); if(hi<0) hi=0;
+      hdr=rows[hi].map(String); body=rows.slice(hi+1); map={}; let nota=hi?`Intestazione trovata alla riga ${rows[hi].__riga}: le righe sopra (titoli) sono state saltate.`:'';
+      /* tabelle affiancate con le stesse colonne (es. «Identificativo | Capacità | | Identificativo | Capacità»): si mettono una sotto l'altra */
+      const ic=hdr.map((h,i)=>isCod(h)?i:-1).filter(i=>i>=0);
+      if(ic.length>1){ const len=ic[1]-ic[0]; const blocco=st=>hdr.slice(st,st+len).map(normH).join('|'); const tutti=ic.filter(st=>blocco(st).replace(/\|+$/,'')===blocco(ic[0]).replace(/\|+$/,''));
+        if(tutti.length>1){ const B=[]; tutti.forEach((st,k)=>body.forEach(x=>{ const y=x.slice(st,st+len); if(y.some(c=>String(c).trim())){ y.__riga=x.__riga+(k?` (tabella ${k+1})`:''); B.push(y); } }));
+          hdr=hdr.slice(ic[0],ic[0]+len); body=B; nota=(nota?nota+' ':'')+`Nel foglio ci sono ${tutti.length} tabelle affiancate con le stesse colonne: le ho messe una sotto l'altra.`; } }
+      body=body.filter(x=>x.some(c=>String(c).trim()));
+      { const ci=hdr.findIndex(isCap); if(ci>=0) map.cap=ci; const di=hdr.findIndex((h,i)=>i!==map.cap&&isCod(h)); if(di>=0) map.codice=di; }
+      IMP_CAMPI.forEach(([k,,,syn])=>{ if(map[k]!=null) return; const i=hdr.findIndex(h=>hN(h).some(x=>syn.includes(x))); if(i>=0&&!Object.values(map).includes(i)) map[k]=i; });
+      map.nota=nota;
       const hc=map.cap!=null?normH(hdr[map.cap]):''; map.unit=/(^|_)(l|lt|litri)$|litri/.test(hc)?'L':(body.map(r=>num(r[map.cap])).filter(x=>x!=null).every(x=>x>=300)&&map.cap!=null?'L':'hL'); map.dup='salta'; map.creaLoc=false;
       disegna(); };
     const risolvi=()=>{ const C=k=>map[k]!=null&&map[k]!==''?(r=>String(r[map[k]]??'').trim()):(()=>''); const out=[]; const visti=new Set();
       const locDi=t=>{ if(!t) return locId; const n=t.toLowerCase(); const l=S.locali.find(x=>x.stato!=='rimosso'&&(x.nome.toLowerCase()===n||(x.sigla||'').toLowerCase()===n||x.id===t)); return l?l.id:null; };
-      body.forEach((r,i)=>{ const o={riga:i+2,codice:C('codice')(r),capTxt:C('cap')(r),tipo:normH(C('tipo')(r))||'vasca',locTxt:C('locale')(r),capOpTxt:C('capOp')(r),gruppo:C('gruppo')(r),posto:C('posto')(r),note:C('note')(r),x:num(C('x')(r)),y:num(C('y')(r)),diam:num(C('diam')(r))};
+      body.forEach((r,i)=>{ const o={riga:r.__riga||i+2,codice:C('codice')(r),capTxt:C('cap')(r),tipo:normH(C('tipo')(r))||'vasca',locTxt:C('locale')(r),capOpTxt:C('capOp')(r),gruppo:C('gruppo')(r),posto:C('posto')(r),note:C('note')(r),x:num(C('x')(r)),y:num(C('y')(r)),diam:num(C('diam')(r))};
         const tp=TIPI_CONT.find(t=>o.tipo.startsWith(t.slice(0,4))); o.tipo=tp||o.tipo;
         const k=map.unit==='L'?0.01:1; o.cap=num(o.capTxt); if(o.cap!=null) o.cap=Math.round(o.cap*k*1000)/1000; o.capOp=num(o.capOpTxt); if(o.capOp!=null) o.capOp=Math.round(o.capOp*k*1000)/1000;
         o.loc=locDi(o.locTxt); o.err=''; o.stato='nuovo';
-        if(!o.codice) o.err='codice mancante'; else if(!(o.cap>0)) o.err='capacità non valida («'+o.capTxt+'»)'; else if(!o.loc&&!map.creaLoc) o.err='locale «'+o.locTxt+'» inesistente';
+        if(!o.codice) o.err='codice mancante'; else if(!(o.cap>0)&&!o.capTxt&&(o.codice.length>20||/\s\S+\s/.test(o.codice))){ o.err='riga di testo, non un contenitore'; o.testo=true; } else if(!(o.cap>0)) o.err='capacità non valida («'+o.capTxt+'»)'; else if(!o.loc&&!map.creaLoc) o.err='locale «'+o.locTxt+'» inesistente';
         const key=(o.loc||'+'+o.locTxt.toLowerCase())+'|'+o.codice.toLowerCase();
         if(!o.err&&visti.has(key)) o.err='codice ripetuto nel file'; visti.add(key);
         if(!o.err&&o.loc){ const ex=VASCHE.find(v=>v.dep===o.loc&&v.stato==='attivo'&&v.label.toLowerCase()===o.codice.toLowerCase()); if(ex){ o.stato='duplicato'; o.ex=ex; } }
         out.push(o); }); return out; };
-    const disegna=()=>{ const R2=risolvi(); const nN=R2.filter(o=>!o.err&&o.stato==='nuovo').length, nD=R2.filter(o=>!o.err&&o.stato==='duplicato').length, nE=R2.filter(o=>o.err).length;
+    const disegna=()=>{ const R2=risolvi(); const nN=R2.filter(o=>!o.err&&o.stato==='nuovo').length, nD=R2.filter(o=>!o.err&&o.stato==='duplicato').length, nE=R2.filter(o=>o.err&&!o.testo).length, nT=R2.filter(o=>o.testo).length;
       const nAgg=map.dup==='aggiorna'?nD:0; const locMancanti=[...new Set(R2.filter(o=>!o.loc&&o.locTxt).map(o=>o.locTxt))];
-      W.innerHTML=`<h3 style="margin:10px 0 6px">Colonne</h3><div class="fg">${IMP_CAMPI.map(([k,lab,req])=>`<label class="f">${lab}${req?' *':''}<select data-imap="${k}"><option value="">— nessuna —</option>${hdr.map((h,i)=>`<option value="${i}" ${map[k]===i?'selected':''}>${esc(h||'colonna '+(i+1))}</option>`).join('')}</select></label>`).join('')}
+      W.innerHTML=`${map.nota?`<div class="box ok small" style="margin:8px 0">${esc(map.nota)}</div>`:''}<h3 style="margin:10px 0 6px">Colonne</h3><div class="fg">${IMP_CAMPI.map(([k,lab,req])=>`<label class="f">${lab}${req?' *':''}<select data-imap="${k}"><option value="">— nessuna —</option>${hdr.map((h,i)=>`<option value="${i}" ${map[k]===i?'selected':''}>${esc(h||'colonna '+(i+1))}</option>`).join('')}</select></label>`).join('')}
         <label class="f">Le capacità sono in<select id="im-u"><option value="hL" ${map.unit==='hL'?'selected':''}>ettolitri (hL)</option><option value="L" ${map.unit==='L'?'selected':''}>litri</option></select></label>
         <label class="f">Contenitori già esistenti (stesso codice e locale)<select id="im-dup"><option value="salta" ${map.dup==='salta'?'selected':''}>Lasciali come sono (salta la riga)</option><option value="aggiorna" ${map.dup==='aggiorna'?'selected':''}>Aggiorna i loro dati con quelli del file</option></select></label>
         ${locMancanti.length?`<label class="f wide row" style="gap:6px"><input type="checkbox" id="im-cl" ${map.creaLoc?'checked':''}> Crea i locali che non esistono: ${locMancanti.map(esc).join(', ')}</label>`:''}</div>
         <h3 style="margin:12px 0 6px">Anteprima · ${R2.length} righe</h3>
-        <p class="small"><b>${nN}</b> nuov${nN===1?'o':'i'} · <b>${nD}</b> già esistent${nD===1?'e':'i'} (${map.dup==='aggiorna'?'verranno aggiornati':'saltati'}) · <b style="${nE?'color:var(--danger)':''}">${nE}</b> con errori (saltat${nE===1?'a':'e'})</p>
+        <p class="small"><b>${nN}</b> nuov${nN===1?'o':'i'} · <b>${nD}</b> già esistent${nD===1?'e':'i'} (${map.dup==='aggiorna'?'verranno aggiornati':'saltati'}) · <b style="${nE?'color:var(--danger)':''}">${nE}</b> con errori (saltat${nE===1?'a':'e'})${nT?` · ${nT} righe di testo (note, saltate)`:''}</p>
         <div class="tbl-wrap" style="max-height:300px;overflow:auto"><table><thead><tr><th>Riga</th><th>Codice</th><th>Tipo</th><th class="r">Capacità</th><th>Locale</th><th>Fila · posto</th><th>Esito</th></tr></thead><tbody>${R2.map(o=>`<tr><td>${o.riga}</td><td><b>${esc(o.codice)}</b></td><td>${esc(o.tipo)}</td><td class="r">${o.cap!=null?nf(o.cap)+' hL':esc(o.capTxt)}</td><td>${o.loc?esc(locNome(o.loc)):o.locTxt?'<i>'+esc(o.locTxt)+' (nuovo)</i>':''}</td><td>${esc([o.gruppo,o.posto].filter(Boolean).join(' · '))}</td>
-          <td>${o.err?`<span class="chip warn">${esc(o.err)}</span>`:o.stato==='duplicato'?`<span class="chip">esiste già${o.ex.cap!==o.cap?' · ora '+nf(o.ex.cap)+' hL':''}</span>`:'<span class="chip pronto">nuovo</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+          <td>${o.testo?`<span class="chip">${esc(o.err)}</span>`:o.err?`<span class="chip warn">${esc(o.err)}</span>`:o.stato==='duplicato'?`<span class="chip">esiste già${o.ex.cap!==o.cap?' · ora '+nf(o.ex.cap)+' hL':''}</span>`:'<span class="chip pronto">nuovo</span>'}</td></tr>`).join('')}</tbody></table></div>`;
       $('#im-ok',b).disabled=!(nN+nAgg); $('#im-ok',b).textContent=nN+nAgg?`Importa ${nN} nuov${nN===1?'o':'i'}${nAgg?' e aggiorna '+nAgg:''}`:'Niente da importare';
       $$('[data-imap]',b).forEach(x=>x.onchange=()=>{ map[x.dataset.imap]=x.value===''?null:+x.value; disegna(); });
       $('#im-u',b).onchange=e=>{ map.unit=e.target.value; disegna(); }; $('#im-dup',b).onchange=e=>{ map.dup=e.target.value; disegna(); };
