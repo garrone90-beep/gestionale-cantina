@@ -610,7 +610,7 @@ const DEN_DEFAULT=[];
 const PROV_DEFAULT=[];
 /* conti lavorazione (REG-CONTO-01): di chi è il vino. Vuoto = vino nostro (la ragione sociale della cantina, in Dati → Dati azienda) */
 const PROD_TXT={mosto:'mosto',mostoferm:'mosto in fermentazione'};
-let NOSTRO='Vino nostro'; const CONTO_ND='Conto non indicato';
+let NOSTRO='Vino nostro'; const CONTO_ND='Conto lavorazione non indicato';
 const CONTI_DEFAULT=[];
 const CONTI_GARRONE=[{nome:'Azienda Agricola Cantine Garrone',nota:'Conto lavorazione società agricola cantine garrone di garrone marco'},{nome:'Azienda Agricola Fiasa',nota:'Conto lavorazione Fiasa società agricola a r.l.'},{nome:'Azienda Agricola Villa Caselli',nota:'Conto lavorazione Villa Caselli società agricola a r.l.'}];
 const contiList = ()=>((S&&S.conti)||CONTI_DEFAULT);
@@ -2227,7 +2227,7 @@ function viewVendemmia(app){
     <div><div class="muted small">Mosto ottenuto</div><b style="font-size:1.4rem">${hL(Lpig)}</b></div>
     ${(()=>{ const mi=ev.filter(e=>e.tipo==='carico'&&e.prodotto&&e.data.startsWith(Y)).reduce((a,e)=>a+(e.L||0),0); return mi?`<div><div class="muted small">Mosto entrato da fuori</div><b style="font-size:1.4rem">${hL(mi)}</b></div>`:''; })()}
     <div><div class="muted small">Resa media</div><b style="font-size:1.4rem">${resa(Lpig,kgPig)}</b> <span class="muted small">litri ogni 100 kg</span></div></div>
-    ${uve.length?`<div class="small" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"><div><span class="muted">Per varietà:</span> ${grp(e=>e.varieta)}</div><div><span class="muted">Per classificazione:</span> ${grp(e=>uvaClass(e))}</div><div><span class="muted">Per provenienza:</span> ${grp(e=>e.fonte)}</div><div><span class="muted">Per conto:</span> ${grp(e=>e.conto||NOSTRO+' (vino nostro)')}</div></div>`:''}</div>
+    ${uve.length?`<div class="small" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"><div><span class="muted">Per varietà:</span> ${grp(e=>e.varieta)}</div><div><span class="muted">Per classificazione:</span> ${grp(e=>uvaClass(e))}</div><div><span class="muted">Per provenienza:</span> ${grp(e=>e.fonte)}</div><div><span class="muted">Conto lavorazione:</span> ${grp(e=>e.conto||NOSTRO+' (vino nostro)')}</div></div>`:''}</div>
   ${(()=>{ const df=daFareOggi(); if(!df.length) return ''; const oggi=df.filter(r=>!r.arretrato), arr=df.filter(r=>r.arretrato); const tot=oggi.reduce((a,r)=>a+r.manca,0);
     const vs=[...new Set(df.map(r=>r.vasca))];
     return `<div class="panel"><div class="spread"><h3>Da fare oggi</h3><span class="muted small">${tot?tot+' da fare':'tutto fatto'}${arr.length?` · <span style="color:var(--danger)">${arr.reduce((a,r)=>a+r.manca,0)} arretrati da ieri</span>`:''}</span></div><div class="tbl-wrap"><table><tbody>
@@ -2245,7 +2245,7 @@ function viewVendemmia(app){
        <td class="r" style="white-space:nowrap"><button class="btn sm pri" data-orap="${esc(v.code)}">Lavorazione</button> <button class="btn sm" data-fm="${esc(v.code)}">+ Misura</button> <button class="btn sm" data-fc="${esc(v.code)}">Curva</button> <button class="btn sm lavoff" data-ff="${esc(v.code)}">Fine</button></td></tr>
        <tr data-fcr="${esc(v.code)}" hidden><td colspan="7"><div style="max-width:600px">${fermCurve(v.code)}</div></td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna vasca in fermentazione. Le vasche entrano in fermentazione dalla pigiatura (casella «iniziano la fermentazione») o dal pulsante «Densità / temp.» della vasca.</p>'}</div>
   <div class="panel"><h3>Uve in attesa di lavorazione</h3>
-   ${attesa.length?`<div class="tbl-wrap"><table><thead><tr><th>Arrivo</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto</th><th class="r">Da lavorare</th><th>Grado</th><th></th></tr></thead><tbody>
+   ${attesa.length?`<div class="tbl-wrap"><table><thead><tr><th>Arrivo</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto lavorazione</th><th class="r">Da lavorare</th><th>Grado</th><th></th></tr></thead><tbody>
     ${attesa.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||'vino nostro')}</td><td class="r"><b>${nf(uvaRes(e.id),0)} kg</b>${uvaRes(e.id)<e.kg-0.5?` <span class="muted small">di ${nf(e.kg,0)}</span>`:''}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="r"><button class="btn sm pri" data-lavu="${e.id}">Lavora</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva in attesa.</p>'}</div>
   <div class="panel"><h3>Pigiature e pressature ${Y}</h3>
    ${pig.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Lavorazione</th><th>Uve</th><th>Vino</th><th>Vasche</th><th class="r">Mosto</th><th class="r">Resa</th><th></th></tr></thead><tbody>
@@ -2253,7 +2253,7 @@ function viewVendemmia(app){
       return `<tr><td>${fd(e.data)}</td><td>${esc(e.lav||'')}</td><td class="small">${(e.uve||[]).map(u=>esc(uvaLab({...(evById(u.uva)||{}),kg:u.kg}))).join('<br>')}</td><td>${tipoDot(e.vino)} <a href="#vino-${e.vino}">${esc(vName(e.vino))}</a></td>
        <td class="small">${(e.dest||[]).map(d=>`<div style="white-space:nowrap">${vkind(d.vasca)} <b>${esc(vlab(d.vasca))}</b> · ${hL(d.L)}${d.fraz?` <span class="chip" style="text-transform:none;letter-spacing:0">${esc(d.fraz)}</span>`:''}</div>`).join('')}</td><td class="r" style="white-space:nowrap">${hL(L)}</td><td class="r" style="white-space:nowrap">${resa(L,kg)}${kg&&(L/kg>1||L/kg<0.3)?' <span class="chip warn" title="Controlla kg e litri (unità hL/L)">anomala</span>':''}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna lavorazione di uve.</p>'}</div>
   <div class="panel"><h3>Uve arrivate ${Y}</h3>
-   ${uve.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto</th><th class="r">Kg</th><th>Grado</th><th>Note</th><th></th></tr></thead><tbody>
+   ${uve.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto lavorazione</th><th class="r">Kg</th><th>Grado</th><th>Note</th><th></th></tr></thead><tbody>
     ${uve.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||'vino nostro')}</td><td class="r">${nf(e.kg,0)}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="small muted">${esc(e.note||'')}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva registrata nel '+Y+'.</p>'}</div>`;
   $$('[data-vy]',app).forEach(b=>b.onclick=()=>{ UI.vendY=b.dataset.vy; viewVendemmia(app); });
   $('#vd-uva',app).onclick=()=>formUva();
@@ -2321,7 +2321,7 @@ function formPigiatura(p={},corrId){
    <div class="fg"><label class="f">Data<input type="date" id="pg-data" value="${esc(p.data||today())}"></label>
     <label class="f">Lavorazione<select id="pg-lav">${LAV_UVA.map(x=>`<option ${x===(p.lav||LAV_UVA[0])?'selected':''}>${x}</option>`).join('')}</select></label></div>
    <fieldset class="lvf"><legend>Uve lavorate</legend>
-    ${lots.length?`<div class="tbl-wrap"><table><thead><tr><th></th><th>Arrivo</th><th>Uva</th><th>Conto</th><th class="r">Disponibili</th><th class="r">Kg lavorati</th></tr></thead><tbody>
+    ${lots.length?`<div class="tbl-wrap"><table><thead><tr><th></th><th>Arrivo</th><th>Uva</th><th>Conto lavorazione</th><th class="r">Disponibili</th><th class="r">Kg lavorati</th></tr></thead><tbody>
      ${lots.map(e=>`<tr data-u="${e.id}"><td><input type="checkbox" class="pu-c" ${(p.uve||[]).some(u=>u.uva===e.id)||(!p.uve&&lots.length===1)?'checked':''}></td><td>${fd(e.data)}</td><td>${esc([e.fonte,e.varieta].filter(Boolean).join(' · ')||'uva')}<div class="small muted">${esc(uvaClass(e))}</div></td><td class="small">${esc(e.conto||'vino nostro')}</td><td class="r">${nf(avail(e.id),0)} kg</td>
       <td class="r"><input class="pu-kg" inputmode="decimal" style="max-width:110px;text-align:right" value="${nfIn(pre[e.id]!=null&&pre[e.id]!==undefined?pre[e.id]:avail(e.id),0)}"></td></tr>`).join('')}</tbody></table></div>`:'<p class="err small">Nessuna uva in attesa: prima registra l\'«Entrata uva».</p>'}
    </fieldset>
@@ -2381,7 +2381,7 @@ function formPigiatura(p={},corrId){
       uve.forEach(u=>{ const ev=evById(u.uva); if(u.kg>avail(u.uva)+0.5) W.push({k:'kg'+u.uva,t:`<b>${esc(uvaLab(ev))}</b>: lavori ${nf(u.kg,0)} kg ma ne risultano disponibili ${nf(avail(u.uva),0)}.`,ok:'Procedi: i kg in più restano segnalati come uva in negativo'});
         if(ev.data>data) W.push({k:'dt'+u.uva,t:`<b>${esc(uvaLab(ev))}</b> risulta arrivata il ${fd(ev.data)}, dopo la data della lavorazione (${fd(data)}).`,ok:'Procedi lo stesso'}); });
       const conti=[...new Set(uve.map(u=>(evById(u.uva)||{}).conto||''))];
-      if(conti.length>1) W.push({k:'conti',t:`Uve di conti lavorazione diversi (${conti.map(c=>esc(c||NOSTRO+' (vino nostro)')).join(' · ')}).`,ok:'Procedi: il mosto risulta di più conti, divisi in % secondo i kg (si vede nella composizione e nel cartello)'});
+      if(conti.length>1) W.push({k:'conti',t:`Uve di conti lavorazione diversi (${conti.map(c=>esc(c||NOSTRO+' (vino nostro)')).join(' · ')}).`,ok:'Procedi: il mosto risulta di più conti lavorazione, divisi in % secondo i kg (si vede nella composizione e nel cartello)'});
       if(fv.categoria==='Atto a DOP'){ const bad=uve.map(u=>evById(u.uva)).filter(e=>!(e.categoria==='Atto a DOP'&&e.denominazione===fv.denominazione));
         if(bad.length) W.push({k:'dop',t:`Il vino è «Atto a ${esc(fv.denominazione)}» ma ${bad.length===1?'questa uva non è atta':'queste uve non sono atte'} a quella denominazione: ${bad.map(x=>esc(uvaLab(x))).join('; ')}.`,ok:`Confermo: il vino resta «Atto a ${esc(fv.denominazione)}»`}); }
       dest.forEach((d,i)=>{ const s0=st[d.vasca]; if(s0&&s0.vino&&s0.L>1e-6&&s0.vino!==vid) W.push({k:'occ'+i,t:`La vasca <b>${esc(vlab(d.vasca))}</b> contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}): il mosto si unisce a quel vino. Il vino risultante si chiama:<br>
@@ -3379,7 +3379,7 @@ function vinoTot(id){ let L=0; const vs=[]; for(const v of VASCHE){const s=R.st[
 const statoVasca = c=>{ const x=R.st[c]; return x.ferm?'fermentazione':x.vinif?'vinificazione':x.pronto?'pronto':'affinamento'; };
 const filtriVasca = F=>!!(F&&(F.dep||F.conto||(F.stato&&F.stato!=='esaurito')));
 const vascaPassa = (c,F)=>(!F.dep||(VMAP[c]&&VMAP[c].dep===F.dep))&&(!F.conto||contoVasca(c).some(([ct,f])=>ct===F.conto&&f>0.001))&&(!F.stato||F.stato==='esaurito'||statoVasca(c)===F.stato);
-const filtroTxt = F=>[F.conto?'conto '+(F.conto===NOSTRO?'vino nostro':F.conto):'',F.dep?'locale '+locNome(F.dep):'',F.stato&&F.stato!=='esaurito'?'stato «'+({vinificazione:'in vinificazione',fermentazione:'in fermentazione',affinamento:'in affinamento',pronto:'pronto'}[F.stato])+'»':''].filter(Boolean).join(' · ');
+const filtroTxt = F=>[F.conto?'conto lavorazione '+(F.conto===NOSTRO?'vino nostro':F.conto):'',F.dep?'locale '+locNome(F.dep):'',F.stato&&F.stato!=='esaurito'?'stato «'+({vinificazione:'in vinificazione',fermentazione:'in fermentazione',affinamento:'in affinamento',pronto:'pronto'}[F.stato])+'»':''].filter(Boolean).join(' · ');
 function vfLoad(){ if(!UI.vf){ try{ UI.vf=JSON.parse(localStorage.getItem('gcg-vinifiltri')||'null'); }catch(e){} UI.vf=UI.vf||{}; } return UI.vf; }
 function vfStore(){ try{ localStorage.setItem('gcg-vinifiltri',JSON.stringify(UI.vf||{})); }catch(e){} }
 /* barra filtri vasca che segue le pagine (scheda vino): stessi filtri della lista Vini, modificabili qui */
@@ -3419,7 +3419,7 @@ function vfBarHTML(F,extra=''){
     ${sel('ann','Annata',[['','Tutte'],...annate.map(a=>[String(a),a==='S.A.'?'Senza annata':String(a)])])}
     ${sel('stato','Stato',[['','Tutti'],['vinificazione','In vinificazione'],['fermentazione','In fermentazione'],['affinamento','In affinamento'],['pronto','Pronto da imbottigliare'],['esaurito','Esaurito (0 hL)']])}
     ${sel('dep','Locale',[['','Tutti'],...DEPOSITI.map(d=>[d.id,d.nome])])}
-    ${sel('conto','Conto',[['','Tutti'],[NOSTRO,'Vino nostro'],...contiList().map(c=>[c.nome,c.nome])])}
+    ${sel('conto','Conto lavorazione',[['','Tutti'],[NOSTRO,'Vino nostro'],...contiList().map(c=>[c.nome,c.nome])])}
     ${sel('an','Analisi',[['','Tutte'],['si','Con analisi'],['no','Senza analisi'],['vecchie','Ultima analisi oltre 60 giorni']])}
     ${sel('ord','Ordina per',[['','Volume'],['nome','Nome'],['annata','Annata'],['analisi','Ultima analisi']])}
     <button class="btn sm" id="vf-x" ${nAtt?'':'disabled'}>Azzera filtri${nAtt?' ('+nAtt+')':''}</button></div>${extra}</div>`; }
@@ -3749,7 +3749,7 @@ function maxiReview(b,letti){
   const vOpt=sel=>`<option value="">— non c'è nel gestionale</option>`+[...S.vini].sort((a,c)=>vName(a.id).localeCompare(vName(c.id))).map(v=>`<option value="${esc(v.id)}" ${v.id===sel?'selected':''}>${esc(vName(v.id))}</option>`).join('');
   const pOpt=sel=>`<option value="">— non indicato</option>`+[NOSTRO,...contiList().map(c=>c.nome)].map(p=>`<option value="${esc(p)}" ${p===sel?'selected':''}>${esc(p===NOSTRO?p+' (vino nostro)':p)}</option>`).join('');
   $('#mx-rev',b).innerHTML=letti.map((r,i)=>{ const ck=mxKey(r.conto); const provSel=(S.maxiConti||{})[ck]||r.provenienza||'';
-    return `<section class="panel" data-mx="${i}" style="margin-top:10px"><div class="spread"><h3>${esc(r.conto||r.file)}</h3><label class="f" style="max-width:300px">Conto nel gestionale<select class="mx-prov">${pOpt(provSel)}</select></label></div>
+    return `<section class="panel" data-mx="${i}" style="margin-top:10px"><div class="spread"><h3>${esc(r.conto||r.file)}</h3><label class="f" style="max-width:300px">Conto lavorazione nel gestionale<select class="mx-prov">${pOpt(provSel)}</select></label></div>
      <p class="small muted">${esc(r.file)} · giacenza al ${r.data?fd(r.data):'?'}${r.somme_ok===false?' · <span class="chip warn">le somme non tornano con il riepilogo: controlla</span>':''}</p>
      <div class="tbl-wrap"><table><thead><tr><th>Descrizione Maxidata</th><th>Partita</th><th class="r">Quantità</th><th>Vino nel gestionale</th></tr></thead><tbody>
      ${r.righe.map((x,j)=>{ const rem=(S.maxiMap||{})[mxKey(r.conto,x.descrizione,x.partita)]; const sel=rem&&vino(rem)?rem:(x.vino_id&&vino(x.vino_id)?x.vino_id:'');
@@ -3788,7 +3788,7 @@ function maxiRisultato(b,dati){
       return `<tr style="${ok?'':'background:var(--warn-bg)'}"><td>${o.vino?`${tipoDot(o.vino)} <b>${esc(vName(o.vino))}</b>`:'<span class="chip warn">non abbinato</span>'}<div class="small muted">${[...o.descr].map(esc).join(' · ')||'— non presente in Maxidata'}</div></td>
         <td class="r num">${o.M?fmtQ(o.M,o.fecce):'—'}</td><td class="r num">${g?fmtQ(Lg,o.fecce):'—'}${g?`<div class="small muted">${g.vs.map(c=>esc(vlab(c))).join(', ')}</div>`:''}</td>
         <td class="r num">${ok?'<span class="chip ok">ok</span>':`<b>${d>0?'+':''}${fmtQ(d,o.fecce)}</b>`}</td></tr>`; }).join('');
-    html+=`<h4 style="margin:14px 0 6px">${esc(bl.titolo)}${bl.prov?` <span class="muted small">→ ${esc(bl.prov)}</span>`:' <span class="chip warn">conto non indicato</span>'}</h4>
+    html+=`<h4 style="margin:14px 0 6px">${esc(bl.titolo)}${bl.prov?` <span class="muted small">→ ${esc(bl.prov)}</span>`:' <span class="chip warn">conto lavorazione non indicato</span>'}</h4>
      <div class="tbl-wrap"><table><thead><tr><th>Vino</th><th class="r">Maxidata</th><th class="r">Gestionale</th><th class="r">Differenza</th></tr></thead><tbody>${rows}</tbody></table></div>`; });
   const altre=Object.values(G).filter(g=>!provs.includes(g.prov));
   if(altre.length) html+=`<p class="small muted" style="margin-top:10px">Non confrontati (conto senza stampa Maxidata caricata): ${altre.map(g=>`${esc(vName(g.vino))} · ${esc(g.prov)} · ${hL(g.L)}`).join(' · ')}</p>`;
@@ -4388,6 +4388,33 @@ function viewDati(app){
   <div class="panel"><h3>Dati azienda</h3><p class="hint">Il nome compare in alto e nella scheda PDF; la ragione sociale è il «vino nostro» (conto lavorazione vuoto) nei filtri e nei cartelli.</p>
    <div class="fg"><label class="f">Nome della cantina<input id="az-n" value="${esc(az.nome||'')}"></label><label class="f">Ragione sociale (vino nostro)<input id="az-r" value="${esc(az.ragione||'')}"></label><label class="f">Sigla nel marchio (2–3 lettere)<input id="az-s" maxlength="3" value="${esc(az.sigla||'')}"></label></div>
    <div class="actions"><button class="btn pri" id="az-ok">Salva dati azienda</button></div></div>
+  <div class="panel"><h3>Locali e contenitori</h3><p class="hint">I locali della cantina (ognuno con la sua pianta) e le vasche, botti e altri contenitori di ciascuno. Qui si aggiunge un locale nuovo o un contenitore.</p>
+   <p class="small">${DEPOSITI.map(l=>`<b>${esc(l.nome)}</b> · ${VASCHE.filter(v=>v.dep===l.id&&v.stato==='attivo').length} ${contNome(l.id)}`).join('<br>')}</p>
+   <div class="actions"><a class="btn pri" href="#locali">Gestisci locali e contenitori</a></div></div>
+  <div class="panel"><h3>Conti lavorazione (conto terzi)</h3><p class="hint">Le aziende per cui lavori il vino: compaiono in «Conto lavorazione per» nell'entrata vino. Una per riga, nella forma <code>Nome | dicitura per il cartello</code>. Se cambi un nome (stessa riga), le entrate già registrate vengono aggiornate.</p>
+   <textarea id="ct-t" style="min-height:110px">${esc(contiList().map(c=>c.nome+' | '+(c.nota||'')).join('\n'))}</textarea>
+   <label class="f wide" style="margin-top:8px">Dicitura per il vino nostro (${esc(NOSTRO)})<input id="ct-n" value="${esc(S.notaNostro!=null?S.notaNostro:NOSTRO)}"></label>
+   <div class="actions"><button class="btn pri" id="ct-s">Salva conti lavorazione</button><button class="btn" id="ct-r">Svuota elenco</button></div></div>
+  <div class="panel"><h3>Provenienze</h3><p class="hint">Da dove arriva il vino o l'uva (es. un fornitore o una zona): proposte nel campo «Provenienza» delle entrate. Una per riga. Si può sempre scriverne una nuova nel modulo. Le aziende per cui lavori il vino vanno in «Conti lavorazione».</p>
+   <textarea id="pv-t" style="min-height:120px">${esc(provList().join('\n'))}</textarea>
+   <div class="actions"><button class="btn pri" id="pv-s">Salva provenienze</button><button class="btn" id="pv-r">Svuota elenco</button></div></div>
+  <div class="panel"><h3>Denominazioni (DOP)</h3><p class="hint">Proposte quando scegli la categoria DOP o Atto a DOP. Una per riga, nella forma <code>Nome | colore</code> (rosso, bianco o rosato).</p>
+   <textarea id="den-t" style="min-height:140px">${esc(denList().map(d=>d.nome+' | '+d.tipo).join('\n'))}</textarea>
+   <div class="actions"><button class="btn pri" id="den-s">Salva denominazioni</button><button class="btn" id="den-r">Svuota elenco</button></div></div>
+  <div class="panel"><h3>Varietà</h3><p class="hint">Proposte nell'entrata uva. Una per riga. Quelle già usate nelle entrate restano comunque proposte.</p>
+   <textarea id="va-t" style="min-height:110px">${esc((S.varieta||[]).join('\n'))}</textarea>
+   <div class="actions"><button class="btn pri" id="va-s">Salva varietà</button></div></div>
+  <div class="panel"><h3>Lavorazioni e prodotti</h3><p class="hint">Catalogo dei prodotti enologici proposti nei moduli: categoria, unità, dose abituale e massima, titolo del principio attivo. Parte da un elenco generico; aggiungi i tuoi.</p>
+   <p class="small">${prodVisibili().length} prodotti nel catalogo${(S.prodotti||[]).some(x=>x.daUso)?` · ${(S.prodotti||[]).filter(x=>x.daUso).length} aggiunti scrivendoli nei moduli (da sistemare)`:''}</p>
+   <div class="actions"><a class="btn pri" href="#prodotti">Apri il catalogo prodotti</a></div>
+   <h3 style="margin-top:16px">Elenco lavorazioni</h3><p class="hint">Le voci proposte nel modulo, divise per fase. Una per riga. Il travaso non serve: si aggiunge da solo quando c'è un movimento.</p>
+   <div class="fg"><label class="f">Vinificazione<textarea id="lv-v" style="min-height:180px">${esc(lavList('Vinificazione').join('\n'))}</textarea></label>
+   <label class="f">Affinamento<textarea id="lv-a" style="min-height:180px">${esc(lavList('Affinamento').join('\n'))}</textarea></label></div>
+   <div class="actions"><button class="btn pri" id="lv-s">Salva elenchi</button><button class="btn" id="lv-r">Ripristina elenchi proposti</button></div></div>
+  <div class="panel"><h3>Protocolli di vinificazione</h3><p class="hint">Schemi di routine da applicare alle vasche in vinificazione (dalla pigiatura, dall'entrata mosto o dalla finestra Lavorazione). Giorni contati dall'inizio della vinificazione.</p>
+   ${protList().map(pr=>`<div style="margin:8px 0"><b>${esc(pr.nome)}</b> <button class="btn sm" data-pred="${esc(pr.id)}">Modifica</button><div class="small muted">${pr.righe.map(r=>esc(rigaTxt(r))).join(' · ')}</div></div>`).join('')}
+   <div class="actions"><button class="btn pri" id="pr-new">+ Nuovo protocollo</button>${S.protocolli?'<button class="btn" id="pr-rst">Ripristina protocolli proposti</button>':''}</div></div>
+  ${limitiPanelHTML()}
   <div class="panel"><h3>Dove sono i dati</h3><p>I dati sono salvati online (database della cantina) e sono gli stessi da ogni computer, tablet o telefono dopo l'accesso. Ogni modifica si salva da sola: lo stato è indicato in basso nel menu. Il backup resta utile come copia di sicurezza.</p></div>
   <div class="panel"><h3>Backup</h3><p class="hint">«Scarica backup» salva un file con tutti i dati (vini, operazioni, analisi, cataloghi, locali). In alternativa copia il testo qui sotto e salvalo in un file. Se passano più di ${BK_GIORNI} giorni senza backup compare un promemoria in alto.</p>
    <textarea id="js" readonly style="min-height:140px;font-family:ui-monospace,monospace;font-size:.8rem">${esc(JSON.stringify(S,null,1))}</textarea>
@@ -4398,33 +4425,6 @@ function viewDati(app){
    <textarea id="pj" placeholder="…oppure incolla qui il backup" style="margin-top:8px"></textarea>
    <div id="msg" class="err"></div>
    <div class="actions"><button class="btn pri" id="rs">Ripristina backup</button></div></div>
-  <div class="panel"><h3>Lavorazioni e prodotti</h3><p class="hint">Catalogo dei prodotti enologici proposti nei moduli: categoria, unità, dose abituale e massima, titolo del principio attivo. Parte da un elenco generico; aggiungi i tuoi.</p>
-   <p class="small">${prodVisibili().length} prodotti nel catalogo${(S.prodotti||[]).some(x=>x.daUso)?` · ${(S.prodotti||[]).filter(x=>x.daUso).length} aggiunti scrivendoli nei moduli (da sistemare)`:''}</p>
-   <div class="actions"><a class="btn pri" href="#prodotti">Apri il catalogo prodotti</a></div>
-   <h3 style="margin-top:16px">Elenco lavorazioni</h3><p class="hint">Le voci proposte nel modulo, divise per fase. Una per riga. Il travaso non serve: si aggiunge da solo quando c'è un movimento.</p>
-   <div class="fg"><label class="f">Vinificazione<textarea id="lv-v" style="min-height:180px">${esc(lavList('Vinificazione').join('\n'))}</textarea></label>
-   <label class="f">Affinamento<textarea id="lv-a" style="min-height:180px">${esc(lavList('Affinamento').join('\n'))}</textarea></label></div>
-   <div class="actions"><button class="btn pri" id="lv-s">Salva elenchi</button><button class="btn" id="lv-r">Ripristina elenchi proposti</button></div></div>
-  ${limitiPanelHTML()}
-  <div class="panel"><h3>Protocolli di vinificazione</h3><p class="hint">Schemi di routine da applicare alle vasche in vinificazione (dalla pigiatura, dall'entrata mosto o dalla finestra Lavorazione). Giorni contati dall'inizio della vinificazione.</p>
-   ${protList().map(pr=>`<div style="margin:8px 0"><b>${esc(pr.nome)}</b> <button class="btn sm" data-pred="${esc(pr.id)}">Modifica</button><div class="small muted">${pr.righe.map(r=>esc(rigaTxt(r))).join(' · ')}</div></div>`).join('')}
-   <div class="actions"><button class="btn pri" id="pr-new">+ Nuovo protocollo</button>${S.protocolli?'<button class="btn" id="pr-rst">Ripristina protocolli proposti</button>':''}</div></div>
-  <div class="panel"><h3>Locali e contenitori</h3><p class="hint">I locali della cantina (ognuno con la sua pianta) e le vasche, botti e altri contenitori di ciascuno. Qui si aggiunge un locale nuovo o un contenitore.</p>
-   <p class="small">${DEPOSITI.map(l=>`<b>${esc(l.nome)}</b> · ${VASCHE.filter(v=>v.dep===l.id&&v.stato==='attivo').length} ${contNome(l.id)}`).join('<br>')}</p>
-   <div class="actions"><a class="btn pri" href="#locali">Gestisci locali e contenitori</a></div></div>
-  <div class="panel"><h3>Conti lavorazione</h3><p class="hint">Le aziende per cui lavori il vino: compaiono in «Conto lavorazione per» nell'entrata vino. Una per riga, nella forma <code>Nome | dicitura per il cartello</code>. Se cambi un nome (stessa riga), le entrate già registrate vengono aggiornate.</p>
-   <textarea id="ct-t" style="min-height:110px">${esc(contiList().map(c=>c.nome+' | '+(c.nota||'')).join('\n'))}</textarea>
-   <label class="f wide" style="margin-top:8px">Dicitura per il vino nostro (${esc(NOSTRO)})<input id="ct-n" value="${esc(S.notaNostro!=null?S.notaNostro:NOSTRO)}"></label>
-   <div class="actions"><button class="btn pri" id="ct-s">Salva conti</button><button class="btn" id="ct-r">Svuota elenco</button></div></div>
-  <div class="panel"><h3>Provenienze</h3><p class="hint">Da dove arriva il vino o l'uva (es. un fornitore o una zona): proposte nel campo «Provenienza» delle entrate. Una per riga. Si può sempre scriverne una nuova nel modulo. Le aziende per cui lavori il vino vanno in «Conti lavorazione».</p>
-   <textarea id="pv-t" style="min-height:120px">${esc(provList().join('\n'))}</textarea>
-   <div class="actions"><button class="btn pri" id="pv-s">Salva provenienze</button><button class="btn" id="pv-r">Svuota elenco</button></div></div>
-  <div class="panel"><h3>Denominazioni (DOP)</h3><p class="hint">Proposte quando scegli la categoria DOP o Atto a DOP. Una per riga, nella forma <code>Nome | colore</code> (rosso, bianco o rosato).</p>
-   <textarea id="den-t" style="min-height:140px">${esc(denList().map(d=>d.nome+' | '+d.tipo).join('\n'))}</textarea>
-   <div class="actions"><button class="btn pri" id="den-s">Salva denominazioni</button><button class="btn" id="den-r">Svuota elenco</button></div></div>
-  <div class="panel"><h3>Varietà</h3><p class="hint">Proposte nell'entrata uva. Una per riga. Quelle già usate nelle entrate restano comunque proposte.</p>
-   <textarea id="va-t" style="min-height:110px">${esc((S.varieta||[]).join('\n'))}</textarea>
-   <div class="actions"><button class="btn pri" id="va-s">Salva varietà</button></div></div>
   <div class="panel"><h3>Azzera</h3><p class="hint">Scegli cosa cancellare. Le operazioni comprendono travasi, lavorazioni, entrate, misure, imbottigliamenti e registro: dopo, tutte le vasche risultano vuote. Cataloghi di parametri, prodotti ed elenco lavorazioni restano sempre.</p>
    <div class="row" style="flex-direction:column;align-items:flex-start;gap:6px;margin:6px 0">
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-op" checked disabled> <b>Operazioni e giacenze</b> (vasche vuote, registro e imbottigliamenti azzerati)</label>
@@ -4446,7 +4446,7 @@ $('#bk-dl',app).onclick=async()=>{ if(await scaricaBackup()) viewDati(app); }; l
   $('#ct-s',app).onclick=()=>{ const old=contiList(); const nw=lines($('#ct-t',app).value).map(l=>{ const i=l.indexOf('|'); const n=(i<0?l:l.slice(0,i)).trim(); return {nome:n,nota:i<0?'Conto lavorazione '+n:l.slice(i+1).trim()}; }).filter(c=>c.nome);
     const ren={}; old.forEach((o,i)=>{ const n=nw[i]; if(n&&n.nome!==o.nome&&!nw.some(x=>x.nome===o.nome)) ren[o.nome]=n.nome; });
     if(Object.keys(ren).length){ S.eventi.forEach(e=>{ if(e.tipo==='carico'&&ren[e.conto]) e.conto=ren[e.conto]; }); Object.keys(S.maxiConti||{}).forEach(k=>{ if(ren[S.maxiConti[k]]) S.maxiConti[k]=ren[S.maxiConti[k]]; }); }
-    S.conti=nw; S.notaNostro=$('#ct-n',app).value.trim(); save(); toast('Conti salvati'+(Object.keys(ren).length?' · entrate aggiornate':'')); };
+    S.conti=nw; S.notaNostro=$('#ct-n',app).value.trim(); save(); toast('Conti lavorazione salvati'+(Object.keys(ren).length?' · entrate aggiornate':'')); };
   $('#ct-r',app).onclick=()=>{ S.conti=[]; delete S.notaNostro; save(); viewDati(app); toast('Elenco ripristinato'); };
   $('#pv-s',app).onclick=()=>{ S.provenienze=lines($('#pv-t',app).value); save(); toast('Provenienze salvate'); };
   $('#pv-r',app).onclick=()=>{ S.provenienze=[]; save(); viewDati(app); toast('Elenco ripristinato'); };
