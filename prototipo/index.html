@@ -502,6 +502,11 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 .map .perim-pt.first{fill:var(--c2)}
 .map .perim-mid{fill:var(--c2);opacity:.55;cursor:copy}
 .map .perim-mid:hover{opacity:1}
+
+/* menu dei contenitori: locale + contenitore */
+.lp-w{display:flex;flex-direction:column;gap:3px;width:100%}
+.lp-w>select.loc-pick{width:auto;max-width:100%;align-self:flex-start;font-size:.78rem;padding:2px 26px 2px 8px;min-height:0;height:auto;color:var(--muted);border-style:dashed}
+.lp-w>select.cont-pick{width:100%;min-width:0}
 </style>
 
 <header class="top"><div class="in">
@@ -569,7 +574,7 @@ const usaCont = (e,c)=>e.vasca===c||(e.vasche||[]).includes(c)||(e.dest||[]).som
    VLAB_D = data dell'operazione che si sta mostrando: lo storico legge il locale di allora. */
 let VLAB_D=null;
 const locAt = (c,d)=>{ const v=VMAP[c]; if(!v) return null; let l=v.dep; if(d) [...(v.rec.spostamenti||[])].sort((a,b)=>a.data<b.data?1:-1).forEach(m=>{ if(m.data>d) l=m.da; }); return l; };
-const vlab = (c,d)=>{ const v=VMAP[c]; if(!v) return String(c??''); const sg=(LOCMAP[locAt(c,d||VLAB_D)]||{}).sigla; return sg?sg+' '+v.label:v.label; };
+const vlab = (c,d)=>{ const v=VMAP[c]; if(!v) return String(c??''); const sg=prefLoc(locAt(c,d||VLAB_D),v.label); return sg?sg+' '+v.label:v.label; };
 const vkind = c=>{ const v=VMAP[c]; const t=v?v.tipo:'vasca'; return t.charAt(0).toUpperCase()+t.slice(1); };
 const vnome = c=>VMAP[c]?vkind(c).toLowerCase()+' '+vlab(c):'vasca '+(c??''); const Vnome = c=>VMAP[c]?vkind(c)+' '+vlab(c):'Vasca '+(c??'');
 const PLUR={vasca:'vasche',botte:'botti',barrique:'barrique',tonneau:'tonneaux',anfora:'anfore',cisterna:'cisterne'};
@@ -4095,6 +4100,10 @@ function viewLocali(app){
         <button class="btn sm" data-led="${esc(l.id)}">Modifica locale</button>
         <button class="btn sm" data-lst="${esc(l.id)}">${l.stato==='disattivo'?'Riattiva':'Disattiva'}</button>
         ${vs.length?'':`<button class="btn sm" data-lrm="${esc(l.id)}">Rimuovi</button>`}</div></div>
+      ${(()=>{ const dd=l.id!==locPrincipale()&&!l.sigla?doppiDi(l.id):[]; if(!dd.length) return '';
+        const altri=[...new Set(VASCHE.filter(v=>v.dep!==l.id&&v.stato==='attivo'&&dd.some(x=>x.label.toLowerCase()===v.label.toLowerCase())).map(v=>locNome(v.dep)))];
+        return `<div class="box warn small" style="margin:8px 0;color:var(--ink)"><b>${dd.length} codic${dd.length===1?'e':'i'} uguali a quelli di ${esc(altri.join(', '))}</b> (es. ${esc(dd.slice(0,4).map(v=>v.label).join(', '))}). Per ora a video si leggono con il nome del locale davanti («${esc(l.nome)} ${esc(dd[0].label)}»); dai a questo locale una sigla breve:
+          <span class="row" style="gap:6px;margin-top:6px"><input data-sgin="${esc(l.id)}" value="${esc(siglaProposta(l.nome))}" maxlength="12" style="max-width:140px"><button type="button" class="btn sm pri" data-sgok="${esc(l.id)}">Usa questa sigla</button></span></div>`; })()}
       ${vs.length?`<details data-lsto="${esc(l.id)}" ${UI.locOpen===l.id||(UI.locAperti&&UI.locAperti.has(l.id))?'open':''} style="margin-top:8px"><summary class="small" style="cursor:pointer">Elenco dei ${vs.length} contenitori</summary>${selBarHTML(l,vs)}<div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th><input type="checkbox" class="csel-all" data-l="${esc(l.id)}" aria-label="Seleziona tutti"></th><th>Codice</th><th>Tipo</th><th class="r">Nominale</th><th class="r">Operativa</th><th>Posizione</th><th>Contenuto</th><th>Note</th><th></th></tr></thead><tbody>${vs.map(riga).join('')}</tbody></table></div></details>`:'<p class="muted small" style="margin-top:8px">Nessun contenitore attivo: aggiungili con «+ Aggiungi contenitore».</p>'}
       ${arch(l)}</div>`; }).join('')}`;
   $('#lo-new',app).onclick=()=>formLocale(); selBind(app,()=>viewLocali(app));
@@ -4104,6 +4113,8 @@ function viewLocali(app){
   $$('[data-cimp]',app).forEach(x=>x.onclick=()=>{ UI.locOpen=x.dataset.cimp; formImportCont(x.dataset.cimp); });
   $$('[data-cser]',app).forEach(x=>x.onclick=()=>{ UI.locOpen=x.dataset.cser; formSerie(x.dataset.cser); });
   $$('[data-cact]',app).forEach(x=>x.onclick=()=>{ UI.locOpen=VMAP[x.dataset.cact].dep; menuContenitore(x.dataset.cact); });
+  $$('[data-sgok]',app).forEach(x=>x.onclick=()=>{ const l=LOCMAP[x.dataset.sgok]; const v=$(`[data-sgin="${CSS.escape(x.dataset.sgok)}"]`,app).value.trim(); if(!v) return toast('Scrivi una sigla');
+    if(DEPOSITI.some(d=>d.id!==l.id&&(d.sigla||'').toLowerCase()===v.toLowerCase())) return toast('Questa sigla è già usata da un altro locale'); l.sigla=v; refresh(); toast('Sigla «'+v+'» impostata: ora si legge «'+v+' 12»'); });
   UI.locAperti=UI.locAperti||new Set(); if(UI.locOpen){ UI.locAperti.add(UI.locOpen); UI.locOpen=null; }
   $$('[data-lsto]',app).forEach(d=>d.ontoggle=()=>{ if(d.open) UI.locAperti.add(d.dataset.lsto); else UI.locAperti.delete(d.dataset.lsto); });
   $$('[data-arch]',app).forEach(d=>d.ontoggle=()=>{ if(d.open) UI.archOpen=d.dataset.arch; else if(UI.archOpen===d.dataset.arch) UI.archOpen=null; });
@@ -4249,7 +4260,9 @@ function formImportCont(locId){ let rows=null, hdr=[], body=[], map={}, nome='';
         out.push(o); }); return out; };
     const disegna=()=>{ const R2=risolvi(); const nN=R2.filter(o=>!o.err&&o.stato==='nuovo').length, nD=R2.filter(o=>!o.err&&o.stato==='duplicato').length, nE=R2.filter(o=>o.err&&!o.testo).length, nT=R2.filter(o=>o.testo).length;
       const nAgg=map.dup==='aggiorna'?nD:0; const locMancanti=[...new Set(R2.filter(o=>!o.loc&&o.locTxt).map(o=>o.locTxt))];
-      W.innerHTML=`${map.nota?`<div class="box ok small" style="margin:8px 0">${esc(map.nota)}</div>`:''}<h3 style="margin:10px 0 6px">Colonne</h3><div class="fg">${IMP_CAMPI.map(([k,lab,req])=>`<label class="f">${lab}${req?' *':''}<select data-imap="${k}"><option value="">— nessuna —</option>${hdr.map((h,i)=>`<option value="${i}" ${map[k]===i?'selected':''}>${esc(h||'colonna '+(i+1))}</option>`).join('')}</select></label>`).join('')}
+      const Lt=LOCMAP[locId]||{}; const dopp=Lt.sigla?[]:R2.filter(o=>!o.err&&o.loc===locId&&VASCHE.some(v=>v.dep!==locId&&v.stato==='attivo'&&v.label.toLowerCase()===o.codice.toLowerCase()));
+      W.innerHTML=`${map.nota?`<div class="box ok small" style="margin:8px 0">${esc(map.nota)}</div>`:''}${dopp.length?`<div class="box warn small" style="margin:8px 0;color:var(--ink)"><b>${dopp.length} codic${dopp.length===1?'e è uguale':'i sono uguali'}</b> a quelli di altri locali (es. ${esc(dopp.slice(0,4).map(o=>o.codice).join(', '))}). Per distinguerli dai a <b>${esc(Lt.nome||'questo locale')}</b> una sigla, che comparirà davanti al codice («${esc(siglaProposta(Lt.nome))} ${esc(dopp[0].codice)}»):
+        <span class="row" style="gap:6px;margin-top:6px"><input id="im-sg" value="${esc(siglaProposta(Lt.nome))}" maxlength="12" style="max-width:140px"><button type="button" class="btn sm pri" id="im-sgok">Usa questa sigla</button></span><div class="hint" style="margin:4px 0 0">Se non la imposti, a video si leggerà il nome del locale davanti al codice. Puoi cambiarla dopo in «Modifica locale».</div></div>`:''}<h3 style="margin:10px 0 6px">Colonne</h3><div class="fg">${IMP_CAMPI.map(([k,lab,req])=>`<label class="f">${lab}${req?' *':''}<select data-imap="${k}"><option value="">— nessuna —</option>${hdr.map((h,i)=>`<option value="${i}" ${map[k]===i?'selected':''}>${esc(h||'colonna '+(i+1))}</option>`).join('')}</select></label>`).join('')}
         <label class="f">Le capacità sono in<select id="im-u"><option value="hL" ${map.unit==='hL'?'selected':''}>ettolitri (hL)</option><option value="L" ${map.unit==='L'?'selected':''}>litri</option></select></label>
         <label class="f">Contenitori già esistenti (stesso codice e locale)<select id="im-dup"><option value="salta" ${map.dup==='salta'?'selected':''}>Lasciali come sono (salta la riga)</option><option value="aggiorna" ${map.dup==='aggiorna'?'selected':''}>Aggiorna i loro dati con quelli del file</option></select></label>
         ${locMancanti.length?`<label class="f wide row" style="gap:6px"><input type="checkbox" id="im-cl" ${map.creaLoc?'checked':''}> Crea i locali che non esistono: ${locMancanti.map(esc).join(', ')}</label>`:''}</div>
@@ -4259,6 +4272,7 @@ function formImportCont(locId){ let rows=null, hdr=[], body=[], map={}, nome='';
           <td>${o.testo?`<span class="chip">${esc(o.err)}</span>`:o.err?`<span class="chip warn">${esc(o.err)}</span>`:o.stato==='duplicato'?`<span class="chip">esiste già${o.ex.cap!==o.cap?' · ora '+nf(o.ex.cap)+' hL':''}</span>`:'<span class="chip pronto">nuovo</span>'}</td></tr>`).join('')}</tbody></table></div>`;
       $('#im-ok',b).disabled=!(nN+nAgg); $('#im-ok',b).textContent=nN+nAgg?`Importa ${nN} nuov${nN===1?'o':'i'}${nAgg?' e aggiorna '+nAgg:''}`:'Niente da importare';
       $$('[data-imap]',b).forEach(x=>x.onchange=()=>{ map[x.dataset.imap]=x.value===''?null:+x.value; disegna(); });
+      { const so=$('#im-sgok',b); if(so) so.onclick=()=>{ const v=$('#im-sg',b).value.trim(); if(!v) return; if(DEPOSITI.some(d=>d.id!==locId&&(d.sigla||'').toLowerCase()===v.toLowerCase())) return toast('Questa sigla è già usata da un altro locale'); LOCMAP[locId].sigla=v; save(); toast('Sigla «'+v+'» impostata'); disegna(); }; }
       $('#im-u',b).onchange=e=>{ map.unit=e.target.value; disegna(); }; $('#im-dup',b).onchange=e=>{ map.dup=e.target.value; disegna(); };
       if($('#im-cl',b)) $('#im-cl',b).onchange=e=>{ map.creaLoc=e.target.checked; disegna(); };
       if(map.codice==null||map.cap==null) m.textContent='Scegli quali colonne contengono il codice e la capacità.'; else m.textContent=''; };
@@ -4920,6 +4934,52 @@ const oltreTxt = x=>`<b>${esc(vlab(x.code))}</b>: ${x.L0>1e-6?`contiene ${hL(x.L
   bt.onclick=()=>{ document.body.classList.toggle('nav-wide'); try{ localStorage.setItem('gcg-navwide',document.body.classList.contains('nav-wide')?'1':'0'); }catch(e){} lab(); };
   lab(); const nav=document.getElementById('nav'); box.insertBefore(bt,nav);
   document.getElementById('nav').addEventListener('click',()=>{ if(window.innerWidth<1440&&document.body.classList.contains('nav-wide')){ /* resta come l'ha scelto l'utente */ } });
+})();
+
+/* ===================== Codici uguali in locali diversi: mai due nomi uguali a video ===================== */
+var _conflK=null, _confl=null;
+function codiciDoppi(){ const k=(typeof R!=='undefined'?R:null); if(_conflK===k&&_confl) return _confl; const by={};
+  VASCHE.forEach(v=>{ if(v.stato!=='attivo') return; const l=LOCMAP[v.dep]; if(!l||l.stato==='disattivo'||l.stato==='rimosso') return; const c=v.label.toLowerCase(); (by[c]=by[c]||new Set()).add(v.dep); });
+  const out=new Set(Object.entries(by).filter(([,s])=>s.size>1).map(([c])=>c)); _conflK=k; _confl=out; return out; }
+const locPrincipale = ()=>(DEPOSITI.find(l=>l.stato!=='disattivo'&&l.stato!=='rimosso')||DEPOSITI[0]||{}).id;
+/* prefisso a video: la sigla del locale; se manca e il codice esiste anche in un altro locale, il nome del locale (tranne il locale principale) */
+function prefLoc(dep,label){ const l=LOCMAP[dep]||{}; if(l.sigla) return l.sigla; if(dep!==locPrincipale()&&codiciDoppi().has(String(label).toLowerCase())) return l.nome||''; return ''; }
+const siglaProposta = nome=>{ const w=String(nome||'').split(/[\s–—\-·,]+/).filter(x=>x&&!/^(di|del|della|la|il|lo|le|cantina|locale)$/i.test(x)); const s=(w[w.length-1]||nome||'').trim(); return s.charAt(0).toUpperCase()+s.slice(1,10); };
+function doppiDi(dep){ const D=codiciDoppi(); return VASCHE.filter(v=>v.dep===dep&&v.stato==='attivo'&&D.has(v.label.toLowerCase())); }
+
+/* ===================== Menu dei contenitori: prima il locale, poi il contenitore ===================== */
+(function(){
+  const SOGLIA=6;
+  const depDi=v=>VMAP[v]?VMAP[v].dep:null;
+  function predefinito(sel,deps){ if(sel.value&&depDi(sel.value)) return depDi(sel.value);
+    const blk=sel.closest('.blk'); if(blk){ const da=blk.querySelector('.t-da'); if(da&&da!==sel&&depDi(da.value)) return depDi(da.value); }
+    const form=sel.closest('form'); if(form){ const altro=[...form.querySelectorAll('select[data-locp]')].map(s=>s._loc&&s._loc.value).find(Boolean); if(altro) return altro; }
+    return deps.includes(UI.dep)?UI.dep:deps[0]; }
+  function rendi(sel){ const loc=sel._loc.value; const cur=sel.value; sel._busy=true;
+    sel.innerHTML=''; sel._tutte.forEach(o=>{ const d=depDi(o.value); if(d&&d!==loc&&o.value!==cur) return; const op=document.createElement('option'); op.value=o.value;
+      /* il locale è già scritto nel menu sopra: nel nome del contenitore non si ripete */
+      let t=o.text; if(d===loc){ const pf=prefLoc(d,VMAP[o.value].label); if(pf&&t.startsWith(pf+' ')) t=t.slice(pf.length+1); } op.textContent=t; if(o.dis) op.disabled=true; sel.appendChild(op); });
+    sel.value=cur; if(sel.value!==cur) sel.value=''; sel._sig=[...sel.options].map(o=>o.value).join('|'); sel._busy=false; }
+  function migliora(sel){ if(sel._busy) return; if(sel._loc&&sel._sig&&sel._sig===[...sel.options].map(o=>o.value).join('|')) return; const opts=[...sel.options].map(o=>({value:o.value,text:o.textContent,dis:o.disabled}));
+    const deps=[...new Set(opts.map(o=>depDi(o.value)).filter(Boolean))].sort((a,b)=>DEPOSITI.findIndex(l=>l.id===a)-DEPOSITI.findIndex(l=>l.id===b));
+    const nCont=opts.filter(o=>depDi(o.value)).length;
+    if(deps.length<2||nCont<SOGLIA){ if(sel._loc){ sel._loc.remove(); sel._loc=null; } return; }
+    sel._tutte=opts; sel.dataset.locp='1';
+    if(!sel._loc){ const l=document.createElement('select'); l.className='loc-pick'; l.setAttribute('aria-label','Locale'); l.title='Locale: cambia se il contenitore è in un altro locale';
+      const w=document.createElement('span'); w.className='lp-w'; sel.parentNode.insertBefore(w,sel); w.appendChild(l); sel._busy=true; w.appendChild(sel); sel._busy=false; sel._loc=l; sel.classList.add('cont-pick');
+      l.addEventListener('change',()=>{ const prima=sel.value; rendi(sel); if(sel.value!==prima) sel.dispatchEvent(new Event('change',{bubbles:true})); }); }
+    const scelto=sel._loc.value&&deps.includes(sel._loc.value)?sel._loc.value:predefinito(sel,deps);
+    const cur=sel.value; const curDep=depDi(cur);
+    sel._loc.innerHTML=deps.map(d=>`<option value="${esc(d)}">${esc(locNome(d))}</option>`).join('');
+    sel._loc.value=curDep||scelto; rendi(sel); }
+  const scan=root=>{ if(!root.querySelectorAll) return; root.querySelectorAll('select').forEach(s=>{ if(!s.classList.contains('loc-pick')) migliora(s); }); };
+  new MutationObserver(ms=>{ const fatti=new Set(); ms.forEach(m=>{ const t=m.target;
+      if(t.tagName==='SELECT'&&!t._busy&&!t.classList.contains('loc-pick')){ if(!fatti.has(t)){ fatti.add(t); if(t._sig!==[...t.options].map(o=>o.value).join('|')) migliora(t); } return; }
+      m.addedNodes.forEach(n=>{ if(n.nodeType!==1) return; if(n.tagName==='SELECT'){ if(!n.classList.contains('loc-pick')) migliora(n); } else if(n.tagName!=='OPTION') scan(n); }); }); })
+    .observe(document.body,{childList:true,subtree:true});
+  /* nei travasi: cambiando la vasca di partenza, le destinazioni ancora vuote seguono il suo locale */
+  document.addEventListener('change',e=>{ const t=e.target; if(!t.matches||!t.matches('.t-da')) return; const d=depDi(t.value); if(!d) return; const blk=t.closest('.blk'); if(!blk) return;
+    blk.querySelectorAll('.t-a').forEach(s=>{ if(!s.value&&s._loc&&[...s._loc.options].some(o=>o.value===d)&&s._loc.value!==d){ s._loc.value=d; rendi(s); } }); },true);
 })();
 
 route();
