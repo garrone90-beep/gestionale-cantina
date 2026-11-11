@@ -436,6 +436,7 @@ svg.map{max-height:72vh}
 #fl.vinif #vch label.chip:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 
 /* aggiunte per elementi di questo gestionale */
+/* stessa pianta in tutti i locali: spessori in pixel (non dipendono da quanti contenitori ci sono), selezione con anello esterno */
 tr.grow td{background:color-mix(in srgb,var(--wood) 7%,var(--surface))}
 tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{padding-left:30px}
 .tgrp{cursor:pointer}.tgrp .gbody{fill:var(--surface);stroke:var(--wood);stroke-width:2}
@@ -451,6 +452,28 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 .btn.lavoff{background:var(--danger-bg);border-color:var(--danger)}
 .btn.manon{background:color-mix(in srgb,var(--man) 18%,var(--surface));border-color:var(--man)}
 .seg button{border-radius:7px}
+
+/* === selezione e «oltre la nominale» uguali in tutti i locali e per tutti i contenitori === */
+.tank .rim{vector-effect:non-scaling-stroke;stroke:var(--steel);stroke-width:1.4px}
+.tank.botte .rim{stroke:var(--wood);stroke-width:2.2px}
+.tank.over .rim{stroke:var(--danger);stroke-width:2.6px;stroke-dasharray:6 4}
+.tank.unk:not(.over) .rim{stroke-dasharray:3 3}
+.tank:not(.over):hover .rim,.tank:not(.over):focus-visible .rim{stroke:var(--ink);stroke-width:2.2px}
+.tank.sel:not(.over) .rim{stroke-width:2.2px}.tank.sel:not(.over):not(.botte) .rim{stroke:var(--steel)}
+.tank .selring{fill:none;stroke:var(--accent);stroke-width:3.5px;vector-effect:non-scaling-stroke;pointer-events:none}
+.tank:hover,.tank:focus-visible{transform:scale(1.04)}
+.tank.sel{filter:drop-shadow(0 0 6px var(--glow))}
+.fpost.sel{outline:3px solid var(--accent);outline-offset:2px}
+.fpost.over{border:2.4px dashed var(--danger)}
+.fpost.inman{box-shadow:inset 0 0 0 2px var(--man)}
+.fpost .fsg{position:absolute;top:2px;left:2px;display:flex;gap:1px}.fpost .fsg svg{width:15px;height:15px}
+.leg-ring{display:inline-block;width:14px;height:14px;border-radius:50%;box-sizing:border-box;vertical-align:-2px;margin-right:4px}
+/* elenchi a tendina */
+.cb-w{position:relative;display:block}.cb-w>input{width:100%;padding-right:30px}
+.cb-bt{position:absolute;right:2px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font-size:.9rem;width:26px;height:26px;cursor:pointer;border-radius:6px}
+.cb-bt:hover{background:var(--surface-2,rgba(0,0,0,.05));color:var(--ink)}
+.cb-pop{position:fixed;z-index:10000;background:var(--surface,#fff);border:1px solid var(--line,#ccc);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:auto;padding:4px 0}
+.cb-it{padding:6px 10px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cb-it:hover,.cb-it.hi{background:color-mix(in srgb,var(--accent) 12%,transparent)}.cb-it.on{font-weight:700}
 </style>
 
 <header class="top"><div class="in">
@@ -1184,6 +1207,7 @@ function tankSVG(v){
     <circle class="body${s.man?' inman':''}" cx="${v.x}" cy="${v.y}" r="${v.r}"/>
     ${f>0?`<circle cx="${v.x}" cy="${v.y}" r="${v.r}" fill="${col}" fill-opacity=".6" clip-path="url(#cp-${esc(v.code)})"/>`:''}
     <circle class="rim" cx="${v.x}" cy="${v.y}" r="${v.r}"/>
+    ${UI.sel===v.code?`<circle class="selring" cx="${v.x}" cy="${v.y}" r="${(v.r+Math.max(2.5,v.r*0.12)).toFixed(2)}"/>`:''}
     ${s.pronto&&s.vino?`<circle class="ready" cx="${v.x}" cy="${v.y}" r="${(v.r-(over?2.6:1.6)).toFixed(2)}" fill="none" stroke="var(--ok)" stroke-width="${Math.max(2.4,Math.min(4,v.r*0.13)).toFixed(1)}"/>`:''}
     ${(()=>{ const R=v.kind==='botte'&&v.r>=40?14:Math.max(8.5,Math.min(11,v.r*0.45)); let o='';
       if(s.imp){ const sc=(s.imps||[s.imp]).some(im=>impScaduta(im)); o+=badgeSVG(v.x-v.r*0.74,v.y-v.r*0.74,R,sc?'var(--danger)':'var(--warn)',sc?'alert':'hour',sc?'Lavorazione da chiudere':'In lavorazione'); }
@@ -1277,7 +1301,7 @@ function vascaPanel(code){
       <button class="btn" data-act="cartello" data-v="${esc(code)}">Genera cartello</button>
     </div>`}
     <h3 style="margin-top:16px">Lavori programmati</h3>
-    ${programmate(code).length?`<ul class="small" style="padding-left:18px;margin:6px 0 0">${programmate(code).map(l=>`<li><a href="#lavori" data-lid="${l.id}">${l.data?fd(l.data):'senza data'} · ${esc(lavTitolo(l))}</a> <span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span>${lavDiff(l)?' <span class="chip warn">Da verificare</span>':''}</li>`).join('')}</ul>`:'<p class="muted small" style="margin:4px 0">Nessuno.</p>'}
+    ${programmate(code).length?`<ul class="small" style="padding-left:18px;margin:6px 0 0">${programmate(code).map(l=>`<li><a href="#lavori" data-lid="${l.id}">${l.data?fd(l.data):'senza data'} · ${esc(lavTitolo(l))}</a> <span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span>${lavDiff(l)?' <span class="chip warn">Da verificare</span>':''} <button type="button" class="btn sm ghost" data-lann="${l.id}" style="padding:0 6px;min-height:0">Annulla…</button></li>`).join('')}</ul>`:'<p class="muted small" style="margin:4px 0">Nessuno.</p>'}
     <button class="btn sm" data-act="prog" data-v="${esc(code)}">Programma lavoro</button>
     <h3 style="margin-top:16px">Ultime operazioni</h3>
     ${evs.length?`<ul class="small" style="padding-left:18px;margin:6px 0 0">${evs.map(e=>`<li>${fd(e.data)} · ${esc(evTitle(e))}</li>`).join('')}</ul>`:'<p class="muted small">Nessuna operazione registrata.</p>'}
@@ -1300,7 +1324,7 @@ function viewVasche(app){
       ${vistaFileOk(DEP)&&!UI.mapEdit?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">Vista:</span><div class="seg" role="group" aria-label="Vista"><button data-vista="pianta" aria-pressed="${!vistaFile(DEP)}">Pianta</button><button data-vista="file" aria-pressed="${vistaFile(DEP)}">Per file</button></div></div>`:''}
       ${grpTipiDi(DEP).length&&!vistaFile(DEP)?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">${esc(grpTipiDi(DEP).map(t=>t==='tonneau'?'Tonneaux':t.charAt(0).toUpperCase()+(PLUR[t]||t).slice(1)).join(' e '))}:</span><div class="seg" role="group" aria-label="Barrique sulla pianta"><button data-grpm="1" aria-pressed="${grpAttivo(DEP)}">Raggruppate</button><button data-grpm="0" aria-pressed="${!grpAttivo(DEP)}">Una per una</button></div></div>`:''}
       ${vistaFile(DEP)&&!UI.mapEdit?`<div id="vfile">${fileHTML(DEP)}</div>`:`<div class="map-wrap${UI.mapEdit?' editing':''}">${mapSVG(DEP)}</div>`}
-      <div class="legend"><span><i class="dot t-bianco"></i>Bianco</span><span><i class="dot t-rosato"></i>Rosato</span><span><i class="dot t-rosso"></i>Rosso</span><span><i class="dot" style="background:transparent;box-shadow:inset 0 0 0 2.5px var(--ok)"></i>Vino pronto da imbottigliare (bordo verde)</span><span><i class="ring"></i>Oltre la nominale</span><span>${badgeLeg('var(--c2)','cal')}Lavoro programmato</span><span><i class="dot" style="background:color-mix(in srgb,var(--man) 18%,var(--surface));border:1px solid var(--man)"></i>In manutenzione</span><span>${badgeLeg('var(--warn)','hour')}In lavorazione</span><span>${badgeLeg('#7B5EA7','ferm')}In fermentazione</span><span>${badgeLeg('#A9A0BC','ferm')}In vinificazione (non ancora in fermentazione)</span><span>${badgeLeg('var(--danger)','alert')}Lavorazione da chiudere</span><span>Planimetria non in scala</span></div>
+      <div class="legend"><span><i class="dot t-bianco"></i>Bianco</span><span><i class="dot t-rosato"></i>Rosato</span><span><i class="dot t-rosso"></i>Rosso</span><span><i class="dot" style="background:transparent;box-shadow:inset 0 0 0 2.5px var(--ok)"></i>Vino pronto da imbottigliare (bordo verde)</span><span><i class="leg-ring" style="border:2.5px solid var(--accent)"></i>Selezionata</span><span><i class="leg-ring" style="border:2px dashed var(--danger)"></i>Oltre la nominale</span><span>${badgeLeg('var(--c2)','cal')}Lavoro programmato</span><span><i class="dot" style="background:color-mix(in srgb,var(--man) 18%,var(--surface));border:1px solid var(--man)"></i>In manutenzione</span><span>${badgeLeg('var(--warn)','hour')}In lavorazione</span><span>${badgeLeg('#7B5EA7','ferm')}In fermentazione</span><span>${badgeLeg('#A9A0BC','ferm')}In vinificazione (non ancora in fermentazione)</span><span>${badgeLeg('var(--danger)','alert')}Lavorazione da chiudere</span><span>Planimetria non in scala</span></div>
     </div>
     <div id="side">${vascaPanel(UI.sel)}</div>
   </div>
@@ -1335,6 +1359,7 @@ function viewVasche(app){
   $$('[data-gopen]',app).forEach(b=>b.onclick=()=>{ UI.grpOpen=UI.grpOpen||{}; UI.grpOpen[b.dataset.gopen]=!UI.grpOpen[b.dataset.gopen]; const y=window.scrollY; viewVasche(app); window.scrollTo({top:y}); });
   $$('#side [data-botte]',app).forEach(a=>a.onclick=e=>{e.preventDefault(); formBotte(a.dataset.botte);});
   $$('#side [data-lid]',app).forEach(a=>a.onclick=e=>{e.preventDefault(); lavDettaglio(a.dataset.lid);});
+  $$('#side [data-lann]',app).forEach(a=>a.onclick=()=>{ const l=lavori().find(x=>x.id===a.dataset.lann); if(l) annullaLavoro(l); });
   bindActs(app);
 }
 /* ===================== Vista per file (REG-PLAN-05) =====================
@@ -1352,8 +1377,8 @@ function fileHTML(dep){ const G=fileGruppi(dep); const cn=contNome(dep);
       ${piene.length?`<button class="btn sm pri" data-flav="${esc(piene.map(v=>v.code).join(','))}">Lavora su questa fila (${piene.length})</button>`:''}</div>
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">${pt.map(([id,o])=>`<span class="chip"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${partCol(id)};margin-right:4px"></i>${esc(vName(id))} · ${o.n} · ${hL(o.L)} <button class="btn sm ghost" style="padding:0 6px;min-height:0" data-flav="${esc(o.codes.join(','))}" title="Nuova lavorazione su questi contenitori">Lavora</button></span>`).join('')}${vs.length>piene.length?'<span class="chip">vuote · '+(vs.length-piene.length)+'</span>':''}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px">${vs.map(v=>{ const s=R.st[v.code]; const pieno=s.L>1e-6; const f=pieno?Math.min(1,s.L/(v.cap*100)):0;
-        return `<button class="fpost${UI.sel===v.code?' sel':''}" data-fpick="${esc(v.code)}" title="${esc(vlab(v.code))}${v.rec.posto?' · posto '+esc(v.rec.posto):''} · ${pieno?esc(vName(s.vino))+' · '+hL(s.L):'vuota'}" style="--pc:${pieno?partCol(s.vino):'transparent'};--pf:${(f*100).toFixed(0)}%">
-          <b>${esc(v.label)}</b><span>${pieno?hL(s.L):'vuota'}</span>${s.pronto?'<i class="fpr"></i>':''}</button>`; }).join('')}</div>`; } UI.fila=null; }
+        return `<button class="fpost${UI.sel===v.code?' sel':''}${postoCls(v.code,s)}" data-fpick="${esc(v.code)}" title="${esc(vlab(v.code))}${v.rec.posto?' · posto '+esc(v.rec.posto):''} · ${pieno?esc(vName(s.vino))+' · '+hL(s.L):'vuota'}" style="--pc:${pieno?partCol(s.vino):'transparent'};--pf:${(f*100).toFixed(0)}%">
+          <b>${esc(v.label)}</b><span>${pieno?hL(s.L):'vuota'}</span>${postoSegni(v.code,s)}</button>`; }).join('')}</div>`; } UI.fila=null; }
   const tutte=partiteDi(VASCHE.filter(v=>v.dep===dep&&v.stato==='attivo'));
   return `${tutte.length?`<div class="row small" style="gap:6px;flex-wrap:wrap;margin:6px 0"><span class="muted">Partite nel locale:</span>${tutte.map(([id,o])=>`<span class="chip"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${partCol(id)};margin-right:4px"></i>${esc(vName(id))} · ${o.n} · ${hL(o.L)} <button class="btn sm ghost" style="padding:0 6px;min-height:0" data-flav="${esc(o.codes.join(','))}">Lavora su tutte</button></span>`).join('')}</div>`:''}
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">${G.map(([g,vs])=>{ const piene=vs.filter(v=>R.st[v.code].L>1e-6); const pt=partiteDi(vs);
@@ -1751,7 +1776,8 @@ function formLavoro(ed,preset){
    </fieldset>
    <label class="f wide">Descrizione e istruzioni operative<textarea id="w-ist" placeholder="es. travasare dal basso, lasciare 1 hL di fondo">${esc(l.istruzioni||'')}</textarea></label>
    <div id="msg" class="err"></div>
-   <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri" id="sv">${ed?'Salva modifiche':'Programma lavoro'}</button></div></form>`,(b,close)=>{
+   <div class="foot">${ed&&lavAperto(ed)?'<button type="button" class="btn ghost" id="w-ann" style="margin-right:auto">Annulla il lavoro…</button>':''}<button type="button" class="btn" data-close>${ed?'Chiudi senza salvare':'Annulla'}</button><button class="btn pri" id="sv">${ed?'Salva modifiche':'Programma lavoro'}</button></div></form>`,(b,close)=>{
+    { const wa=$('#w-ann',b); if(wa) wa.onclick=()=>{ const o=lavori().find(x=>x.id===ed.id); close(); if(o) annullaLavoro(o); }; }
     let vs=[...(l.vasche||[])];
     const T=()=>LTIPI[$('#w-tipo',b).value]||{};
     const volAuto=()=>vs.reduce((s,c)=>s+((st[c]||{}).L||0),0);
@@ -1826,7 +1852,7 @@ function lavDettaglio(id){
     $$('[data-ls]',b).forEach(x=>x.onclick=()=>{ lavLog(l,x.dataset.ls,x.dataset.ls==='dafare'?'Riaperto':''); close(); refresh(); lavDettaglio(id); });
     if(go('ld-mod')) go('ld-mod').onclick=()=>{ close(); formLavoro(l); };
     if(go('ld-dup')) go('ld-dup').onclick=()=>{ close(); const c=JSON.parse(JSON.stringify(l)); ['id','num','stato','storia','esec','convalida','rif','creatoIl','modificatoIl'].forEach(k=>delete c[k]); c.data=''; formLavoro(null,c); };
-    if(go('ld-ann')) go('ld-ann').onclick=()=>{ lavLog(l,'annullato','Annullato'); close(); refresh(); toast('Lavoro annullato'); };
+    if(go('ld-ann')) go('ld-ann').onclick=()=>{ close(); annullaLavoro(l); };
     if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); formEsecuzione(l,'eseguito'); };
     if(go('ld-non')) go('ld-non').onclick=()=>{ close(); formEsecuzione(l,'noneseguito'); };
     if(go('ld-conv')) go('ld-conv').onclick=()=>{ close(); formConvalida(l); };
@@ -2284,6 +2310,7 @@ function formPigiatura(p={},corrId){
         if(bad.length) W.push({k:'dop',t:`Il vino è «Atto a ${esc(fv.denominazione)}» ma ${bad.length===1?'questa uva non è atta':'queste uve non sono atte'} a quella denominazione: ${bad.map(x=>esc(uvaLab(x))).join('; ')}.`,ok:`Confermo: il vino resta «Atto a ${esc(fv.denominazione)}»`}); }
       dest.forEach((d,i)=>{ const s0=st[d.vasca]; if(s0&&s0.vino&&s0.L>1e-6&&s0.vino!==vid) W.push({k:'occ'+i,t:`La vasca <b>${esc(vlab(d.vasca))}</b> contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}): il mosto si unisce a quel vino. Il vino risultante si chiama:<br>
           <label><input type="radio" name="pgr${i}" value="${esc(s0.vino)}" checked> ${esc(vName(s0.vino))}</label> &nbsp; <label><input type="radio" name="pgr${i}" value="__new"> ${esc(nuovoNome)}</label>`,ok:'Procedi con l\'unione'}); });
+      { const dL={}; dest.forEach(d=>{ dL[d.vasca]=(dL[d.vasca]||0)+d.L; }); oltreNominale(dL,st).forEach(x=>W.push({k:'cap'+x.code,t:'Oltre la capacità nominale · '+oltreTxt(x),ok:'È giusto, procedi'})); }
       { const kgT=uve.reduce((a,u)=>a+u.kg,0), LT=dest.reduce((a,d)=>a+d.L,0), r=LT/kgT;
         if(kgT&&(r>1||r<0.3)) W.push({k:'resa',t:`Resa ${nf(r*100,1)} %: ${hL(LT)} di mosto da ${nf(kgT,0)} kg di uva sembra ${r>1?'troppo alta':'troppo bassa'}. Controlla le quantità e l'unità (hL o L).`,ok:'I dati sono giusti, procedi'}); }
       const key=W.map(w=>w.k).join(',');
@@ -2291,7 +2318,7 @@ function formPigiatura(p={},corrId){
         if($$('[data-ok]',cf).some(x=>!x.checked)) return m.textContent='Spunta tutte le conferme per andare avanti, oppure correggi i dati.'; }
       if(rv.nuovo) S.vini.push(rv.nuovo);
       dest.forEach((d,i)=>{ const r=$(`input[name="pgr${i}"]:checked`,cf); if(r) d.risultante=r.value==='__new'?vid:r.value; });
-      const ev={id:uid(),tipo:'pigiatura',data,ord:Date.now(),fase:'Vinificazione',lav:$('#pg-lav',b).value,uve,vino:vid,risultante:vid,dest,stima:$('#pg-s',b).value,conto:conti.length===1?conti[0]:'',contiMisti:conti.length>1,conferme:[...new Set(W.map(w=>w.k.replace(/^(kg|dt|occ).*/,'$1')))],ferm:$('#pg-ferm',b).checked,note:$('#pg-no',b).value.trim(),creatoIl:new Date().toISOString()};
+      const ev={id:uid(),tipo:'pigiatura',data,ord:Date.now(),fase:'Vinificazione',lav:$('#pg-lav',b).value,uve,vino:vid,risultante:vid,dest,stima:$('#pg-s',b).value,conto:conti.length===1?conti[0]:'',contiMisti:conti.length>1,conferme:[...new Set(W.map(w=>w.k.replace(/^(kg|dt|occ|cap).*/,'$1')))],ferm:$('#pg-ferm',b).checked,note:$('#pg-no',b).value.trim(),creatoIl:new Date().toISOString()};
       ev.prot=$('#pg-prot',b).value||undefined; if(ev.prot&&!corrId) applicaProt(dest.map(d=>d.vasca),ev.prot,data);
       storeEvent(ev,corrId); close(); refresh(); toast((corrId?'Correzione salvata':ev.lav+' registrata')+' · '+hL(dest.reduce((a,d)=>a+d.L,0))+' in '+dest.map(d=>vlab(d.vasca)).join(', '));
     };
@@ -2599,6 +2626,7 @@ function formLavorazione(p={},corrId){
         <label class="f">Quantità usata davvero<input class="a-r" value="${esc(a.reale||'')}" placeholder="es. 1,2 kg"></label>
         <button type="button" class="btn sm danger rm">Rimuovi</button>`;
       $('.a-p',d).onchange=()=>{const pr=S.prodotti.find(x=>x.nome===$('.a-p',d).value); if(pr) $('.a-u',d).value=pr.udm; upd();};
+      $('.a-vs',d).dataset.v=a.vasca||''; $('.a-vs',d).addEventListener('change',e=>{ e.target.dataset.v=e.target.value; });
       $('.rm',d).onclick=()=>{d.remove();upd();};
       d.oninput=upd; d.onchange=upd; $('#aggs',b).append(d);
     }
@@ -2606,15 +2634,17 @@ function formLavorazione(p={},corrId){
       const st=stNow(); const sel=new Set(p.vasche||[]);
       $$('#vch input:checked',b).forEach(x=>sel.add(x.value)); if(renderVch.done) $$('#vch input:not(:checked)',b).forEach(x=>sel.delete(x.value)); renderVch.done=true;
       const vs=VASCHE.filter(v=>(st[v.code].vino&&v.stato==='attivo')||sel.has(v.code));
-      const molti=vs.length>12; const vini=[...new Set(vs.map(v=>st[v.code].vino).filter(Boolean))];
+      const locs0=[...new Set(vs.map(v=>v.dep))]; const molti=vs.length>12||locs0.length>1; const vini=[...new Set(vs.map(v=>st[v.code].vino).filter(Boolean))];
       const gruppi=[...new Set(vs.filter(v=>v.rec.gruppo).map(v=>v.dep+'|'+v.rec.gruppo))].sort(natCmp); const locs=[...new Set(vs.map(v=>v.dep))];
       $('#vch',b).innerHTML=(molti?`<div class="row small" style="gap:6px;width:100%;align-items:center;flex-wrap:wrap;margin-bottom:4px"><span class="muted">Seleziona:</span>
           <select class="vq-vino" style="width:auto"><option value="">tutte quelle con il vino…</option>${vini.map(id=>`<option value="${esc(id)}">${esc(vName(id))} (${vs.filter(v=>st[v.code].vino===id).length})</option>`).join('')}</select>
           ${locs.length>1?`<select class="vq-loc" style="width:auto"><option value="">tutte quelle del locale…</option>${locs.map(l=>`<option value="${esc(l)}">${esc(locNome(l))}</option>`).join('')}</select>`:''}
           ${gruppi.length?`<select class="vq-fila" style="width:auto"><option value="">tutta la fila…</option>${gruppi.map(g=>{ const [l,f]=g.split('|'); return `<option value="${esc(g)}">${locs.length>1?esc(locNome(l))+' · ':''}Fila ${esc(f)}</option>`; }).join('')}</select>`:''}
-          <button type="button" class="btn sm ghost vq-none">Nessuna</button><span class="vq-n muted"></span></div>`:'')
-        +(vs.map(v=>`<label class="chip" style="cursor:pointer"><input type="checkbox" value="${esc(v.code)}" ${sel.has(v.code)?'checked':''}> ${esc(vlab(v.code))} ${tipoDot(st[v.code].vino)}</label>`).join('')||'<span class="hint">Nessuna vasca occupata a questa data.</span>');
-      const cnt=()=>{ const n=$('.vq-n',b); if(!n) return; const ck=$$('#vch input:checked',b); n.textContent=ck.length?`${ck.length} selezionat${ck.length>1?'e':'a'} · ${hL(ck.reduce((a,x)=>a+(st[x.value].L||0),0))}`:''; };
+          <button type="button" class="btn sm ghost vq-none">Nessuna</button>${locs.length>1?`<span class="muted" style="margin-left:8px">Mostra:</span><select class="vq-show" style="width:auto"><option value="">tutti i locali</option>${locs.map(l=>`<option value="${esc(l)}" ${UI.vqShow===l?'selected':''}>${esc(locNome(l))}</option>`).join('')}</select>`:''}<span class="vq-n muted"></span></div>`:'')
+        +(vs.map(v=>`<label class="chip" data-dep="${esc(v.dep)}" style="cursor:pointer"><input type="checkbox" value="${esc(v.code)}" ${sel.has(v.code)?'checked':''}> ${esc(vlab(v.code))} ${tipoDot(st[v.code].vino)}</label>`).join('')||'<span class="hint">Nessuna vasca occupata a questa data.</span>');
+      const mostra=()=>{ const sh=$('.vq-show',b); const l=sh?sh.value:''; if(sh&&!locs.includes(l)) sh.value=''; $$('#vch label.chip',b).forEach(x=>{ x.hidden=!!(sh&&sh.value)&&x.dataset.dep!==sh.value; }); };
+      if($('.vq-show',b)) $('.vq-show',b).onchange=e=>{ UI.vqShow=e.target.value; mostra(); cnt(); }; mostra();
+      const cnt=()=>{ const n=$('.vq-n',b); if(!n) return; const ck=$$('#vch input:checked',b); const nasc=ck.filter(x=>x.closest('label').hidden).length; n.textContent=ck.length?`· ${ck.length} selezionat${ck.length>1?'e':'a'} in tutto · ${hL(ck.reduce((a,x)=>a+(st[x.value].L||0),0))}${nasc?` (${nasc} in altri locali)`:''}`:''; };
       const tick=f=>{ $$('#vch label.chip input',b).forEach(x=>{ if(f(VMAP[x.value])) x.checked=true; }); cnt(); upd(); };
       if(molti){ $('.vq-vino',b).onchange=e=>{ const id=e.target.value; if(id) tick(v=>st[v.code].vino===id); e.target.value=''; };
         if($('.vq-loc',b)) $('.vq-loc',b).onchange=e=>{ const l=e.target.value; if(l) tick(v=>v.dep===l); e.target.value=''; };
@@ -2687,7 +2717,16 @@ function formLavorazione(p={},corrId){
     function readTratte(){ const out=[]; readBlocks().forEach(bk=>{ const ds=bk.dests.length?bk.dests:[{a:'',L:null}];
       ds.forEach((x,j)=>{ const last=j===ds.length-1;
         out.push({da:bk.da,a:x.a,L:x.L,stima:bk.stima,svuota:last&&bk.sv,diffL:last?bk.diffL:0,diffTipo:last?bk.diffTipo:'',feccDest:last?bk.feccDest:'',fvId:last?bk.fvId:'',parti:last?bk.parti:[],nv:x.nv,nvf:x.nvf,nvId:x.nvId,ris:x.ris}); }); }); return out; }
+    /* vasche a cui si riferiscono i prodotti: le destinazioni dei movimenti, oppure le vasche spuntate senza movimento */
+    function trattate(){ const tr=readTratte(); const ds=[...new Set(tr.map(t=>t.a).filter(Boolean))]; if(tr.length) return ds; return $$('#vch input:checked',b).map(x=>x.value); }
+    function aggVasche(){ const ts=trattate();
+      $$('#aggs .line',b).forEach(d=>{ const sl=$('.a-vs',d); const cur=sl.value||sl.dataset.v||''; const ok=!cur||ts.includes(cur); const opts=[...ts]; if(cur&&!ok) opts.push(cur);
+        const key=opts.join('|')+'#'+cur; if(sl.dataset.k!==key){ sl.innerHTML=`<option value="">tutte le vasche trattate${ts.length?' ('+ts.length+')':''}</option>`+opts.map(c=>`<option value="${esc(c)}" ${c===cur?'selected':''}>${esc(vlab(c))}${capTxt(c)}${ts.includes(c)?'':' — non più trattata'}</option>`).join(''); sl.value=cur; sl.dataset.k=key; }
+        sl.dataset.v=cur; let w=$('.a-vw',d);
+        if(!ok){ if(!w){ w=document.createElement('div'); w.className='a-vw box warn small'; w.style.cssText='grid-column:1/-1;margin:4px 0'; d.append(w); } w.textContent=`Questo prodotto era assegnato a ${vlab(cur)}, che non è più tra le vasche trattate: scegli a quale vasca va, oppure «tutte le vasche trattate».`; }
+        else if(w) w.remove(); }); }
     function upd(){
+      aggVasche();
       const av=autoVol();
       $$('#aggs .line',b).forEach(d=>{const v=toL($('.a-v',d).value,'hL'); const vs=$('.a-vs',d).value; const avr=vs?Math.max(0,autoVol(vs)):av; const L=v||avr; $('.a-v',d).placeholder=avr?'auto '+nf(avr/100,2):'auto';
         const q=qtaTeorica(num($('.a-d',d).value),$('.a-u',d).value,L,$('.a-p',d).value); $('.a-c',d).textContent=q?'→ '+q+' teorici':''; });
@@ -2798,6 +2837,7 @@ function formLavorazione(p={},corrId){
     })();
     $('#fl',b).onsubmit=sub=>{
       sub.preventDefault(); const msg=$('#msg',b); msg.textContent='';
+      upd(); if($('.a-vw',b)){ $('.a-vw',b).scrollIntoView({block:'center'}); msg.textContent='Un prodotto è assegnato a una vasca che non è più tra quelle trattate: scegli a quale vasca va.'; return; }
       const data=$('#l-data',b).value; if(!data){msg.textContent='Inserisci la data.';return;}
       const tr=readTratte();
       for(const [i,t] of tr.entries()){
@@ -2836,12 +2876,14 @@ function formLavorazione(p={},corrId){
       const ecc=Object.entries(sim.ecc).filter(([k])=>k.startsWith(ev.id+'_')).map(([,x])=>x);
       const eccSv=ev.tratte.map((t,i)=>({t,dc:sim.diffCalc[ev.id+'_'+i]})).filter(x=>x.t.svuota&&x.dc&&x.dc.calc<-1e-6);
       const imps=ev._imps||[]; delete ev._imps;
-      if((cf.length||ecc.length||eccSv.length||imps.length)&&!pending){
+      const capO=(()=>{ const st0=stateAt(data,ev.ord,corrId); const dL={}; ev.tratte.forEach(t=>{ if(t.a) dL[t.a]=(dL[t.a]||0)+(t.L||0); if(t.da) dL[t.da]=(dL[t.da]||0)-(t.L||0)-(t.diffL&&t.diffTipo!=='resta'?t.diffL:0); }); return oltreNominale(dL,st0); })();
+      if((cf.length||ecc.length||eccSv.length||imps.length||capO.length)&&!pending){
         pending=true;
         const eccHtml=(ecc.length||eccSv.length)?`<div class="box warn" style="margin-bottom:8px"><b>Esce più vino di quello presente.</b><ul style="margin:6px 0">${ecc.map(x=>`<li>Dalla ${esc(vnome(x.vasca))} escono ${hL(x.L)} in più di quanto risulta presente.</li>`).join('')}${eccSv.map(x=>`<li>Nella ${esc(vnome(x.t.a))} arrivano ${hL(-x.dc.calc)} in più del teorico della ${esc(vnome(x.t.da))}.</li>`).join('')}</ul>Se confermi, la vasca di partenza risulta vuota (non va sotto zero) e la differenza resta registrata da verificare.</div>`:'';
         const impHtml=imps.length?`<div class="box warn" style="margin-bottom:8px"><b>Vasca in lavorazione.</b>${imps.map(x=>`<fieldset style="margin-top:6px"><legend>${esc(Vnome(x.c))}</legend><p style="margin:0 0 6px">${impTxt(x.imp,data)}. La lavorazione è finita?</p>
           <label><input type="radio" name="imp_${x.c}" value="si" checked> Sì, la lavorazione è finita</label> <label><input type="radio" name="imp_${x.c}" value="no"> No, continua (es. travaso parziale)</label></fieldset>`).join('')}</div>`:'';
-        $('#conf',b).innerHTML=impHtml+eccHtml+(cf.length?`<div class="box warn"><b>Possibile assemblaggio.</b> ${cf.map(c=>c.same?`<fieldset data-ci="${c.idx}" style="margin-top:8px"><legend>${esc(Vnome(c.dest))}</legend>
+        const capHtml=capO.length?`<div class="box warn" style="margin-bottom:8px"><b>Oltre la capacità nominale.</b><ul style="margin:6px 0">${capO.map(x=>`<li>${oltreTxt(x)}</li>`).join('')}</ul>Se è giusto, conferma: il contenitore resterà segnato con il bordo rosso tratteggiato.</div>`:'';
+        $('#conf',b).innerHTML=capHtml+impHtml+eccHtml+(cf.length?`<div class="box warn"><b>Possibile assemblaggio.</b> ${cf.map(c=>c.same?`<fieldset data-ci="${c.idx}" style="margin-top:8px"><legend>${esc(Vnome(c.dest))}</legend>
           <p>Contiene già <b>${esc(vName(c.vinoDest))}</b> (${hL(c.Ldest)}) di un'altra partita. Stai aggiungendo ${hL(c.Lin)} dello stesso vino ma di partita diversa: unendole il nome resta <b>${esc(vName(c.vinoDest))}</b> e il programma tiene traccia di entrambe le partite.</p>
           <input type="radio" name="r${c.idx}" value="${c.vinoDest}" checked hidden></fieldset>`:`<fieldset data-ci="${c.idx}" style="margin-top:8px"><legend>${esc(Vnome(c.dest))}</legend>
           <p>Contiene già <b>${esc(vName(c.vinoDest))}</b> (${hL(c.Ldest)}). Stai aggiungendo <b>${esc((tmpVini.find(x=>x.id===c.vinoIn)||{}).nome||vName(c.vinoIn))}</b> (${hL(c.Lin)}). Il vino risultante si chiama:</p>
@@ -2874,7 +2916,7 @@ function formCarico(p={},corrId){
    </div>
    <fieldset class="lvf"><legend>Vasche e quantità</legend>
     <div id="c-rows"></div>
-    <div class="row">${corrId?'':'<button type="button" class="btn sm" id="c-add">+ Aggiungi vasca</button>'}<label class="f" style="max-width:110px">Unità${unitSel('c-u')}</label>
+    <div class="row">${corrId?'':'<button type="button" class="btn sm" id="c-add">+ Aggiungi vasca</button><button type="button" class="btn sm ghost" id="c-multi" title="Barrique, botti o vasche: sceglile per locale, tipo e fila">Più contenitori insieme…</button>'}<label class="f" style="max-width:110px">Unità${unitSel('c-u')}</label>
      <label class="f" style="max-width:160px">Volume<select id="c-s"><option value="stimato">stimato</option><option value="misurato" ${p.stima==='misurato'?'selected':''}>misurato</option></select></label>
      <span class="muted small" id="c-tot"></span></div>
     <p class="hint" style="margin:0">Lo stesso vino può entrare in più vasche: per il programma resta un'unica partita, divisa nelle vasche.</p>
@@ -2905,11 +2947,15 @@ function formCarico(p={},corrId){
     const setF=()=>{ const f=isF(); $('#c-pkw',b).style.display=f?'none':'contents'; $('#c-fw',b).hidden=!f; const us=$('#c-u',b); let k=us.querySelector('option[value="kg"]');
       if(f&&!k){ k=document.createElement('option'); k.value='kg'; k.textContent='kg'; us.append(k); } else if(!f&&k){ if(us.value==='kg') us.value='hL'; k.remove(); } };
     const tot=()=>{ const u=$('#c-u',b).value; const rows=$$('.crow',b); const t=rows.reduce((s2,r)=>s2+(toLc($('.c-L',r).value,u)||0),0);
-      $('#c-tot',b).textContent=rows.length>1&&t?'Totale '+hL(t)+' in '+rows.length+' vasche':''; };
+      $('#c-tot',b).textContent=rows.length>1&&t?'Totale '+hL(t)+' in '+rows.length+' contenitori':''; };
     addRow(p.vasca,p.L);
     setF();
     $('#c-tp',b).addEventListener('change',()=>{ const v=$('#c-tp',b).value; setF(); tot(); $('#c-mw',b).hidden=!v||v==='fecce'; $('#c-mft',b).innerHTML=v==='mostoferm'?'La vasca risulta già <b>in fermentazione</b>.':'La fermentazione la fai partire tu con «Inizio fermentazione».'; });
     const ad=$('#c-add',b); if(ad) ad.onclick=()=>{ addRow(); tot(); };
+    const cm=$('#c-multi',b); if(cm) cm.onclick=()=>{ const st=stD(); const gia=new Set($$('.c-v',b).map(x=>x.value).filter(Boolean));
+      sceltaContenitori({titolo:'Entrata in più contenitori',st,esclusi:gia,aggiungi:out=>{ $$('.crow',b).forEach(r=>{ if(!$('.c-v',r).value&&!$('.c-L',r).value.trim()) r.remove(); });
+        const u=$('#c-u',b).value; out.forEach(([c,L])=>{ addRow(c,null); const r=$$('.crow',b).pop(); $('.c-L',r).value=nfIn(u==='hL'?L/100:u==='kg'?L*KG_L:L,3); });
+        if(!$$('.crow',b).length) addRow(); pending=false; $('#conf',b).innerHTML=''; $('#sv',b).textContent='Salva'; tot(); toast(out.length+' contenitori aggiunti: controlla le quantità e salva'); } }); };
     let pending=false, lastVid=null;
     $('#fc',b).oninput=e=>{ if(e.target.closest('#conf')) return; pending=false;$('#conf',b).innerHTML='';$('#sv',b).textContent='Salva'; tot(); };
     $('#fc',b).onsubmit=e=>{
@@ -2926,6 +2972,8 @@ function formCarico(p={},corrId){
       if(corrId){const o=S.eventi.find(x=>x.id===corrId); if(o.data===data) evs[0].ord=o.ord; if(o.gruppo) evs[0].gruppo=o.gruppo;}
       if(pending){ evs.forEach((ev,i)=>{ const r=$(`#conf input[name="rr${i}"]:checked`,b); if(r) ev.risultante=r.value===lastVid?vid:r.value; }); }
       else { const st=stateAt(data,evs[0].ord,corrId); const boxes=[];
+        { const dL={}; evs.forEach(ev=>{ dL[ev.vasca]=(dL[ev.vasca]||0)+ev.L; }); const capO=oltreNominale(dL,st);
+          if(capO.length) boxes.push(`<div class="box warn"><b>Oltre la capacità nominale.</b><ul style="margin:6px 0">${capO.map(x=>`<li>${oltreTxt(x)}</li>`).join('')}</ul>Se è giusto, conferma con «Conferma e salva».</div>`); }
         evs.forEach((ev,i)=>{ const s0=st[ev.vasca];
           if(s0.vino&&s0.vino===vid&&s0.L>1e-6) boxes.push(`<div class="box warn"><b>Unione di partite · ${esc(vnome(ev.vasca))}.</b> Contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}). Questa entrata è una partita diversa dello stesso vino: unendole il nome resta <b>${esc(vName(s0.vino))}</b> e il programma tiene traccia di entrambe le partite.<input type="radio" name="rr${i}" value="${s0.vino}" checked hidden></div>`);
           else if(s0.vino&&s0.vino!==vid) boxes.push(`<div class="box warn"><b>Possibile assemblaggio · ${esc(vnome(ev.vasca))}.</b> Contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}). Il vino risultante si chiama:<br>
@@ -3835,6 +3883,9 @@ function viewRegistro(app){
 /* ===================== Prodotti nei moduli: dose abituale, dose massima (avviso confermabile) ===================== */
 (function(){ const parts=line=>{ const p=$('.a-p,.p-n',line), d=$('.a-d,.p-d',line), u=$('.a-u,.p-u',line); return p&&d&&u?{p,d,u}:null; };
   const check=line=>{ const x=parts(line); if(!x) return; let w=$('.dmax',line); const pr=sopraMax(x.p.value,num(x.d.value),x.u.value);
+    { let nv=$('.dnv',line); const nome=x.p.value.trim(), dose=num(x.d.value), c=nome?prodOf(nome):null;
+      const t=!nome||dose==null||pr?'':!c?`Dose non verificata: «${nome}» non è nel catalogo prodotti.`:c.doseMax==null?`Dose non verificata: nel catalogo non c'è una dose massima per ${c.nome}.`:'';
+      if(!t){ if(nv) nv.remove(); } else { if(!nv){ nv=document.createElement('div'); nv.className='dnv small muted'; nv.style.cssText='grid-column:1/-1;margin:2px 0'; line.append(nv); } nv.textContent=t; } }
     if(!pr){ if(w) w.remove(); return; }
     const txt=`Dose oltre il massimo indicato per ${pr.nome}: ${nf(pr.doseMax,3)} ${pr.udm}.`;
     if(!w){ w=document.createElement('div'); w.className='dmax box warn small'; w.style.cssText='grid-column:1/-1;margin:4px 0'; line.append(w); }
@@ -3843,9 +3894,12 @@ function viewRegistro(app){
     if(pr&&x){ if(pr.udm&&UDM.includes(pr.udm)) x.u.value=pr.udm; if(pr.dose!=null&&!x.d.value.trim()){ x.d.value=nfIn(pr.dose,3); x.d.dispatchEvent(new Event('input',{bubbles:true})); } }
     check(line); },true);
   document.addEventListener('input',e=>{ const t=e.target; if(!t.matches||!t.matches('.a-d,.p-d,.a-p,.p-n')) return; const line=t.closest('.line'); if(line) check(line); });
+  /* righe che arrivano già compilate: controllo subito */
+  new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType!==1) return; const ls=n.matches&&n.matches('.line')?[n]:[...(n.querySelectorAll?n.querySelectorAll('.line'):[])]; ls.forEach(l=>setTimeout(()=>check(l),0)); }))).observe(document.body,{childList:true,subtree:true});
   document.addEventListener('change',e=>{ const t=e.target; if(!t.matches||!t.matches('.a-u,.p-u')) return; const line=t.closest('.line'); if(line) check(line); });
   const block=e=>{ const f=e.target.closest&&e.target.closest('form'); const root=f||(e.target.closest&&e.target.closest('.modal,dialog'));
     if(!root) return; if(e.type==='click'&&!(e.target.closest('#sv,button[type=submit],form button.pri:not([type=button])'))) return;
+    $$('.line',root).forEach(check); /* anche i valori già compilati (es. lavoro programmato registrato come eseguito) */
     const open=$$('.dmax input[type=checkbox]',root).filter(x=>!x.checked); if(!open.length) return;
     e.preventDefault(); e.stopImmediatePropagation(); open[0].closest('.dmax').scrollIntoView({block:'center'}); const m=$('#msg',root); if(m) m.textContent='Una dose supera il massimo indicato: per andare avanti spunta «Confermo questa dose».'; else toast('Conferma la dose oltre il massimo'); };
   document.addEventListener('click',block,true); document.addEventListener('submit',block,true);
@@ -3932,7 +3986,7 @@ function viewBenvenuto(app){
     S.varieta=lines($('#bv-var',app).value); if(!$('#bv-lav',app).checked){ S.lavorazioni={Vinificazione:[],Affinamento:[]}; S.protocolli=[]; }
     const mode=$('#bv-m',app).value; UI.dep=id; UI.locOpen=id; location.hash='locali'; refresh(); toast('Cantina configurata');
     if(mode==='mano') formContenitore(null,id); else if(mode==='import') formImportCont(id); else if(mode==='serie') formSerie(id); };
-  $('#bv-bk',app).onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const o=JSON.parse(rd.result); if(!o||!Array.isArray(o.eventi)||!Array.isArray(o.vini)) throw 0; S=o; location.hash='vasche'; refresh(); toast('Backup ripristinato'); }catch(err){ toast('Il file non è un backup valido di questo programma'); } }; rd.readAsText(f); };
+  $('#bv-bk',app).onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ const o=leggiBackup(rd.result); if(o) confermaRipristino(o,f.name); else toast('Il file non è un backup valido di questo programma'); }; rd.readAsText(f); };
   $('#bv-ex',app).onclick=()=>{ S=seed(); S.esempio=true; location.hash='vasche'; refresh(); toast('Cantina di esempio caricata'); };
 }
 /* ===================== Locali e contenitori (REG-LOC, REG-CONT) ===================== */
@@ -4244,9 +4298,9 @@ function viewDati(app){
   <div class="panel"><h3>Dove sono i dati</h3><p>In questo prototipo tutto resta nel browser che stai usando: non viene caricato nessun dato su server o cloud. Se cancelli i dati del browser o cambi dispositivo, li perdi: per questo conviene fare spesso una copia di backup.</p></div>
   <div class="panel"><h3>Backup</h3><p class="hint">«Scarica backup» salva un file con tutti i dati (vini, operazioni, analisi, cataloghi, locali). In alternativa copia il testo qui sotto e salvalo in un file. Se passano più di ${BK_GIORNI} giorni senza backup compare un promemoria in alto.</p>
    <textarea id="js" readonly style="min-height:140px;font-family:ui-monospace,monospace;font-size:.8rem">${esc(JSON.stringify(S,null,1))}</textarea>
-   <div class="actions"><button class="btn pri" id="bk-dl">Scarica backup</button><button class="btn sm" id="cpj">Copia backup</button><label class="btn sm" style="cursor:pointer">Ripristina un backup…<input type="file" id="bk-rs" accept=".json,application/json,text/plain" hidden></label><span class="small ${bkVecchio()?'dn-w':'muted'}" style="align-self:center">${esc(bkTxt().charAt(0).toUpperCase()+bkTxt().slice(1))}</span></div></div>
+   <div class="actions"><button class="btn pri" id="bk-dl">Scarica backup</button><button class="btn sm" id="cpj">Copia backup</button><span class="small ${bkVecchio()?'dn-w':'muted'}" style="align-self:center">${esc(bkTxt().charAt(0).toUpperCase()+bkTxt().slice(1))}</span></div></div>
   ${(()=>{ try{ return localStorage.getItem('gcg-backup-prepulizia'); }catch(e){ return null; } })()?`<div class="panel"><h3>Copia prima della pulizia</h3><p class="hint">Copia automatica dei dati salvata prima di eliminare le schede vino create senza categoria.</p><div class="actions"><button class="btn" id="rb-pul">Ripristina quella copia</button><button class="btn ghost" id="rb-del">Elimina la copia</button></div></div>`:''}
-  <div class="panel"><h3>Ripristina</h3><p class="hint">Scegli un file di backup oppure incolla il testo. Sostituisce tutti i dati attuali.</p>
+  <div class="panel"><h3>Ripristina un backup</h3><p class="hint">Scegli un file di backup oppure incolla il testo: prima di sostituire i dati attuali ti mostro cosa contiene e chiedo conferma.</p>
    <div class="row"><input type="file" id="fi" accept=".json,application/json,text/plain" style="max-width:320px"></div>
    <textarea id="pj" placeholder="…oppure incolla qui il backup" style="margin-top:8px"></textarea>
    <div id="msg" class="err"></div>
@@ -4289,15 +4343,7 @@ function viewDati(app){
   <div class="panel"><h3>Dati di esempio</h3><p class="hint">Carica l'esempio di prova (La Gera 2025 con giacenze inventate). Utile solo per fare prove.</p>
    <div class="actions"><button class="btn" id="rz">Carica dati di esempio</button></div></div>`;
   $('#cpj',app).onclick=()=>{ copy($('#js',app)); bkSegna('copiato'); };
-  $('#bk-rs',app).onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ let o; try{ o=JSON.parse(rd.result); if(!o||!Array.isArray(o.eventi)||!Array.isArray(o.vini)) throw 0; }catch(x){ return toast('Il file non è un backup del gestionale'); }
-    const n=(a)=>Array.isArray(a)?a.length:0;
-    modal('Ripristina un backup',`<p>Il file <b>${esc(f.name)}</b>${o.azienda&&o.azienda.nome?' di <b>'+esc(o.azienda.nome)+'</b>':''} contiene ${n(o.vini)} vini, ${n(o.eventi)} operazioni, ${n(o.analisi)} analisi e ${n(o.recipienti)} contenitori${o.ultimoBackup&&o.ultimoBackup.il?' (backup del '+fd(o.ultimoBackup.il.slice(0,10))+')':''}.</p>
-      <div class="box warn" style="color:var(--ink)"><b>Sostituisce tutti i dati attuali</b> (${n(S.vini)} vini, ${n(S.eventi)} operazioni). Se ti servono, scarica prima un backup di questi.</div>
-      <label class="row" style="gap:6px;margin-top:10px"><input type="checkbox" id="rs-ok"> <b>Ho capito, sostituisci</b></label>
-      <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok" disabled>Ripristina</button></div>`,(b,close)=>{
-      $('#rs-ok',b).onchange=x=>{ $('#ok',b).disabled=!x.target.checked; };
-      $('#ok',b).onclick=()=>{ delete o.esempio; S=o; UI.sel=null; UI.asOf=null; UI.dep=null; close(); location.hash='vasche'; refresh(); toast('Backup ripristinato'); }; }); };
-    rd.readAsText(f); }; $('#bk-dl',app).onclick=async()=>{ if(await scaricaBackup()) viewDati(app); }; limitiBind(app);
+$('#bk-dl',app).onclick=async()=>{ if(await scaricaBackup()) viewDati(app); }; limitiBind(app);
   const lines=t=>t.split('\n').map(x=>x.trim()).filter(Boolean);
   const rbp=$('#rb-pul',app); if(rbp) rbp.onclick=()=>modal('Ripristina copia',`<p>Torno ai dati com'erano prima della pulizia. Le modifiche fatte dopo andranno perse.</p><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">Ripristina</button></div>`,(b,close)=>{$('#ok',b).onclick=()=>{ try{ S=JSON.parse(localStorage.getItem('gcg-backup-prepulizia')); S.pulizia1=new Date().toISOString(); }catch(e){} close(); refresh(); toast('Copia ripristinata'); };});
   const rbd=$('#rb-del',app); if(rbd) rbd.onclick=()=>{ try{ localStorage.removeItem('gcg-backup-prepulizia'); }catch(e){} viewDati(app); toast('Copia eliminata'); };
@@ -4315,10 +4361,8 @@ function viewDati(app){
   $('#den-r',app).onclick=()=>{ S.denominazioni=[]; save(); viewDati(app); toast('Elenco ripristinato'); };
   $('#lv-s',app).onclick=()=>{ S.lavorazioni={Vinificazione:lines($('#lv-v',app).value),Affinamento:lines($('#lv-a',app).value)}; save(); toast('Elenchi salvati'); };
   $('#lv-r',app).onclick=()=>{ delete S.lavorazioni; save(); viewDati(app); toast('Elenchi ripristinati'); };
-  $('#fi',app).onchange=e=>{const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{$('#pj',app).value=r.result;}; r.readAsText(f);};
-  $('#rs',app).onclick=()=>{try{const o=JSON.parse($('#pj',app).value); if(!o||!Array.isArray(o.eventi)||!Array.isArray(o.vini)) throw 0;
-     modal('Ripristina backup',`<p>Il backup contiene ${o.vini.length} vini, ${o.eventi.length} operazioni e ${(o.analisi||[]).length} analisi. Sostituisce tutti i dati attuali.</p><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">Ripristina</button></div>`,(b,close)=>{$('#ok',b).onclick=()=>{S=o;close();refresh();toast('Backup ripristinato');};});
-    }catch(e){$('#msg',app).textContent='Il testo non è un backup valido di questo programma.';}};
+  $('#fi',app).onchange=e=>{const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ $('#pj',app).value=r.result; const o=leggiBackup(r.result); if(o) confermaRipristino(o,f.name); else $('#msg',app).textContent='Il file non è un backup valido di questo programma.'; }; r.readAsText(f);};
+  $('#rs',app).onclick=()=>{ const o=leggiBackup($('#pj',app).value); if(o) confermaRipristino(o,''); else $('#msg',app).textContent='Il testo non è un backup valido di questo programma.'; };
   $('#z-vi',app).onchange=e=>{ if(e.target.checked) $('#z-an',app).checked=true; };
   $('#z-all',app).onchange=e=>{ if(e.target.checked){ $('#z-an',app).checked=true; $('#z-vi',app).checked=true; } };
   $('#az-ok',app).onclick=()=>{ const n=$('#az-n',app).value.trim(), r=$('#az-r',app).value.trim(); if(!n||!r) return toast('Scrivi nome e ragione sociale'); const old=S.azienda&&S.azienda.ragione;
@@ -4469,15 +4513,18 @@ function gruppiPianta(dep){ if(!grpAttivo(dep)) return []; const tipi=grpTipiDi(
 const grpNome = G=>(G.tipo==='tonneau'?'Tonneaux':G.tipo.charAt(0).toUpperCase()+(PLUR[G.tipo]||G.tipo).slice(1))+(G.g?' · '+filaNome(G.g):'');
 function grpSVG(G){ const W=GRP_W,H=GRP_H,x=G.x-W/2,y=G.y-H/2; const st=R.st; const piene=G.vs.filter(v=>st[v.code].L>1e-6); const L=piene.reduce((a,v)=>a+st[v.code].L,0);
   const sel=G.vs.find(v=>v.code===UI.sel); const n=G.vs.length, perR=Math.min(n,20), righe=Math.min(3,Math.ceil(n/perR)), cw=(W-16)/perR, chh=righe>1?5:7;
-  const celle=G.vs.slice(0,perR*righe).map((v,i)=>{ const s=st[v.code]; const pieno=s.L>1e-6; return `<rect x="${(x+8+(i%perR)*cw).toFixed(1)}" y="${(y+H-10-(righe-Math.floor(i/perR))*(chh+1.5)).toFixed(1)}" width="${Math.max(1,cw-1.2).toFixed(1)}" height="${chh}" rx="1" fill="${pieno?partCol(s.vino):'var(--surface)'}" stroke="var(--steel)" stroke-width=".5"/>`; }).join('');
+  const celle=G.vs.slice(0,perR*righe).map((v,i)=>{ const s=st[v.code]; const pieno=s.L>1e-6; return `<rect x="${(x+8+(i%perR)*cw).toFixed(1)}" y="${(y+H-10-(righe-Math.floor(i/perR))*(chh+1.5)).toFixed(1)}" width="${Math.max(1,cw-1.2).toFixed(1)}" height="${chh}" rx="1" fill="${pieno?partCol(s.vino):'var(--surface)'}" ${s.L>v.cap*100+1e-6?'stroke="var(--danger)" stroke-width="1.1" stroke-dasharray="2 1.2"':'stroke="var(--steel)" stroke-width=".5"'}/>`; }).join('');
   const pr=piene.filter(v=>st[v.code].pronto).length, imp=G.vs.filter(v=>(st[v.code].imps||[]).length).length, man=G.vs.filter(v=>st[v.code].man).length;
-  const tip=`${grpNome(G)}: ${n} ${PLUR[G.tipo]||'contenitori'}, ${piene.length} piene · ${hL(L)}${pr?' · '+pr+' con vino pronto':''}${imp?' · '+imp+' in lavorazione':''}. Tocca per aprirle.`;
+  const scad=G.vs.some(v=>(st[v.code].imps||[]).some(im=>impScaduta(im))), ferm=G.vs.filter(v=>st[v.code].ferm).length, vinif=G.vs.filter(v=>!st[v.code].ferm&&st[v.code].vinif).length;
+  const prog=G.vs.filter(v=>programmate(v.code).length).length, oltre=G.vs.filter(v=>st[v.code].L>v.cap*100+1e-6).length;
+  const tip=`${grpNome(G)}: ${n} ${PLUR[G.tipo]||'contenitori'}, ${piene.length} piene · ${hL(L)}${pr?' · '+pr+' con vino pronto':''}${imp?' · '+imp+' in lavorazione':''}${ferm?' · '+ferm+' in fermentazione':''}${prog?' · '+prog+' con lavori programmati':''}${oltre?' · '+oltre+' oltre la nominale':''}${man?' · '+man+' in manutenzione':''}. Tocca per aprirle.`;
   return `<g class="tgrp${sel?' sel':''}" data-grp="${esc(G.id)}" tabindex="0" role="button" aria-label="${esc(tip)}"><title>${esc(tip)}</title>
     <rect class="gbody" x="${x}" y="${y}" width="${W}" height="${H}" rx="10"/>
     <text class="gt" x="${G.x}" y="${y+16}">${esc(grpNome(G))}</text>
     <text class="gs" x="${G.x}" y="${y+34}">${sel?esc(sel.label)+' selezionata':`${piene.length}/${n} piene · ${nf(L/100,1)} hL`}</text>
     ${celle}
-    ${pr?`<circle cx="${x+W-9}" cy="${y+9}" r="5" fill="var(--ok)" stroke="var(--surface)" stroke-width="1.2"/>`:''}${imp?`<circle cx="${x+9}" cy="${y+9}" r="5" fill="var(--warn)" stroke="var(--surface)" stroke-width="1.2"/>`:''}${man?`<circle cx="${x+9}" cy="${y+H-9}" r="4" fill="var(--man)"/>`:''}
+    ${imp?badgeSVG(x+2,y+2,9,scad?'var(--danger)':'var(--warn)',scad?'alert':'hour',scad?'Lavorazione da chiudere':'In lavorazione'):''}${ferm||vinif?badgeSVG(x+2,y+H-2,9,ferm?'#7B5EA7':'#A9A0BC','ferm',ferm?'In fermentazione':'In vinificazione'):''}${prog?badgeSVG(x+W-2,y+2,9,'var(--c2)','cal','Lavoro programmato'):''}
+    ${pr?`<circle cx="${x+W-(prog?24:9)}" cy="${y+9}" r="5" fill="var(--ok)" stroke="var(--surface)" stroke-width="1.2"><title>Vino pronto</title></circle>`:''}${man?`<circle cx="${x+W-9}" cy="${y+H-9}" r="4" fill="var(--man)"><title>In manutenzione</title></circle>`:''}${oltre?`<rect x="${x+5}" y="${y+5}" width="${W-10}" height="${H-10}" rx="7" fill="none" stroke="var(--danger)" stroke-width="1.6" stroke-dasharray="6 4" style="vector-effect:non-scaling-stroke"><title>${oltre} oltre la nominale</title></rect>`:''}
   </g>`; }
 function apriGruppo(id,dep,pick){ const G=gruppiPianta(dep).find(g=>g.id===id); if(!G) return; let modo='apri'; const scelte=new Set();
   const st=R.st, piene=G.vs.filter(v=>st[v.code].L>1e-6), pt=partiteDi(G.vs);
@@ -4486,7 +4533,7 @@ function apriGruppo(id,dep,pick){ const G=gruppiPianta(dep).find(g=>g.id===id); 
     ${pt.length?`<div class="row" style="gap:6px;flex-wrap:wrap">${pt.map(([vid,o])=>`<span class="chip"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${partCol(vid)};margin-right:4px"></i>${esc(vName(vid))} · ${o.n} · ${hL(o.L)} <button type="button" class="btn sm ghost" style="padding:0 6px;min-height:0" data-gpv="${esc(vid)}">Seleziona</button></span>`).join('')}</div>`:''}
     <p class="hint" id="gp-h" style="margin:0">Tocca un contenitore per aprirlo.</p>
     <div id="gp-g" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px">${G.vs.map(v=>{ const s=st[v.code]; const pieno=s.L>1e-6; const f=pieno?Math.min(1,s.L/(v.cap*100)):0;
-      return `<button type="button" class="fpost${UI.sel===v.code?' sel':''}" data-gpk="${esc(v.code)}" title="${esc(vlab(v.code))}${v.rec.posto?' · posto '+esc(v.rec.posto):''} · ${pieno?esc(vName(s.vino))+' · '+hL(s.L):'vuota'}" style="--pc:${pieno?partCol(s.vino):'transparent'};--pf:${(f*100).toFixed(0)}%"><b>${esc(v.label)}</b><span>${pieno?hL(s.L):'vuota'}</span>${s.pronto?'<i class="fpr"></i>':''}</button>`; }).join('')}</div>
+      return `<button type="button" class="fpost${UI.sel===v.code?' sel':''}${postoCls(v.code,s)}" data-gpk="${esc(v.code)}" title="${esc(vlab(v.code))}${v.rec.posto?' · posto '+esc(v.rec.posto):''} · ${pieno?esc(vName(s.vino))+' · '+hL(s.L):'vuota'}" style="--pc:${pieno?partCol(s.vino):'transparent'};--pf:${(f*100).toFixed(0)}%"><b>${esc(v.label)}</b><span>${pieno?hL(s.L):'vuota'}</span>${postoSegni(v.code,s)}</button>`; }).join('')}</div>
     <div class="foot"><span id="gp-n" class="small muted" style="margin-right:auto;align-self:center"></span><button type="button" class="btn" data-close>Chiudi</button>
       ${piene.length?`<button type="button" class="btn" id="gp-tutte">Lavora su tutte le piene (${piene.length})</button>`:''}<button type="button" class="btn pri" id="gp-lav" hidden>Lavora sulle selezionate</button></div>`,(b,close)=>{
     const upd=()=>{ $$('[data-gm2]',b).forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.gm2===modo))); $('#gp-h',b).textContent=modo==='apri'?'Tocca un contenitore per aprirlo.':'Tocca i contenitori da selezionare, poi «Lavora sulle selezionate».';
@@ -4650,6 +4697,121 @@ function rimuoviSel(codes,rerender){ if(!codes.length) return;
     $('#rm-ok',b).onchange=e=>{ $('#ok',b).disabled=!e.target.checked; };
     $('#ok',b).onclick=()=>{ const via=new Set(); codes.forEach(c=>{ const r=VMAP[c].rec; if(usiCont(c)){ r.rimosso=true; r.rimossoIl=today(); } else via.add(r); UI.aSel.delete(c); }); if(via.size) S.recipienti=S.recipienti.filter(x=>!via.has(x));
       close(); refresh(); toast(codes.length+' rimoss'+(codes.length===1?'o':'i')+' dall\'anagrafica'); }; }); }
+
+/* ===================== Stessi simboli in pianta, vista per file e dettaglio della fila ===================== */
+function postoSegni(code,s){ s=s||R.st[code]||{}; const o=[];
+  if(s.imp){ const sc=(s.imps||[s.imp]).some(im=>impScaduta(im)); o.push(`<span title="${sc?'Lavorazione da chiudere':'In lavorazione'}">${badgeLeg(sc?'var(--danger)':'var(--warn)',sc?'alert':'hour')}</span>`); }
+  if(s.ferm) o.push(`<span title="In fermentazione">${badgeLeg('#7B5EA7','ferm')}</span>`); else if(s.vinif) o.push(`<span title="In vinificazione">${badgeLeg('#A9A0BC','ferm')}</span>`);
+  if(programmate(code).length) o.push(`<span title="Lavoro programmato">${badgeLeg('var(--c2)','cal')}</span>`);
+  return (o.length?`<span class="fsg">${o.join('')}</span>`:'')+(s.pronto&&s.vino?'<i class="fpr" title="Vino pronto"></i>':''); }
+const postoCls = (code,s)=>{ s=s||R.st[code]||{}; const v=VMAP[code]; return (v&&s.L>v.cap*100+1e-6?' over':'')+(s.man?' inman':''); };
+
+/* ===================== Elenchi a tendina che si riaprono sempre completi ===================== */
+/* Sostituisce il comportamento dei <datalist> del browser (che mostrano solo le voci che iniziano come il testo già scritto):
+   la freccia riapre sempre tutto l'elenco; scrivendo, l'elenco si restringe. Il campo resta un normale campo di testo. */
+(function(){
+  let pop=null, cur=null, items=[], hi=-1;
+  const close=()=>{ if(pop){ pop.remove(); pop=null; } cur=null; hi=-1; };
+  const opts=inp=>{ const dl=document.getElementById(inp.dataset.combo); return dl?[...dl.options].map(o=>({v:o.value,l:o.label&&o.label!==o.value?o.label:(o.textContent||'').trim()!==o.value?(o.textContent||'').trim():''})).filter(o=>o.v):[]; };
+  function open(inp,all){ close(); cur=inp; const q=all?'':inp.value.trim().toLowerCase();
+    items=opts(inp).filter(o=>!q||o.v.toLowerCase().includes(q)||(o.l||'').toLowerCase().includes(q)); if(!items.length) return;
+    pop=document.createElement('div'); pop.className='cb-pop'; pop.setAttribute('role','listbox');
+    pop.innerHTML=items.map((o,i)=>`<div class="cb-it${o.v===inp.value?' on':''}" role="option" data-i="${i}">${esc(o.v)}${o.l?` <span class="muted small">${esc(o.l)}</span>`:''}</div>`).join('');
+    document.body.appendChild(pop); place();
+    hi=items.findIndex(o=>o.v===inp.value); if(hi>=0){ const el=pop.children[hi]; el.scrollIntoView({block:'nearest'}); }
+    pop.addEventListener('mousedown',e=>{ e.preventDefault(); const it=e.target.closest('.cb-it'); if(it) scegli(+it.dataset.i); }); }
+  function place(){ if(!pop||!cur) return; const r=cur.getBoundingClientRect(); const below=window.innerHeight-r.bottom;
+    pop.style.left=Math.max(4,r.left)+'px'; pop.style.minWidth=r.width+'px'; pop.style.maxWidth=Math.max(r.width,320)+'px';
+    if(below<200&&r.top>below){ pop.style.top=''; pop.style.bottom=(window.innerHeight-r.top+2)+'px'; pop.style.maxHeight=Math.min(280,r.top-8)+'px'; }
+    else { pop.style.bottom=''; pop.style.top=(r.bottom+2)+'px'; pop.style.maxHeight=Math.min(280,below-8)+'px'; } }
+  function scegli(i){ const inp=cur, o=items[i]; if(!inp||!o) return; inp.value=o.v; close();
+    inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true})); }
+  function evid(i){ if(!pop) return; hi=Math.max(0,Math.min(items.length-1,i)); [...pop.children].forEach((c,k)=>c.classList.toggle('hi',k===hi)); pop.children[hi].scrollIntoView({block:'nearest'}); }
+  function migliora(inp){ if(inp.dataset.combo) return; const id=inp.getAttribute('list'); if(!id) return;
+    inp.dataset.combo=id; inp.removeAttribute('list'); inp.setAttribute('autocomplete','off'); inp.classList.add('cb-in');
+    const w=document.createElement('span'); w.className='cb-w'; inp.parentNode.insertBefore(w,inp); w.appendChild(inp);
+    const bt=document.createElement('button'); bt.type='button'; bt.className='cb-bt'; bt.tabIndex=-1; bt.setAttribute('aria-label','Mostra tutto l\'elenco'); bt.innerHTML='▾'; w.appendChild(bt);
+    bt.addEventListener('mousedown',e=>e.preventDefault());
+    bt.addEventListener('click',()=>{ if(cur===inp&&pop) close(); else { inp.focus(); open(inp,true); } });
+    inp.addEventListener('input',e=>{ if(e.isTrusted) open(inp,false); });
+    inp.addEventListener('keydown',e=>{ if(e.key==='ArrowDown'){ e.preventDefault(); if(!pop||cur!==inp) open(inp,true); else evid(hi+1); }
+      else if(e.key==='ArrowUp'&&pop){ e.preventDefault(); evid(hi-1); }
+      else if(e.key==='Enter'&&pop&&cur===inp&&hi>=0){ e.preventDefault(); scegli(hi); }
+      else if(e.key==='Escape'&&pop){ e.stopPropagation(); close(); } });
+    inp.addEventListener('blur',()=>setTimeout(()=>{ if(cur===inp&&document.activeElement!==inp) close(); },120)); }
+  const scan=root=>{ if(root.querySelectorAll) root.querySelectorAll('input[list]').forEach(migliora); };
+  new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1){ if(n.matches&&n.matches('input[list]')) migliora(n); scan(n); } }))).observe(document.body,{childList:true,subtree:true});
+  scan(document.body);
+  window.addEventListener('scroll',()=>place(),true); window.addEventListener('resize',close);
+  document.addEventListener('mousedown',e=>{ if(pop&&!e.target.closest('.cb-pop')&&!e.target.closest('.cb-w')) close(); });
+})();
+
+/* ===================== Ripristino: una sola conferma, uguale ovunque ===================== */
+function confermaRipristino(o,nome){
+  const n=a=>Array.isArray(a)?a.length:0; const vuota=!S||!(n(S.vini)||n(S.eventi));
+  modal('Ripristina un backup',`<p>${nome?`Il file <b>${esc(nome)}</b>`:'Il backup'}${o.azienda&&o.azienda.nome?' di <b>'+esc(o.azienda.nome)+'</b>':''}${o.ultimoBackup&&o.ultimoBackup.il?' (salvato il '+fd(o.ultimoBackup.il.slice(0,10))+')':''} contiene <b>${n(o.vini)} vini, ${n(o.eventi)} operazioni, ${n(o.analisi)} analisi</b>${n(o.recipienti)?` e ${n(o.recipienti)} contenitori`:''}.</p>
+    ${vuota?'':`<div class="box warn" style="color:var(--ink)"><b>Sostituisce tutti i dati attuali</b> (${n(S.vini)} vini, ${n(S.eventi)} operazioni). Se ti servono, scarica prima un backup di questi.</div>`}
+    <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Ripristina</button></div>`,(b,close)=>{
+    $('#ok',b).onclick=()=>{ delete o.esempio; S=o; UI.sel=null; UI.asOf=null; UI.dep=null; window.__ripristino=Date.now(); close(); location.hash='vasche'; refresh(); toast('Backup ripristinato'); }; }); }
+function leggiBackup(testo){ try{ const o=JSON.parse(testo); if(!o||!Array.isArray(o.eventi)||!Array.isArray(o.vini)) return null; return o; }catch(e){ return null; } }
+
+/* ===================== Annullare un lavoro programmato: stesso risultato da ovunque ===================== */
+function annullaLavoro(l,dopo){
+  modal('Annulla lavoro '+(l.num||''),`<p>Annullo <b>${esc(lavTitolo(l))}</b>${l.data?' del '+fd(l.data):''}${(l.vasche||[]).length?' su '+esc(l.vasche.map(c=>vlab(c)).join(', ')):''}.</p>
+    <p class="hint">Sparisce dai lavori da fare e dalla pianta; resta nello storico dei lavori come annullato.</p>
+    <label class="f">Motivo (facoltativo)<input id="an-m" placeholder="es. non più necessario"></label>
+    <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">Annulla il lavoro</button></div>`,(b,close)=>{
+    $('#ok',b).onclick=()=>{ const m=$('#an-m',b).value.trim(); lavLog(l,'annullato',m?'Annullato: '+m:'Annullato'); close(); refresh(); toast('Lavoro '+(l.num||'')+' annullato'); if(dopo) dopo(); }; }); }
+
+/* ===================== Entrata in più contenitori (come «Distribuisci» nel travaso) ===================== */
+function sceltaContenitori(o){ /* o: {titolo, st, esclusi:Set, unita, aggiungi([[code,L]])} */
+  const st=o.st, locs=DEPOSITI.map(l=>l.id); const u=o.unita||'hL';
+  modal(o.titolo||'Più contenitori',`<div class="fg">
+    <label class="f">Locale<select id="sc-l">${locs.map(l=>`<option value="${esc(l)}" ${UI.dep===l?'selected':''}>${esc(locNome(l))}</option>`).join('')}</select></label>
+    <label class="f">Tipo<select id="sc-t"></select></label>
+    <label class="f">Fila<select id="sc-f"></select></label>
+    <label class="f">Contenitori<select id="sc-q"><option value="vuoti">solo quelli vuoti</option><option value="tutti">tutti</option></select></label>
+    <label class="f">Quantità<select id="sc-m"><option value="cap">riempi fino alla capacità, in ordine</option><option value="uguale">stessa quantità in ciascuno</option><option value="totale">dividi un totale in parti uguali</option><option value="prop">dividi un totale in proporzione alla capacità</option></select></label>
+    <label class="f" id="sc-xw"><span id="sc-xl">Totale da distribuire (hL)</span><input id="sc-x" inputmode="decimal" placeholder="facoltativo"></label>
+    <label class="f">Al massimo quanti<input id="sc-n" inputmode="numeric" placeholder="tutti quelli scelti"></label></div>
+    <div class="row small" style="gap:6px;margin:8px 0 4px"><button type="button" class="btn sm ghost" id="sc-all">Tutti</button><button type="button" class="btn sm ghost" id="sc-none">Nessuno</button><span class="muted">Tocca per togliere o rimettere un contenitore.</span></div>
+    <div id="sc-g" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px;max-height:240px;overflow:auto"></div>
+    <div id="sc-p" class="box small" style="margin-top:8px"></div>
+    <p class="hint">Le righe vengono aggiunte al modulo: lì puoi ancora correggere la quantità di ciascun contenitore prima di salvare.</p>
+    <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri" id="sc-ok">Aggiungi</button></div>`,(b,close)=>{
+    let tolti=new Set();
+    const base=()=>{ const l=$('#sc-l',b).value; return VASCHE.filter(v=>v.dep===l&&v.stato==='attivo'&&!(o.esclusi||new Set()).has(v.code)); };
+    const fil=()=>{ const vs=base(); const tp=[...new Set(vs.map(v=>v.tipo))].sort(); const t0=$('#sc-t',b).value;
+      $('#sc-t',b).innerHTML='<option value="">tutti</option>'+tp.map(t=>`<option value="${esc(t)}" ${t===t0?'selected':''}>${esc(t.charAt(0).toUpperCase()+(PLUR[t]||t).slice(1))}</option>`).join('');
+      if(!t0&&tp.includes('barrique')) $('#sc-t',b).value='barrique';
+      const f0=$('#sc-f',b).value, fs=[...new Set(vs.filter(v=>!$('#sc-t',b).value||v.tipo===$('#sc-t',b).value).map(v=>v.rec.gruppo).filter(Boolean))].sort(natCmp);
+      $('#sc-f',b).innerHTML='<option value="">tutte</option>'+fs.map(f=>`<option value="${esc(f)}" ${f===f0?'selected':''}>Fila ${esc(f)}</option>`).join(''); };
+    const calc=()=>{ const t=$('#sc-t',b).value, f=$('#sc-f',b).value, q=$('#sc-q',b).value, m=$('#sc-m',b).value, x=num($('#sc-x',b).value), nMax=Math.floor(num($('#sc-n',b).value)||0);
+      $('#sc-xl',b).textContent=m==='uguale'?'hL in ciascuno':m==='cap'?'Totale da distribuire (hL, facoltativo)':'Totale da distribuire (hL)';
+      let vs=base().filter(v=>(!t||v.tipo===t)&&(!f||v.rec.gruppo===f)&&(q==='tutti'||!(st[v.code].L>1e-6))).sort((a,c)=>natCmp(a.rec.gruppo||'',c.rec.gruppo||'')||natCmp(a.rec.posto||a.label,c.rec.posto||c.label)||natCmp(a.label,c.label));
+      const scelti=vs.filter(v=>!tolti.has(v.code)).slice(0,nMax||Infinity);
+      $('#sc-g',b).innerHTML=vs.map(v=>{ const s=st[v.code]; const pieno=s.L>1e-6; const ff=pieno?Math.min(1,s.L/(v.cap*100)):0;
+        return `<button type="button" class="fpost${scelti.includes(v)?' sel':''}" data-sc="${esc(v.code)}" style="--pc:${pieno?partCol(s.vino):'transparent'};--pf:${(ff*100).toFixed(0)}%" title="${esc(vlab(v.code))} · ${nf(v.cap)} hL${pieno?' · contiene '+esc(vName(s.vino))+' '+hL(s.L):''}"><b>${esc(v.label)}</b><span>${nf(v.cap)} hL</span></button>`; }).join('')||'<span class="muted small">Nessun contenitore con queste scelte.</span>';
+      $$('[data-sc]',b).forEach(x=>x.onclick=()=>{ const c=x.dataset.sc; tolti.has(c)?tolti.delete(c):tolti.add(c); calc(); });
+      let out=[]; const libero=v=>Math.max(0,v.cap*100-(st[v.code].L||0));
+      if(m==='cap'){ let rest=x>0?x*100:Infinity; for(const v of scelti){ if(rest<1e-6) break; const L=Math.min(libero(v),rest); if(L<1e-6) continue; out.push([v.code,L]); rest-=L; } }
+      else if(m==='uguale'){ if(x>0) scelti.forEach(v=>out.push([v.code,x*100])); }
+      else if(x>0&&scelti.length){ if(m==='totale') scelti.forEach(v=>out.push([v.code,x*100/scelti.length])); else { const cT=scelti.reduce((a,v)=>a+v.cap,0); scelti.forEach(v=>out.push([v.code,x*100*v.cap/cT])); } }
+      out=out.map(([c,L])=>[c,Math.round(L*10)/10]);
+      const tot=out.reduce((a,r)=>a+r[1],0); const oltre=out.filter(([c,L])=>(st[c].L||0)+L>VMAP[c].cap*100+1e-6);
+      $('#sc-p',b).innerHTML=out.length?`<b>${out.length}</b> contenitor${out.length>1?'i':'e'} · in tutto <b>${hL(tot)}</b>${m==='cap'&&x>0&&tot<x*100-1e-6?` <span style="color:var(--warn)">(ci stanno solo ${hL(tot)} dei ${hL(x*100)} indicati)</span>`:''}${oltre.length?`<br><span style="color:var(--warn)">${oltre.length} oltre la nominale: ${esc(oltre.map(r=>vlab(r[0])).join(', '))}</span>`:''}`:(scelti.length?'Indica la quantità.':'Nessun contenitore scelto.');
+      $('#sc-ok',b).disabled=!out.length; return out; };
+    $('#sc-l',b).onchange=()=>{ tolti=new Set(); $('#sc-t',b).value=''; fil(); calc(); };
+    $('#sc-t',b).onchange=()=>{ tolti=new Set(); fil(); calc(); }; $('#sc-f',b).onchange=()=>{ tolti=new Set(); calc(); };
+    $('#sc-all',b).onclick=()=>{ tolti=new Set(); calc(); }; $('#sc-none',b).onclick=()=>{ $$('[data-sc]',b).forEach(x=>tolti.add(x.dataset.sc)); calc(); };
+    ['#sc-q','#sc-m'].forEach(s=>$(s,b).onchange=calc); ['#sc-x','#sc-n'].forEach(s=>$(s,b).oninput=calc);
+    fil(); calc();
+    $('#sc-ok',b).onclick=()=>{ const out=calc(); if(!out.length) return; close(); o.aggiungi(out); }; }); }
+
+/* ===================== Oltre la capacità nominale: avviso confermabile (contenuto risultante) ===================== */
+function oltreNominale(arrivi,st){ /* arrivi: {code: litri in arrivo (netti)} → [{code,L0,L1,cap}] */
+  return Object.entries(arrivi).filter(([c,dL])=>VMAP[c]&&dL>1e-6).map(([c,dL])=>{ const L0=Math.max(0,(st[c]||{}).L||0); return {code:c,L0,L1:L0+dL,cap:VMAP[c].cap*100}; }).filter(x=>x.L1>x.cap+1e-6); }
+const oltreTxt = x=>`<b>${esc(vlab(x.code))}</b>: ${x.L0>1e-6?`contiene ${hL(x.L0)}, `:''}con questa operazione arriva a <b>${hL(x.L1)}</b> su ${hL(x.cap)} nominali (${hL(x.L1-x.cap)} oltre).`;
 
 route();
 </script>

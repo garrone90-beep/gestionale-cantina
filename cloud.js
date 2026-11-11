@@ -88,7 +88,8 @@
     if(inCorso){ ancora=true; return; } inCorso=true;
     try{
       const d=differenze(); const tot=Object.keys(snap.rec).length;
-      if(d.del.length>10&&d.del.length>tot*0.3){
+      const appenaRipristinato=window.__ripristino&&Date.now()-window.__ripristino<60000; /* il ripristino ha già chiesto conferma */
+      if(d.del.length>10&&d.del.length>tot*0.3&&!appenaRipristinato){
         if(!confirm(`Questa modifica cancella ${d.del.length} registrazioni su ${tot} dal database online (per esempio dopo «Ripristina un backup»).\n\nConfermi? Con «Annulla» la pagina si ricarica con i dati online e la modifica si perde.`)){ inCorso=false; location.reload(); return; } }
       if(!d.up.length&&!d.del.length&&!d.upI.length&&!d.delI.length){ stato('Salvato online','ok'); return; }
       stato('Salvataggio…','');
