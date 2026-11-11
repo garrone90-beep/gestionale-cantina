@@ -474,6 +474,26 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 .cb-bt:hover{background:var(--surface-2,rgba(0,0,0,.05));color:var(--ink)}
 .cb-pop{position:fixed;z-index:10000;background:var(--surface,#fff);border:1px solid var(--line,#ccc);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:auto;padding:4px 0}
 .cb-it{padding:6px 10px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cb-it:hover,.cb-it.hi{background:color-mix(in srgb,var(--accent) 12%,transparent)}.cb-it.on{font-weight:700}
+
+/* === tablet in orizzontale (iPad): menu a icone, pianta a tutta larghezza, scheda della vasca a comparsa === */
+.nav-tg{display:none}
+@media (min-width:1000px) and (max-width:1439px){
+  .nav-tg{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--side-2);background:transparent;color:var(--side-muted);border-radius:9px;height:34px;cursor:pointer;font:600 .8rem var(--f-body)}
+  .nav-tg:hover{color:var(--side-ink);border-color:var(--side-muted)}
+  body:not(.nav-wide){--sidew:72px}
+  body:not(.nav-wide) .top .in{padding:16px 10px 14px;gap:14px}
+  body:not(.nav-wide) .brand-row{justify-content:center}
+  body:not(.nav-wide) .brand-row>div,body:not(.nav-wide) .note-proto,body:not(.nav-wide) #cl-bar,body:not(.nav-wide) .ui-search{display:none}
+  body:not(.nav-wide) nav a{font-size:0;gap:0;justify-content:center;padding:11px 0}
+  body:not(.nav-wide) nav a svg{width:22px;height:22px}
+  body.nav-wide .top{box-shadow:8px 0 30px rgba(0,0,0,.25)}
+  main{max-width:none;padding-inline:16px}
+  .work.nosel,.work.hassel{grid-template-columns:minmax(0,1fr)}
+  .work.hassel #side{position:fixed;top:10px;right:10px;bottom:10px;width:min(380px,40vw);overflow:auto;z-index:30;border-radius:16px;box-shadow:0 14px 44px rgba(0,0,0,.24);overscroll-behavior:contain}
+  .work.hassel #side>.panel{margin:0;min-height:100%;box-sizing:border-box}
+  .work.hassel>.panel:first-child{padding-right:calc(min(380px,40vw) + 4px)}
+  svg.map{max-height:calc(100vh - 200px);min-width:0}
+}
 </style>
 
 <header class="top"><div class="in">
@@ -1312,7 +1332,7 @@ function viewVasche(app){
   if(!DEPOSITI.some(d=>d.id===UI.dep)) UI.dep=(DEPOSITI[0]||{}).id; const DEP=UI.dep, depN=locNome(DEP), VS=VASCHE.filter(v=>v.dep===DEP&&v.stato==='attivo');
   const occ = VS.filter(v=>R.st[v.code].vino); const cont=contNome(DEP);
   app.innerHTML = `
-  <div class="work">
+  <div class="work ${UI.sel&&VMAP[UI.sel]?'hassel':'nosel'}">
     <div class="panel">
       <div class="spread"><div class="row" style="gap:10px"><h2>${esc(depN)}</h2><div class="seg" role="group" aria-label="Locale">${DEPOSITI.map(d=>`<button data-dep="${d.id}" aria-pressed="${d.id===DEP}">${esc(d.nome)}</button>`).join('')}</div></div>
         <div class="row"><label class="row small" style="gap:6px">Situazione al <input type="date" id="asof" value="${asOf()}" max="${today()}" style="width:auto"></label>${UI.asOf&&UI.asOf!==today()?'<button class="btn sm" id="asof-t">Oggi</button>':''}
@@ -4816,6 +4836,18 @@ function sceltaContenitori(o){ /* o: {titolo, st, esclusi:Set, unita, aggiungi([
 function oltreNominale(arrivi,st){ /* arrivi: {code: litri in arrivo (netti)} → [{code,L0,L1,cap}] */
   return Object.entries(arrivi).filter(([c,dL])=>VMAP[c]&&dL>1e-6).map(([c,dL])=>{ const L0=Math.max(0,(st[c]||{}).L||0); return {code:c,L0,L1:L0+dL,cap:VMAP[c].cap*100}; }).filter(x=>x.L1>x.cap+1e-6); }
 const oltreTxt = x=>`<b>${esc(vlab(x.code))}</b>: ${x.L0>1e-6?`contiene ${hL(x.L0)}, `:''}con questa operazione arriva a <b>${hL(x.L1)}</b> su ${hL(x.cap)} nominali (${hL(x.L1-x.cap)} oltre).`;
+
+
+/* menu laterale: a icone sui tablet in orizzontale, con un pulsante per allargarlo */
+(function(){ const box=document.querySelector('.top .in'); if(!box) return;
+  try{ if(localStorage.getItem('gcg-navwide')==='1') document.body.classList.add('nav-wide'); }catch(e){}
+  document.querySelectorAll('#nav a').forEach(a=>{ if(!a.title) a.title=a.textContent.trim(); });
+  const bt=document.createElement('button'); bt.type='button'; bt.className='nav-tg';
+  const lab=()=>{ const w=document.body.classList.contains('nav-wide'); bt.textContent=w?'« Stringi':'»'; bt.title=w?'Menu a sole icone':'Mostra i nomi del menu'; bt.setAttribute('aria-label',bt.title); };
+  bt.onclick=()=>{ document.body.classList.toggle('nav-wide'); try{ localStorage.setItem('gcg-navwide',document.body.classList.contains('nav-wide')?'1':'0'); }catch(e){} lab(); };
+  lab(); const nav=document.getElementById('nav'); box.insertBefore(bt,nav);
+  document.getElementById('nav').addEventListener('click',()=>{ if(window.innerWidth<1440&&document.body.classList.contains('nav-wide')){ /* resta come l'ha scelto l'utente */ } });
+})();
 
 route();
 </script>
