@@ -4349,7 +4349,7 @@ $('#bk-dl',app).onclick=async()=>{ if(await scaricaBackup()) viewDati(app); }; l
   const rbd=$('#rb-del',app); if(rbd) rbd.onclick=()=>{ try{ localStorage.removeItem('gcg-backup-prepulizia'); }catch(e){} viewDati(app); toast('Copia eliminata'); };
   $$('[data-pred]',app).forEach(x=>x.onclick=()=>formProtocollo(x.dataset.pred));
   $('#pr-new',app).onclick=()=>formProtocollo();
-  { const r=$('#pr-rst',app); if(r) r.onclick=()=>{ delete S.protocolli; save(); viewDati(app); toast('Protocolli ripristinati'); }; }
+  { const r=$('#pr-rst',app); if(r) r.onclick=()=>confermaAzione('Ripristina protocolli proposti','Torno ai protocolli di vinificazione proposti dal programma: <b>quelli che hai modificato o aggiunto vengono sostituiti</b>. Le operazioni già registrate non cambiano.','Ripristina',()=>{ delete S.protocolli; save(); viewDati(app); toast('Protocolli ripristinati'); }); }
   $('#ct-s',app).onclick=()=>{ const old=contiList(); const nw=lines($('#ct-t',app).value).map(l=>{ const i=l.indexOf('|'); const n=(i<0?l:l.slice(0,i)).trim(); return {nome:n,nota:i<0?'Conto lavorazione '+n:l.slice(i+1).trim()}; }).filter(c=>c.nome);
     const ren={}; old.forEach((o,i)=>{ const n=nw[i]; if(n&&n.nome!==o.nome&&!nw.some(x=>x.nome===o.nome)) ren[o.nome]=n.nome; });
     if(Object.keys(ren).length){ S.eventi.forEach(e=>{ if(e.tipo==='carico'&&ren[e.conto]) e.conto=ren[e.conto]; }); Object.keys(S.maxiConti||{}).forEach(k=>{ if(ren[S.maxiConti[k]]) S.maxiConti[k]=ren[S.maxiConti[k]]; }); }
@@ -4360,7 +4360,7 @@ $('#bk-dl',app).onclick=async()=>{ if(await scaricaBackup()) viewDati(app); }; l
   $('#den-s',app).onclick=()=>{ S.denominazioni=lines($('#den-t',app).value).map(l=>{const [n,c]=l.split('|').map(x=>(x||'').trim()); return {nome:n,tipo:['rosso','bianco','rosato'].includes((c||'').toLowerCase())?c.toLowerCase():'rosso'};}).filter(d=>d.nome); save(); toast('Denominazioni salvate'); };
   $('#den-r',app).onclick=()=>{ S.denominazioni=[]; save(); viewDati(app); toast('Elenco ripristinato'); };
   $('#lv-s',app).onclick=()=>{ S.lavorazioni={Vinificazione:lines($('#lv-v',app).value),Affinamento:lines($('#lv-a',app).value)}; save(); toast('Elenchi salvati'); };
-  $('#lv-r',app).onclick=()=>{ delete S.lavorazioni; save(); viewDati(app); toast('Elenchi ripristinati'); };
+  $('#lv-r',app).onclick=()=>confermaAzione('Ripristina elenchi proposti','Torno agli elenchi delle lavorazioni proposti dal programma: <b>le voci che hai modificato, aggiunto o tolto vengono sostituite</b>. Le operazioni già registrate non cambiano.','Ripristina',()=>{ delete S.lavorazioni; save(); viewDati(app); toast('Elenchi ripristinati'); });
   $('#fi',app).onchange=e=>{const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ $('#pj',app).value=r.result; const o=leggiBackup(r.result); if(o) confermaRipristino(o,f.name); else $('#msg',app).textContent='Il file non è un backup valido di questo programma.'; }; r.readAsText(f);};
   $('#rs',app).onclick=()=>{ const o=leggiBackup($('#pj',app).value); if(o) confermaRipristino(o,''); else $('#msg',app).textContent='Il testo non è un backup valido di questo programma.'; };
   $('#z-vi',app).onchange=e=>{ if(e.target.checked) $('#z-an',app).checked=true; };
@@ -4441,24 +4441,27 @@ function anGate(box,msgEl,btn,label){ let key='';
 const anSegna = (o,ck)=>{ if(!ck.warn.length){ delete o.controlli; return; } ck.warn.forEach(w=>{ if(w.p&&o.valori[w.p]) o.valori[w.p].fl=true; }); o.controlli={il:new Date().toISOString(),avvisi:ck.warn.map(w=>w.txt)}; };
 const negALod = root=>$$('[data-p]',root).forEach(i=>{ const t=i.value.trim(); if(t.startsWith('<')) return; const n=num(t); if(n!=null&&n<0) i.value='<'; });
 function limitiPanelHTML(){ const L=limList(); const pars=[...new Set([...(S.parametri||[]).map(p=>p.nome),'APA'])];
-  const row=l=>`<tr data-lim><td><input class="lm-p" list="lm-pl" value="${esc(l.p)}" style="min-width:170px"></td><td class="r"><input class="lm-mn" inputmode="decimal" value="${l.min!=null?nfIn(l.min,3):''}" style="max-width:90px;text-align:right"></td>
+  const row=(l,i)=>`<tr data-lim${i>=3?` class="lm-more"${UI.limOpen?'':' hidden'}`:''}><td><input class="lm-p" list="lm-pl" value="${esc(l.p)}" style="min-width:170px"></td><td class="r"><input class="lm-mn" inputmode="decimal" value="${l.min!=null?nfIn(l.min,3):''}" style="max-width:90px;text-align:right"></td>
     <td class="r"><input class="lm-mx" inputmode="decimal" value="${l.max!=null?nfIn(l.max,3):''}" style="max-width:90px;text-align:right">${l.so2?`<div class="small muted" style="margin-top:4px">rossi <input class="lm-mr" inputmode="decimal" value="${l.maxRosso!=null?nfIn(l.maxRosso,3):''}" style="max-width:80px;text-align:right"></div>`:''}</td>
     <td class="small muted">${esc(((S.parametri||[]).find(p=>PKEY(p.nome)===PKEY(l.p))||{}).udm||'')}${l.so2?' · massimo per bianchi e rosati, sotto quello per i rossi; con zuccheri da 5 g/L in su +50':''}</td><td><button type="button" class="btn sm ghost" data-lmx aria-label="Togli">×</button></td></tr>`;
   return `<div class="panel"><h3>Limiti delle analisi</h3><p class="hint">Quando salvi un'analisi, un valore fuori da questi intervalli fa comparire un avviso: puoi confermarlo e salvare lo stesso, oppure correggerlo. Valgono per mosti e vini, quindi sono larghi. Campo vuoto = nessun limite da quel lato. Sempre attivi, a parte: solforosa libera maggiore della totale, alcol potenziale oltre 20 % vol, unità probabilmente sbagliate (SO₂ in g/L, acidità in mg/L), valori negativi.</p>
    <datalist id="lm-pl">${pars.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
    <div class="tbl-wrap"><table><thead><tr><th>Parametro</th><th class="r">Minimo</th><th class="r">Massimo</th><th>Note</th><th></th></tr></thead><tbody id="lm-b">${L.map(row).join('')}</tbody></table></div>
+   ${L.length>3?`<button type="button" class="btn sm ghost" id="lm-tg" data-t="Mostra tutti i parametri (${L.length})" style="margin-top:6px">${UI.limOpen?'Mostra solo i primi 3':`Mostra tutti i parametri (${L.length})`}</button>`:''}
    <div id="lm-msg" class="err"></div>
    <div class="actions"><button class="btn sm" id="lm-add">+ Aggiungi parametro</button><button class="btn pri" id="lm-s">Salva limiti</button>${S.limitiAn?'<button class="btn" id="lm-r">Ripristina limiti proposti</button>':''}</div></div>`; }
 function limitiBind(app){ const b=$('#lm-b',app); if(!b) return;
   const bx=()=>$$('[data-lmx]',b).forEach(x=>x.onclick=()=>x.closest('tr').remove()); bx();
-  $('#lm-add',app).onclick=()=>{ b.insertAdjacentHTML('beforeend',`<tr data-lim><td><input class="lm-p" list="lm-pl" style="min-width:170px"></td><td class="r"><input class="lm-mn" inputmode="decimal" style="max-width:90px;text-align:right"></td><td class="r"><input class="lm-mx" inputmode="decimal" style="max-width:90px;text-align:right"></td><td></td><td><button type="button" class="btn sm ghost" data-lmx aria-label="Togli">×</button></td></tr>`); bx(); };
+  $('#lm-add',app).onclick=()=>{ if(!UI.limOpen&&$('#lm-tg',app)) $('#lm-tg',app).click(); b.insertAdjacentHTML('beforeend',`<tr data-lim><td><input class="lm-p" list="lm-pl" style="min-width:170px"></td><td class="r"><input class="lm-mn" inputmode="decimal" style="max-width:90px;text-align:right"></td><td class="r"><input class="lm-mx" inputmode="decimal" style="max-width:90px;text-align:right"></td><td></td><td><button type="button" class="btn sm ghost" data-lmx aria-label="Togli">×</button></td></tr>`); bx(); };
   $('#lm-s',app).onclick=()=>{ const m=$('#lm-msg',app); m.textContent=''; const out=[]; const seen=new Set();
     for(const tr of $$('tr[data-lim]',b)){ const p=$('.lm-p',tr).value.trim(); if(!p) continue; const mn=num($('.lm-mn',tr).value), mx=num($('.lm-mx',tr).value); const mrI=$('.lm-mr',tr), mr=mrI?num(mrI.value):null;
       if(seen.has(PKEY(p))){ m.textContent=`«${p}» è scritto due volte.`; return; } seen.add(PKEY(p));
       if(mn!=null&&mx!=null&&mn>mx){ m.textContent=`${p}: il minimo è maggiore del massimo.`; return; }
       const so2=PKEY(p)===PKEY('Solforosa totale'); out.push({p,min:mn,max:mx,...(so2?{so2:true,maxRosso:mr}:{})}); }
     S.limitiAn=out; save(); toast('Limiti delle analisi salvati'); viewDati(app); };
-  const r=$('#lm-r',app); if(r) r.onclick=()=>{ delete S.limitiAn; save(); viewDati(app); toast('Limiti proposti ripristinati'); }; }
+  const r=$('#lm-r',app); if(r) r.onclick=()=>confermaAzione('Ripristina limiti proposti','Torno ai limiti delle analisi proposti dal programma: <b>quelli che hai modificato o aggiunto vengono sostituiti</b>. Le analisi già salvate non cambiano.','Ripristina',()=>{ delete S.limitiAn; save(); viewDati(app); toast('Limiti proposti ripristinati'); });
+  /* tabella ridotta: i primi tre parametri, il resto a richiesta */
+  const tg=$('#lm-tg',app); if(tg) tg.onclick=()=>{ UI.limOpen=!UI.limOpen; $$('#lm-b tr.lm-more',app).forEach(x=>x.hidden=!UI.limOpen); tg.textContent=UI.limOpen?'Mostra solo i primi 3':tg.dataset.t; }; }
 
 /* ===================== Quantità da verificare (REG-INV-03) =====================
    Eccedenze confermate (REG-TRAV-09) e differenze dei travasi lasciate «da verificare» (REG-TRAV-06/07, REG-FEC-01):
@@ -4753,6 +4756,7 @@ function confermaRipristino(o,nome){
     ${vuota?'':`<div class="box warn" style="color:var(--ink)"><b>Sostituisce tutti i dati attuali</b> (${n(S.vini)} vini, ${n(S.eventi)} operazioni). Se ti servono, scarica prima un backup di questi.</div>`}
     <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Ripristina</button></div>`,(b,close)=>{
     $('#ok',b).onclick=()=>{ delete o.esempio; S=o; UI.sel=null; UI.asOf=null; UI.dep=null; window.__ripristino=Date.now(); close(); location.hash='vasche'; refresh(); toast('Backup ripristinato'); }; }); }
+function confermaAzione(titolo,testo,etichetta,fn){ modal(titolo,`<p>${testo}</p><div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">${etichetta}</button></div>`,(b,close)=>{ $('#ok',b).onclick=()=>{ close(); fn(); }; }); }
 function leggiBackup(testo){ try{ const o=JSON.parse(testo); if(!o||!Array.isArray(o.eventi)||!Array.isArray(o.vini)) return null; return o; }catch(e){ return null; } }
 
 /* ===================== Annullare un lavoro programmato: stesso risultato da ovunque ===================== */
