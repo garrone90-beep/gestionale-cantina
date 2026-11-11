@@ -494,6 +494,14 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
   .work.hassel>.panel:first-child{padding-right:calc(min(380px,40vw) + 4px)}
   svg.map{max-height:calc(100vh - 200px);min-width:0}
 }
+
+/* perimetro del locale */
+.map .wall.perim{fill:none;}.map .wall.perim.pieno{fill:color-mix(in srgb,var(--surface) 70%,transparent)}.map .wall.perim{stroke:var(--steel);stroke-width:1.8px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.map .perim-draft{fill:none;stroke:var(--c2);stroke-width:2.5px;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none}
+.map .perim-pt{fill:var(--surface);stroke:var(--c2);stroke-width:2.5px;vector-effect:non-scaling-stroke;cursor:grab}
+.map .perim-pt.first{fill:var(--c2)}
+.map .perim-mid{fill:var(--c2);opacity:.55;cursor:copy}
+.map .perim-mid:hover{opacity:1}
 </style>
 
 <header class="top"><div class="in">
@@ -1251,10 +1259,19 @@ function mapSVG(dep){
   if(l.pianta){ const [x,y,w,h]=l.pianta.vb; vb=[Math.min(x,bx[0]-12),Math.min(y,bx[1]-12),Math.max(x+w,bx[2]+12),Math.max(y+h,bx[3]+12)]; walls=l.nascondiMuri?[]:l.pianta.walls; }
   else { vb=[bx[0]-26,bx[1]-26,bx[2]+26,bx[3]+26]; walls=sf?[]:[[bx[0]-14,bx[1]-14,bx[2]-bx[0]+28,bx[3]-bx[1]+28]]; }
   if(sf){ const h=sf.w*sf.ar; vb=[Math.min(vb[0],sf.x),Math.min(vb[1],sf.y),Math.max(vb[2],sf.x+sf.w),Math.max(vb[3],sf.y+h)]; }
+  /* perimetro disegnato dall'utente: sostituisce il rettangolo automatico */
+  const per=Array.isArray(l.perimetro)&&l.perimetro.length>=3?l.perimetro:null;
+  if(per){ if(!l.pianta) walls=[]; const xs=per.map(q=>q[0]), ys=per.map(q=>q[1]); vb=[Math.min(vb[0],Math.min(...xs)-14),Math.min(vb[1],Math.min(...ys)-14),Math.max(vb[2],Math.max(...xs)+14),Math.max(vb[3],Math.max(...ys)+14)]; }
+  const PE=UI.mapEdit&&UI.perim&&UI.perim.dep===dep?UI.perim:null; const hr=Math.max(4,(vb[2]-vb[0])/110);
+  if(PE&&PE.pts.length){ const xs=PE.pts.map(q=>q[0]), ys=PE.pts.map(q=>q[1]); vb=[Math.min(vb[0],Math.min(...xs)-10),Math.min(vb[1],Math.min(...ys)-10),Math.max(vb[2],Math.max(...xs)+10),Math.max(vb[3],Math.max(...ys)+10)]; }
+  const perOver=!PE?'':PE.modo==='disegna'?`<rect class="perim-hit" x="${vb[0]}" y="${vb[1]}" width="${vb[2]-vb[0]}" height="${vb[3]-vb[1]}" fill="transparent"/>
+      ${PE.pts.length>1?`<polyline class="perim-draft" points="${PE.pts.map(q=>q.join(',')).join(' ')}"/>`:''}${PE.pts.map((q,i)=>`<circle class="perim-pt${i===0?' first':''}" cx="${q[0]}" cy="${q[1]}" r="${(i===0?hr*1.4:hr).toFixed(1)}"/>`).join('')}`
+    :per?`${per.map((q,i)=>{ const n=per[(i+1)%per.length]; return `<circle class="perim-mid" data-pm="${i}" cx="${(q[0]+n[0])/2}" cy="${(q[1]+n[1])/2}" r="${(hr*0.8).toFixed(1)}"><title>Aggiungi un angolo qui</title></circle>`; }).join('')}${per.map((q,i)=>`<circle class="perim-pt" data-pv="${i}" cx="${q[0]}" cy="${q[1]}" r="${(hr*1.2).toFixed(1)}"><title>Trascina per spostare · doppio tocco per togliere</title></circle>`).join('')}`:'';
   return `<svg class="map" viewBox="${vb[0]} ${vb[1]} ${vb[2]-vb[0]} ${vb[3]-vb[1]}" role="img" aria-label="Pianta del locale ${esc(l.nome||'')} con ${contNome(dep)}">
     ${sf?`<image class="sfondo" href="${sf.img}" x="${sf.x}" y="${sf.y}" width="${sf.w}" height="${(sf.w*sf.ar).toFixed(2)}" opacity="${sf.op}" preserveAspectRatio="none"/>`:''}
     ${walls.map(([x,y,w,h])=>`<rect class="wall" x="${x}" y="${y}" width="${w}" height="${h}"/>`).join('')}
-    ${vsD.map(tankSVG).join('')}${GR.map(grpSVG).join('')}
+    ${per?`<polygon class="wall perim${sf?'':' pieno'}" points="${per.map(q=>q.join(',')).join(' ')}"/>`:''}
+    ${vsD.map(tankSVG).join('')}${GR.map(grpSVG).join('')}${perOver}
   </svg>`;
 }
 function vascaPanel(code){
@@ -1439,20 +1456,27 @@ function mapToolbar(DEP,cont){ const l=LOCMAP[DEP]||{}, sel=(UI.mapSelE||[]).fil
       <button class="btn sm ${UI.moveBg?'pri':''}" id="mp-mv">${UI.moveBg?'✓ Sto spostando lo sfondo':'Sposta sfondo'}</button>
       <button class="btn sm" id="mp-bgx" title="Nasconde la planimetria e lascia solo i contenitori. Resta salvata: la rimetti quando vuoi.">Rimuovi sfondo</button>`
       :l.sfondo?`<button class="btn sm" id="mp-bgon" title="Rimette la planimetria salvata sullo sfondo">Rimetti sfondo</button><button class="btn sm ghost" id="mp-bgdel">Elimina planimetria…</button>`:''}
-      ${l.pianta?`<label class="row" style="gap:4px"><input type="checkbox" id="mp-mu" ${l.nascondiMuri?'checked':''}> Nascondi la pianta disegnata</label>`:''}</div></div>`; }
+      ${l.pianta?`<label class="row" style="gap:4px"><input type="checkbox" id="mp-mu" ${l.nascondiMuri?'checked':''}> Nascondi la pianta disegnata</label>`:''}</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><span class="muted">Perimetro:</span>${(()=>{ const PE=UI.perim&&UI.perim.dep===DEP?UI.perim:null; const has=Array.isArray(l.perimetro)&&l.perimetro.length>=3;
+      if(PE&&PE.modo==='disegna') return `<span class="small"><b>Tocca gli angoli del locale</b> uno dopo l'altro${PE.pts.length?` (${PE.pts.length} punt${PE.pts.length===1?'o':'i'})`:''}; tocca il primo punto o «Chiudi» per finire.</span>
+        <label class="row small" style="gap:4px"><input type="checkbox" id="mp-po" ${UI.perimOrto!==false?'checked':''}> Angoli retti</label>
+        <button class="btn sm" id="mp-pu" ${PE.pts.length?'':'disabled'}>↶ Togli l'ultimo punto</button><button class="btn sm pri" id="mp-pc" ${PE.pts.length>=3?'':'disabled'}>Chiudi perimetro</button><button class="btn sm ghost" id="mp-px">Annulla</button>`;
+      if(PE&&PE.modo==='modifica') return `<span class="small">Trascina gli angoli; tocca un pallino piccolo per aggiungere un angolo; doppio tocco su un angolo per toglierlo.</span><button class="btn sm pri" id="mp-pf">Fine modifica perimetro</button>`;
+      return has?`<button class="btn sm" id="mp-pm">Modifica perimetro</button><button class="btn sm" id="mp-pd">Ridisegna</button><button class="btn sm ghost" id="mp-pt">Togli perimetro</button>`
+        :`<button class="btn sm" id="mp-pd" title="Tocca gli angoli del locale sulla planimetria: la pianta mostrerà questa forma al posto del rettangolo">Disegna il perimetro</button><span class="hint" style="margin:0">Senza perimetro la pianta mostra un rettangolo attorno ai contenitori.</span>`; })()}</div></div>`; }
 function mapPush(items,extra){ UI.mapUndo.push({items,...(extra||{})}); }
 function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE||[]).filter(c=>VMAP[c]&&VMAP[c].dep===DEP);
   const redraw=()=>{ save(); viewVasche(app); };
-  const snapLoc=()=>({layout:Object.fromEntries([...VASCHE.filter(v=>v.dep===DEP&&(S.layout||{})[v.code]).map(v=>v.code),...Object.keys(S.layout||{}).filter(k=>k.startsWith('grp:'+DEP+':'))].map(k=>[k,{...S.layout[k]}])),sfondo:l&&l.sfondo?{...l.sfondo}:null,muri:!!(l&&l.nascondiMuri)});
-  const lk=$('#mp-lock',app); if(lk) lk.onclick=()=>{ if(UI.mapEdit){ UI.mapEdit=false; UI.mapUndo=[]; UI.mapSelE=[]; UI.moveBg=false; UI.mapSnap=null; toast('Disposizione salvata'); } else { UI.mapEdit=true; UI.sel=null; UI.mapUndo=[]; UI.mapSelE=[]; UI.mapSnap={dep:DEP,...snapLoc()}; } redraw(); };
+  const snapLoc=()=>({layout:Object.fromEntries([...VASCHE.filter(v=>v.dep===DEP&&(S.layout||{})[v.code]).map(v=>v.code),...Object.keys(S.layout||{}).filter(k=>k.startsWith('grp:'+DEP+':'))].map(k=>[k,{...S.layout[k]}])),sfondo:l&&l.sfondo?{...l.sfondo}:null,sfOff:!!(l&&l.sfondoOff),per:l&&l.perimetro?JSON.parse(JSON.stringify(l.perimetro)):null,muri:!!(l&&l.nascondiMuri)});
+  const lk=$('#mp-lock',app); if(lk) lk.onclick=()=>{ if(UI.mapEdit){ if(UI.perim&&UI.perim.modo==='disegna'&&UI.perim.pts.length>=3&&UI.perim.dep===DEP){ UI.mapUndo.push({items:[],per:l.perimetro?JSON.parse(JSON.stringify(l.perimetro)):null}); l.perimetro=UI.perim.pts; } UI.perim=null; UI.mapEdit=false; UI.mapUndo=[]; UI.mapSelE=[]; UI.moveBg=false; UI.mapSnap=null; toast('Disposizione salvata'); } else { UI.mapEdit=true; UI.sel=null; UI.mapUndo=[]; UI.mapSelE=[]; UI.mapSnap={dep:DEP,...snapLoc()}; } redraw(); };
   if(!UI.mapEdit) return;
   const setLay=(code,val)=>{ S.layout=S.layout||{}; if(val) S.layout[code]=val; else delete S.layout[code]; };
   const cur=code=>{ const v=VMAP[code]; return {x:v.x,y:v.y,...((S.layout||{})[code]&&S.layout[code].r?{r:S.layout[code].r}:{})}; };
   const prevOf=code=>(S.layout||{})[code]?{...S.layout[code]}:null;
-  $('#mp-cancel',app).onclick=()=>{ const sn=UI.mapSnap; if(sn&&sn.dep===DEP){ VASCHE.filter(v=>v.dep===DEP).forEach(v=>setLay(v.code,sn.layout[v.code]||null)); Object.keys(S.layout||{}).filter(k=>k.startsWith('grp:'+DEP+':')).forEach(k=>setLay(k,null)); Object.keys(sn.layout).filter(k=>k.startsWith('grp:')).forEach(k=>setLay(k,sn.layout[k])); if(l){ if(sn.sfondo) l.sfondo=sn.sfondo; else delete l.sfondo; l.nascondiMuri=sn.muri; } }
-    UI.mapEdit=false; UI.mapUndo=[]; UI.mapSelE=[]; UI.moveBg=false; UI.mapSnap=null; redraw(); toast('Modifiche annullate'); };
+  $('#mp-cancel',app).onclick=()=>{ const sn=UI.mapSnap; if(sn&&sn.dep===DEP){ VASCHE.filter(v=>v.dep===DEP).forEach(v=>setLay(v.code,sn.layout[v.code]||null)); Object.keys(S.layout||{}).filter(k=>k.startsWith('grp:'+DEP+':')).forEach(k=>setLay(k,null)); Object.keys(sn.layout).filter(k=>k.startsWith('grp:')).forEach(k=>setLay(k,sn.layout[k])); if(l){ if(sn.sfondo) l.sfondo=sn.sfondo; else delete l.sfondo; l.nascondiMuri=sn.muri; if(sn.sfOff) l.sfondoOff=true; else delete l.sfondoOff; if(sn.per) l.perimetro=sn.per; else delete l.perimetro; } }
+    UI.perim=null; UI.mapEdit=false; UI.mapUndo=[]; UI.mapSelE=[]; UI.moveBg=false; UI.mapSnap=null; redraw(); toast('Modifiche annullate'); };
   $('#mp-undo',app).onclick=()=>{ const last=UI.mapUndo.pop(); if(!last) return; (last.items||[{code:last.code,prev:last.prev}]).slice().reverse().forEach(it=>setLay(it.code,it.prev));
-    if('sf' in last&&l){ if(last.sf) l.sfondo=last.sf; else delete l.sfondo; } if('muri' in last&&l) l.nascondiMuri=last.muri; redraw(); };
+    if('sf' in last&&l){ if(last.sf) l.sfondo=last.sf; else delete l.sfondo; } if('muri' in last&&l) l.nascondiMuri=last.muri; if('per' in last&&l){ if(last.per) l.perimetro=last.per; else delete l.perimetro; } redraw(); };
   const rs=$('#mp-reset',app); if(rs) rs.onclick=()=>modal('Ripristina disposizione',`<p>Le ${cont} di ${esc(locNome(DEP))} tornano nella posizione e dimensione originali. Puoi annullare con «↶ Annulla».</p><div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Ripristina</button></div>`,(b,close)=>{ $('#ok',b).onclick=()=>{ const it=VASCHE.filter(v=>v.dep===DEP&&(S.layout||{})[v.code]).map(v=>({code:v.code,prev:prevOf(v.code)})); it.forEach(x=>setLay(x.code,null)); mapPush(it); close(); redraw(); }; });
   $('#mp-auto',app).onclick=()=>modal('Disposizione automatica',`<p>Dispongo tutte le ${cont} di ${esc(locNome(DEP))} in una griglia ordinata per codice${VASCHE.some(v=>v.dep===DEP&&v.rec.gruppo)?' (una riga per fila)':''}, senza sovrapposizioni.${l&&l.pianta?' La pianta disegnata non verrà più rispettata: puoi nasconderla.':''} Puoi annullare con «↶ Annulla».</p><div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Disponi</button></div>`,(b,close)=>{ $('#ok',b).onclick=()=>{
       const vs=VASCHE.filter(v=>v.dep===DEP&&v.stato==='attivo'); const sv=$('svg.map',app); const vb=sv?sv.viewBox.baseVal:{x:40,y:40}; const it=vs.map(v=>({code:v.code,prev:prevOf(v.code)}));
@@ -1493,6 +1517,33 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
   // pointer: drag tanks (selection moves together) or background
   const svg=$('svg.map',app); if(!svg) return;
   const pt=e=>{ const m=svg.getScreenCTM().inverse(); const q=new DOMPoint(e.clientX,e.clientY).matrixTransform(m); return {x:q.x,y:q.y}; };
+  /* perimetro del locale */
+  { const perPrev=()=>({items:[],per:l.perimetro?JSON.parse(JSON.stringify(l.perimetro)):null});
+    const go=(id,f)=>{ const x=$(id,app); if(x) x.onclick=f; };
+    go('#mp-pd',()=>{ UI.perim={dep:DEP,modo:'disegna',pts:[]}; UI.moveBg=false; UI.mapSelE=[]; redraw(); });
+    go('#mp-pm',()=>{ UI.perim={dep:DEP,modo:'modifica',pts:[]}; UI.moveBg=false; UI.mapSelE=[]; redraw(); });
+    go('#mp-pf',()=>{ UI.perim=null; redraw(); });
+    go('#mp-px',()=>{ UI.perim=null; redraw(); });
+    go('#mp-pu',()=>{ if(UI.perim) UI.perim.pts.pop(); redraw(); });
+    go('#mp-pc',()=>{ const P=UI.perim; if(!P||P.pts.length<3) return; UI.mapUndo.push(perPrev()); l.perimetro=P.pts.map(q=>[Math.round(q[0]*10)/10,Math.round(q[1]*10)/10]); UI.perim=null; redraw(); toast('Perimetro salvato'); });
+    go('#mp-pt',()=>{ UI.mapUndo.push(perPrev()); delete l.perimetro; redraw(); toast('Perimetro tolto: torna il rettangolo automatico (con ↶ Annulla lo rimetti)'); });
+    const po=$('#mp-po',app); if(po) po.onchange=e=>{ UI.perimOrto=e.target.checked; };
+    const P=UI.perim&&UI.perim.dep===DEP?UI.perim:null;
+    if(P&&P.modo==='disegna'){ const vbw=svg.viewBox.baseVal.width; svg.style.cursor='crosshair';
+      svg.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); let {x,y}=pt(e); const pts=P.pts;
+        if(pts.length>=3){ const f=pts[0]; if(Math.hypot(x-f[0],y-f[1])<vbw/45){ $('#mp-pc',app).click(); return; } }
+        if(pts.length&&UI.perimOrto!==false){ const q=pts[pts.length-1], dx=x-q[0], dy=y-q[1]; if(Math.abs(dy)<Math.abs(dx)*0.14) y=q[1]; else if(Math.abs(dx)<Math.abs(dy)*0.14) x=q[0];
+          if(pts.length>=2){ const f=pts[0]; if(Math.abs(x-f[0])<vbw/80) x=f[0]; if(Math.abs(y-f[1])<vbw/80) y=f[1]; } }
+        pts.push([x,y]); redraw(); },true);
+      return; }
+    if(P&&P.modo==='modifica'&&l.perimetro){
+      $$('[data-pm]',svg).forEach(c=>c.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); const i=+c.dataset.pm, a=l.perimetro[i], n=l.perimetro[(i+1)%l.perimetro.length]; UI.mapUndo.push(perPrev()); l.perimetro.splice(i+1,0,[(a[0]+n[0])/2,(a[1]+n[1])/2]); redraw(); }));
+      $$('[data-pv]',svg).forEach(c=>{ c.addEventListener('dblclick',e=>{ e.preventDefault(); if(l.perimetro.length<=3) return toast('Servono almeno 3 angoli'); UI.mapUndo.push(perPrev()); l.perimetro.splice(+c.dataset.pv,1); redraw(); });
+        c.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); const i=+c.dataset.pv, p0=pt(e), q0=[...l.perimetro[i]], prev=perPrev(); let mosso=false; c.setPointerCapture(e.pointerId); const poly=$('polygon.perim',svg);
+          const mv=ev=>{ const p=pt(ev); const nx=q0[0]+p.x-p0.x, ny=q0[1]+p.y-p0.y; if(Math.abs(p.x-p0.x)+Math.abs(p.y-p0.y)>0.5) mosso=true; l.perimetro[i]=[nx,ny]; c.setAttribute('cx',nx); c.setAttribute('cy',ny); if(poly) poly.setAttribute('points',l.perimetro.map(q=>q.join(',')).join(' ')); };
+          const up=()=>{ c.removeEventListener('pointermove',mv); c.removeEventListener('pointerup',up); if(mosso){ l.perimetro[i]=l.perimetro[i].map(v=>Math.round(v*10)/10); UI.mapUndo.push(prev); redraw(); } };
+          c.addEventListener('pointermove',mv); c.addEventListener('pointerup',up); }); });
+      return; } }
   if(UI.moveBg&&l.sfondo){ svg.style.cursor='move'; svg.addEventListener('pointerdown',e=>{ e.preventDefault(); const p0=pt(e), s0={...l.sfondo}; const im=$('image.sfondo',app); svg.setPointerCapture(e.pointerId);
       const mv=ev=>{ const p=pt(ev); im.setAttribute('x',s0.x+p.x-p0.x); im.setAttribute('y',s0.y+p.y-p0.y); };
       const up=ev=>{ svg.removeEventListener('pointermove',mv); svg.removeEventListener('pointerup',up); const p=pt(ev); if(Math.abs(p.x-p0.x)+Math.abs(p.y-p0.y)<0.5) return; l.sfondo.x=Math.round(s0.x+p.x-p0.x); l.sfondo.y=Math.round(s0.y+p.y-p0.y); UI.mapUndo.push({items:[],sf:s0}); redraw(); };
