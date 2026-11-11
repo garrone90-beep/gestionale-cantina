@@ -2918,7 +2918,7 @@ function formLavorazione(p={},corrId){
     })();
     $('#fl',b).onsubmit=sub=>{
       sub.preventDefault(); const msg=$('#msg',b); msg.textContent='';
-      upd(); if($('.a-vw',b)){ $('.a-vw',b).scrollIntoView({block:'center'}); msg.textContent='Un prodotto è assegnato a una vasca che non è più tra quelle trattate: scegli a quale vasca va.'; return; }
+      aggVasche(); if($('.a-vw',b)){ $('.a-vw',b).scrollIntoView({block:'center'}); msg.textContent='Un prodotto è assegnato a una vasca che non è più tra quelle trattate: scegli a quale vasca va.'; return; }
       const data=$('#l-data',b).value; if(!data){msg.textContent='Inserisci la data.';return;}
       const tr=readTratte();
       for(const [i,t] of tr.entries()){
