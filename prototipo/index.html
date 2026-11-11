@@ -1245,7 +1245,7 @@ function mapSVG(dep){
   const GR=gruppiPianta(dep), inG=new Set(GR.flatMap(g=>g.vs.map(v=>v.code))), vsD=vs.filter(v=>!inG.has(v.code));
   const bxs=[...vsD.map(v=>[v.x-v.r,v.y-v.r,v.x+v.r,v.y+v.r]),...GR.map(g=>[g.x-GRP_W/2,g.y-GRP_H/2,g.x+GRP_W/2,g.y+GRP_H/2])];
   const bx=[Math.min(...bxs.map(b=>b[0])),Math.min(...bxs.map(b=>b[1])),Math.max(...bxs.map(b=>b[2])),Math.max(...bxs.map(b=>b[3]))];
-  let walls, vb; const sf=l.sfondo;
+  let walls, vb; const sf=l.sfondo&&!l.sfondoOff?l.sfondo:null; /* sfondo tolto: resta salvato e si può rimettere */
   if(l.pianta){ const [x,y,w,h]=l.pianta.vb; vb=[Math.min(x,bx[0]-12),Math.min(y,bx[1]-12),Math.max(x+w,bx[2]+12),Math.max(y+h,bx[3]+12)]; walls=l.nascondiMuri?[]:l.pianta.walls; }
   else { vb=[bx[0]-26,bx[1]-26,bx[2]+26,bx[3]+26]; walls=sf?[]:[[bx[0]-14,bx[1]-14,bx[2]-bx[0]+28,bx[3]-bx[1]+28]]; }
   if(sf){ const h=sf.w*sf.ar; vb=[Math.min(vb[0],sf.x),Math.min(vb[1],sf.y),Math.max(vb[2],sf.x+sf.w),Math.max(vb[3],sf.y+h)]; }
@@ -1412,7 +1412,7 @@ function bindFile(app,dep,pick){
   $$('[data-fpick]',app).forEach(x=>x.onclick=()=>pick(UI.sel===x.dataset.fpick?null:x.dataset.fpick));
   $$('[data-flav]',app).forEach(x=>x.onclick=e=>{ e.stopPropagation(); formLavorazione({vasche:x.dataset.flav.split(',')}); }); }
 /* ===================== Editor della disposizione (REG-PLAN-02/03) ===================== */
-function mapToolbar(DEP,cont){ const l=LOCMAP[DEP]||{}, sel=(UI.mapSelE||[]).filter(c=>VMAP[c]&&VMAP[c].dep===DEP), sf=l.sfondo; const L=S.layout||{};
+function mapToolbar(DEP,cont){ const l=LOCMAP[DEP]||{}, sel=(UI.mapSelE||[]).filter(c=>VMAP[c]&&VMAP[c].dep===DEP), sf=l.sfondo&&!l.sfondoOff?l.sfondo:null; const L=S.layout||{};
   const hasOv=VASCHE.some(v=>v.dep===DEP&&L[v.code]);
   return `<div class="box warn small" style="margin:8px 0;display:flex;flex-direction:column;gap:8px">
     <div><b>Modifica disposizione:</b> trascina le ${cont} per spostarle; toccale per selezionarne più di una e spostarle insieme, allinearle o cambiarne la dimensione. Nulla di questo tocca giacenze od operazioni.</div>
@@ -1430,12 +1430,13 @@ function mapToolbar(DEP,cont){ const l=LOCMAP[DEP]||{}, sel=(UI.mapSelE||[]).fil
       <button class="btn sm" id="mp-auto">Disposizione automatica</button>
       ${hasOv?'<button class="btn sm ghost" id="mp-reset">Ripristina disposizione originale</button>':''}
       <span class="muted" style="margin-left:8px">Planimetria:</span>
-      <label class="btn sm" style="cursor:pointer">${sf?'Sostituisci':'Carica'} immagine o PDF<input type="file" id="mp-bg" accept="image/*,.pdf,application/pdf" hidden></label>
+      <label class="btn sm" style="cursor:pointer">${l.sfondo?'Sostituisci':'Carica'} immagine o PDF<input type="file" id="mp-bg" accept="image/*,.pdf,application/pdf" hidden></label>
       <button class="btn sm pri" id="mp-dp" title="Mette le ${cont} al loro posto leggendo la piantina">Disponi dalla piantina…</button>
       ${sf?`<label class="row" style="gap:4px">Opacità <input type="range" id="mp-op" min="0.1" max="1" step="0.05" value="${sf.op}" style="width:90px"></label>
       <label class="row" style="gap:4px">Dimensione <input type="range" id="mp-sc" min="20" max="400" step="1" value="${Math.round(sf.w/sf.w0*100)}" style="width:110px"></label>
       <button class="btn sm ${UI.moveBg?'pri':''}" id="mp-mv">${UI.moveBg?'✓ Sto spostando lo sfondo':'Sposta sfondo'}</button>
-      <button class="btn sm ghost" id="mp-bgx">Rimuovi</button>`:''}
+      <button class="btn sm" id="mp-bgx" title="Nasconde la planimetria e lascia solo i contenitori. Resta salvata: la rimetti quando vuoi.">Rimuovi sfondo</button>`
+      :l.sfondo?`<button class="btn sm" id="mp-bgon" title="Rimette la planimetria salvata sullo sfondo">Rimetti sfondo</button><button class="btn sm ghost" id="mp-bgdel">Elimina planimetria…</button>`:''}
       ${l.pianta?`<label class="row" style="gap:4px"><input type="checkbox" id="mp-mu" ${l.nascondiMuri?'checked':''}> Nascondi la pianta disegnata</label>`:''}</div></div>`; }
 function mapPush(items,extra){ UI.mapUndo.push({items,...(extra||{})}); }
 function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE||[]).filter(c=>VMAP[c]&&VMAP[c].dep===DEP);
@@ -1474,7 +1475,7 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
   // sfondo
   const bg=$('#mp-bg',app); if(bg) bg.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; toast('Preparo la planimetria…');
     try{ const {img,w,h}=await planimetriaDa(f); const sv=$('svg.map',app); const vb=sv.viewBox.baseVal; const prev=l.sfondo?{...l.sfondo}:null;
-      const W=vb.width; l.sfondo={img,w0:W,w:W,ar:h/w,x:vb.x,y:vb.y,op:0.5,nome:f.name};
+      const W=vb.width; l.sfondo={img,w0:W,w:W,ar:h/w,x:vb.x,y:vb.y,op:0.5,nome:f.name}; delete l.sfondoOff;
       try{ localStorage.setItem(LS_KEY,JSON.stringify(S)); }catch(err){ if(err&&(err.name==='QuotaExceededError'||err.code===22||err.code===1014)){ if(prev) l.sfondo=prev; else delete l.sfondo; return toast('Immagine troppo grande per la memoria del browser: prova con un file più leggero'); } }
       UI.mapUndo.push({items:[],sf:prev}); redraw(); toast('Planimetria caricata: regola dimensione e posizione, poi sistema le '+cont); }
     catch(err){ toast(err.message||'Non riesco a leggere il file'); } };
@@ -1483,7 +1484,9 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
   const sc=$('#mp-sc',app); if(sc){ let p0=null; sc.onpointerdown=()=>{ p0={...l.sfondo}; }; sc.oninput=e=>{ l.sfondo.w=Math.round(l.sfondo.w0*(+e.target.value)/100*10)/10; const im=$('image.sfondo',app); if(im){ im.setAttribute('width',l.sfondo.w); im.setAttribute('height',l.sfondo.w*l.sfondo.ar); } };
     sc.onchange=()=>{ UI.mapUndo.push({items:[],sf:p0||{...l.sfondo}}); p0=null; redraw(); }; }
   const mvb=$('#mp-mv',app); if(mvb) mvb.onclick=()=>{ UI.moveBg=!UI.moveBg; viewVasche(app); };
-  const bx=$('#mp-bgx',app); if(bx) bx.onclick=()=>{ UI.mapUndo.push({items:[],sf:{...l.sfondo}}); delete l.sfondo; UI.moveBg=false; redraw(); };
+  const bx=$('#mp-bgx',app); if(bx) bx.onclick=()=>{ l.sfondoOff=true; UI.moveBg=false; redraw(); toast('Sfondo rimosso dalla pianta: resta salvato, lo rimetti con «Rimetti sfondo»'); };
+  const bon=$('#mp-bgon',app); if(bon) bon.onclick=()=>{ delete l.sfondoOff; redraw(); };
+  const bdel=$('#mp-bgdel',app); if(bdel) bdel.onclick=()=>modal('Elimina planimetria',`<p>Cancello l'immagine della planimetria di ${esc(l.nome||'questo locale')}. Le posizioni dei contenitori restano come sono.</p><p class="hint">Se vuoi solo non vederla, basta «Rimuovi sfondo». Per riaverla dopo l'eliminazione dovrai caricare di nuovo il file.</p><div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Elimina</button></div>`,(b,close)=>{ $('#ok',b).onclick=()=>{ UI.mapUndo.push({items:[],sf:{...l.sfondo}}); delete l.sfondo; delete l.sfondoOff; close(); redraw(); }; });
   const mu=$('#mp-mu',app); if(mu) mu.onchange=e=>{ UI.mapUndo.push({items:[],muri:!!l.nascondiMuri}); l.nascondiMuri=e.target.checked; redraw(); };
   // pointer: drag tanks (selection moves together) or background
   const svg=$('svg.map',app); if(!svg) return;
