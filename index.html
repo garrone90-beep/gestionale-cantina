@@ -1216,7 +1216,7 @@ function route(){
   if(h.startsWith('lotto-')) return viewLotto(app,h.slice(6));
   ({prodotti:viewProdotti,locali:viewLocali,vasche:viewVasche,vendemmia:viewVendemmia,lavori:viewLavori,vini:viewVini,inventario:viewInventario,imbottigliamenti:viewImb,registro:viewRegistro,dati:viewDati}[h]||viewVasche)(app);
 }
-window.addEventListener('hashchange',route);
+window.addEventListener('hashchange',e=>{ const da=(e.oldURL||'').split('#')[1]||'', a=(location.hash||'').slice(1); if(a==='locali'&&da!=='locali'){ UI.locAperti=new Set(); UI.locOpen=null; UI.archOpen=null; } route(); });
 function refresh(){ lavCheckPend(); save(); route(); }
 
 /* ===================== Vista: vasche ===================== */
@@ -4097,7 +4097,7 @@ function viewLocali(app){
         <button class="btn sm" data-led="${esc(l.id)}">Modifica locale</button>
         <button class="btn sm" data-lst="${esc(l.id)}">${l.stato==='disattivo'?'Riattiva':'Disattiva'}</button>
         ${vs.length?'':`<button class="btn sm" data-lrm="${esc(l.id)}">Rimuovi</button>`}</div></div>
-      ${vs.length?`<details ${vs.length<=12||UI.locOpen===l.id?'open':''} style="margin-top:8px"><summary class="small" style="cursor:pointer">Elenco dei ${vs.length} contenitori</summary>${selBarHTML(l,vs)}<div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th><input type="checkbox" class="csel-all" data-l="${esc(l.id)}" aria-label="Seleziona tutti"></th><th>Codice</th><th>Tipo</th><th class="r">Nominale</th><th class="r">Operativa</th><th>Posizione</th><th>Contenuto</th><th>Note</th><th></th></tr></thead><tbody>${vs.map(riga).join('')}</tbody></table></div></details>`:'<p class="muted small" style="margin-top:8px">Nessun contenitore attivo: aggiungili con «+ Aggiungi contenitore».</p>'}
+      ${vs.length?`<details data-lsto="${esc(l.id)}" ${UI.locOpen===l.id||(UI.locAperti&&UI.locAperti.has(l.id))?'open':''} style="margin-top:8px"><summary class="small" style="cursor:pointer">Elenco dei ${vs.length} contenitori</summary>${selBarHTML(l,vs)}<div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th><input type="checkbox" class="csel-all" data-l="${esc(l.id)}" aria-label="Seleziona tutti"></th><th>Codice</th><th>Tipo</th><th class="r">Nominale</th><th class="r">Operativa</th><th>Posizione</th><th>Contenuto</th><th>Note</th><th></th></tr></thead><tbody>${vs.map(riga).join('')}</tbody></table></div></details>`:'<p class="muted small" style="margin-top:8px">Nessun contenitore attivo: aggiungili con «+ Aggiungi contenitore».</p>'}
       ${arch(l)}</div>`; }).join('')}`;
   $('#lo-new',app).onclick=()=>formLocale(); selBind(app,()=>viewLocali(app));
   $$('[data-led]',app).forEach(x=>x.onclick=()=>formLocale(LOCMAP[x.dataset.led]));
@@ -4106,6 +4106,8 @@ function viewLocali(app){
   $$('[data-cimp]',app).forEach(x=>x.onclick=()=>{ UI.locOpen=x.dataset.cimp; formImportCont(x.dataset.cimp); });
   $$('[data-cser]',app).forEach(x=>x.onclick=()=>{ UI.locOpen=x.dataset.cser; formSerie(x.dataset.cser); });
   $$('[data-cact]',app).forEach(x=>x.onclick=()=>{ UI.locOpen=VMAP[x.dataset.cact].dep; menuContenitore(x.dataset.cact); });
+  UI.locAperti=UI.locAperti||new Set(); if(UI.locOpen){ UI.locAperti.add(UI.locOpen); UI.locOpen=null; }
+  $$('[data-lsto]',app).forEach(d=>d.ontoggle=()=>{ if(d.open) UI.locAperti.add(d.dataset.lsto); else UI.locAperti.delete(d.dataset.lsto); });
   $$('[data-arch]',app).forEach(d=>d.ontoggle=()=>{ if(d.open) UI.archOpen=d.dataset.arch; else if(UI.archOpen===d.dataset.arch) UI.archOpen=null; });
   $$('[data-archf]',app).forEach(x=>x.onclick=()=>{ UI.archF=x.dataset.archf; UI.archOpen=x.dataset.archl; viewLocali(app); });
   $$('[data-crea]',app).forEach(x=>x.onclick=()=>{ const v=VMAP[x.dataset.crea];
