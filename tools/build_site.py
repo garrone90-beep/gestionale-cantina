@@ -49,7 +49,7 @@ if '<title>' not in s:
 # icona e apertura a schermo intero quando il sito si aggiunge alla schermata Home (uguale per tutte le cantine)
 TESTA = ('<link rel="manifest" href="/manifest.webmanifest">'
          '<link rel="icon" type="image/png" sizes="32x32" href="/icone/icona-32.png">'
-         '<link rel="apple-touch-icon" href="/icone/icona-180.png">'
+         '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">'
          '<meta name="theme-color" content="#620123">'
          '<meta name="apple-mobile-web-app-capable" content="yes">'
          '<meta name="mobile-web-app-capable" content="yes">'

@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>Cantina Pratica</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" type="image/png" sizes="32x32" href="/icone/icona-32.png"><link rel="apple-touch-icon" href="/icone/icona-180.png"><meta name="theme-color" content="#620123"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Cantina"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Cantina Pratica</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" type="image/png" sizes="32x32" href="/icone/icona-32.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><meta name="theme-color" content="#620123"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Cantina"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap">
@@ -548,7 +548,7 @@ body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 </style>
 
 <header class="top"><div class="in">
-  <div class="brand"><h1>Gestionale di cantina</h1><small>Prototipo v0.4</small></div>
+  <div class="brand"><h1>Cantina Pratica</h1><small>Prototipo v0.4</small></div>
   <nav id="nav">
     <a href="#vasche">Vasche</a><a href="#vendemmia">Vendemmia</a><a href="#lavori">Lavori</a><a href="#vini">Vini</a><a href="#inventario">Inventario</a><a href="#imbottigliamenti">Imbottigliamenti</a><a href="#registro">Registro</a><a href="#dati">Dati</a>
   </nav>
@@ -728,9 +728,9 @@ function applicaCfg(cfg){ const c=JSON.parse(JSON.stringify(cfg));
   if(!Array.isArray(S.locali)||!S.locali.length) S.locali=[...(S.locali||[]),...(c.locali||[])]; if(!Array.isArray(S.recipienti)||!S.recipienti.length) S.recipienti=c.recipienti||[]; }
 /* dati esistenti senza «azienda» = dati di Cantine Garrone di prima del passo 6 */
 function migraAzienda(){ if(!S) return; if(!S.azienda&&haDati(S)){ applicaCfg(CFG_GARRONE()); S.profilo='garrone'; } NOSTRO=(S.azienda&&S.azienda.ragione)||'Vino nostro'; }
-const azNome = ()=>(S&&S.azienda&&S.azienda.nome)||'Gestionale di cantina';
+const azNome = ()=>(S&&S.azienda&&S.azienda.nome)||'Cantina Pratica';
 function applyBrand(){ const n=azNome(), sg=(S&&S.azienda&&S.azienda.sigla)||n.split(/\s+/).filter(w=>w.length>2).map(w=>w[0]).join('').slice(0,3).toUpperCase()||'GC';
-  document.title=S&&S.azienda?'Gestionale · '+n:'Gestionale di cantina'; const h=document.querySelector('.brand h1'); if(h) h.textContent=n; const mk=document.querySelector('.brand-mark'); if(mk) mk.textContent=sg; }
+  document.title=S&&S.azienda?'Cantina Pratica · '+n:'Cantina Pratica'; const h=document.querySelector('.brand h1'); if(h) h.textContent=n; const mk=document.querySelector('.brand-mark'); if(mk) mk.textContent=sg; }
 
 /* ===================== Esempio iniziale ===================== */
 function seed(){
@@ -3860,7 +3860,7 @@ async function schedaPDF(code){
   if(D.ans.length) tab(['Data',...cols],D.ans.map(a=>[fd(a.data)+(a.stimata?' (stimata)':''),...cols.map(k=>anVal(a,k))]),{styles:{fontSize:7.5,cellPadding:1.2}}); else para('Nessuna analisi.');
   if(w.note){ head('Note del vino'); para(w.note); }
   head('Note'); doc.setDrawColor(190); for(let k=0;k<5&&y<285;k++){ y+=7; doc.line(M,y,W-M,y); }
-  const n=doc.getNumberOfPages(); for(let p=1;p<=n;p++){ doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.text(T('Gestionale di cantina · pagina '+p+' di '+n),W-M,292,{align:'right'}); }
+  const n=doc.getNumberOfPages(); for(let p=1;p<=n;p++){ doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.text(T('Cantina Pratica · pagina '+p+' di '+n),W-M,292,{align:'right'}); }
   const nome=('Scheda '+vlab(code)+' '+vName(s.vino)+' '+asOf()).replace(/[^\w\-. àèéìòù]/g,'').replace(/\s+/g,'_')+'.pdf';
   const url=URL.createObjectURL(doc.output('blob'));
   modal('Scheda PDF · '+vlab(code),`<p class="small">Il PDF è pronto. Usa «Scarica PDF», oppure le icone del visualizzatore qui sotto per stampare o salvare.</p>
@@ -5551,7 +5551,7 @@ route();
   if(brand){ const h=brand.querySelector('h1'), sm=brand.querySelector('small');
     const row=document.createElement('div'); row.className='brand-row'; row.innerHTML='<span class="brand-mark" aria-hidden="true"></span>';
     const txt=document.createElement('div'); txt.style.minWidth='0'; txt.append(h); if(sm) txt.append(sm); row.append(txt); brand.prepend(row);
-    h.textContent=(typeof azNome==='function'?azNome():'Gestionale di cantina'); if(sm) sm.textContent='Gestionale di cantina'; if(typeof applyBrand==='function') applyBrand(); }
+    h.textContent=(typeof azNome==='function'?azNome():'Cantina Pratica'); if(sm) sm.textContent='Cantina Pratica'; if(typeof applyBrand==='function') applyBrand(); }
   const app=document.getElementById('app'); let quietT;
   app.classList.add('ui-quiet');
   window.addEventListener('hashchange',()=>{ app.classList.remove('ui-quiet'); clearTimeout(quietT); quietT=setTimeout(()=>app.classList.add('ui-quiet'),450); });
