@@ -2231,7 +2231,17 @@ function formConvalida(l){
    ${lavDiffHTML(l)}
    <p>La convalida chiude il lavoro. ${T.reg?'Per aggiornare giacenze e storico apri il modulo dell\'operazione vera, già compilato con i dati del lavoro (e con quelli dichiarati, se diversi): controllalo e salvalo. Il lavoro risulta convalidato solo dopo il salvataggio.':'Questa tipologia di solito non produce movimenti di vino.'}</p>
    <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn" id="cv-no">Convalida senza registrare</button>${T.reg?`<button class="btn pri" id="cv-reg">Registra ${T.reg==='an'?'l\'analisi':'l\'operazione'}…</button>`:''}</div>`,(b,close)=>{
-    $('#cv-no',b).onclick=()=>{ l.convalida={il:new Date().toISOString(),ev:null}; lavLog(l,'convalidato','Convalidato senza registrare operazioni'); close(); refresh(); toast('Lavoro convalidato'); };
+    const chiudi=()=>{ l.convalida={il:new Date().toISOString(),ev:null}; lavLog(l,'convalidato','Convalidato senza registrare operazioni'); refresh(); toast('Lavoro convalidato'); };
+    $('#cv-no',b).onclick=()=>{ const mv=lavMov(l), ps=(l.prodotti||[]).filter(p=>p.prodotto);
+      if(!mv.length&&!ps.length){ close(); chiudi(); return; }
+      close();
+      const cosa=[...mv.map(m=>`${esc(vlab(m.da))} → ${m.a==='?'?'da concordare':esc(vlab(m.a))}`),...ps.map(p=>`${esc(p.prodotto)} su ${esc(elencoV(prodSu(l,p)))||'—'}`)];
+      modal('Convalida senza registrare',`<p>Questo lavoro prevedeva:</p><ul>${cosa.map(x=>`<li>${x}</li>`).join('')}</ul>
+        <div class="box warn" style="color:var(--ink)">Convalidando senza registrare, giacenze, contenuti delle vasche e storico delle aggiunte <b>non cambiano</b>.</div>
+        <p>Fallo solo se l'operazione è già registrata (dalla vasca o da Lavorazione) oppure se non è stata fatta così.</p>
+        <div class="foot"><button class="btn" data-close>Torna indietro</button><button class="btn pri" id="cvn-ok">Sì, chiudi senza registrare</button></div>`,(b2,close2)=>{
+        $('#cvn-ok',b2).onclick=()=>{ close2(); chiudi(); };
+        $$('[data-close]',b2).forEach(x=>x.addEventListener('click',()=>setTimeout(()=>formConvalida(l),0))); }); };
     const r=$('#cv-reg',b); if(r) r.onclick=()=>{ close(); apriRegistrazione(l); };
   });
 }
