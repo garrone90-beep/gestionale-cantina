@@ -100,6 +100,11 @@
   async function pushOp(){ const S=getS(); if(!S||opIn) return; opIn=true;
     try{ for(const l of (S.lavori||[])){ if(!l||l.id==null) continue; const s=JSON.stringify(l); if(opSnap[l.id]===s) continue;
         const prima=opSnap[l.id]?JSON.parse(opSnap[l.id]):null;
+        if(!prima&&l.segnalazione){ /* nuova segnalazione */
+          try{ const sg=l.segnalazione; const j=await chiamaOp({azione:'segnala',segnalazione:{id:l.id,testo:sg.testo,vasche:l.vasche||[],locale:sg.locale||'',urgente:!!sg.urgente,giaFatto:!!sg.giaFatto}});
+            const i=S.lavori.indexOf(l); S.lavori[i]=j.lavoro; opSnap[j.lavoro.id]=JSON.stringify(j.lavoro); avviso('Segnalazione inviata al responsabile'); try{ window.route(); }catch(x){} }
+          catch(e){ avviso('Segnalazione non inviata: riprovo tra poco'+(navigator.onLine?'':' (senza connessione)')); setTimeout(()=>window.save(),10000); }
+          continue; }
         if(prima&&['dafare','incorso'].includes(prima.stato)&&['eseguito','noneseguito'].includes(l.stato)){
           const nota=((l.storia||[]).slice(-1)[0]||{}).nota||'';
           try{ const j=await chiamaOp({azione:'dichiara',id:l.id,stato:l.stato,esec:l.esec,nota}); Object.assign(l,j.lavoro); opSnap[l.id]=JSON.stringify(l); avviso('Inviato al responsabile'); }
@@ -109,7 +114,7 @@
       try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){}
     } finally{ opIn=false; } }
   async function ricaricaOp(){ const S=getS(); if(!S||opT||opIn||document.querySelector('.ov')) return;
-    if((S.lavori||[]).some(l=>l&&opSnap[l.id]!==undefined&&opSnap[l.id]!==JSON.stringify(l)&&['eseguito','noneseguito'].includes(l.stato))) return;
+    if((S.lavori||[]).some(l=>l&&((opSnap[l.id]!==undefined&&opSnap[l.id]!==JSON.stringify(l)&&['eseguito','noneseguito'].includes(l.stato))||(opSnap[l.id]===undefined&&l.segnalazione)))) return;
     try{ const j=await chiamaOp({azione:'carica'}); if(opT||opIn) return; S.lavori=j.lavori||[]; S.vini=j.vini||[]; Object.assign(S,j.S||{}); opFoto(S);
       try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} try{ window.route(); }catch(e){} }catch(e){} }
 

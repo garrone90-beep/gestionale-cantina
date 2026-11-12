@@ -1,6 +1,6 @@
 // Gestionale di cantina — funzione per gli operatori (e per gli inviti degli amministratori).
 // L'operatore NON legge né scrive direttamente il database: questa funzione gli dà solo i suoi lavori
-// (con i dati che servono a mostrarli) e accetta da lui solo «fatto» / «non fatto».
+// (con i dati che servono a mostrarli) e accetta da lui solo «fatto» / «non fatto» e le segnalazioni.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const CORS = {
@@ -63,8 +63,10 @@ Deno.serve(async (req: Request) => {
     const { data: rec, error } = await adm.from("record").select("id,data").eq("tipo", "lavoro").range(0, 9999);
     if (error) return out({ code: "db_error", message: error.message }, 500);
     const da = new Date(Date.now() - 14 * 864e5).toISOString();
-    const lavori = (rec ?? []).map((r: any) => r.data).filter((l: any) => suo(l) &&
-      (APERTI.includes(l.stato) || (["eseguito", "noneseguito"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da)));
+    const da30 = new Date(Date.now() - 30 * 864e5).toISOString();
+    const lavori = (rec ?? []).map((r: any) => r.data).filter((l: any) => l && ((suo(l) &&
+      (APERTI.includes(l.stato) || (["eseguito", "noneseguito"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da))) ||
+      (l.segnalazione && norm(l.segnalazione.da) === nome && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30)));
     const { data: imp } = await adm.from("impostazioni").select("chiave,valore").in("chiave", IMP);
     const ids = new Set<string>();
     lavori.forEach((l: any) => [l.rif?.vasche, l.attuale?.vasche].forEach((o: any) => Object.values(o ?? {}).forEach((x: any) => { if (x?.vino) ids.add(String(x.vino)); })));
@@ -76,6 +78,33 @@ Deno.serve(async (req: Request) => {
     const S: Record<string, unknown> = {};
     (imp ?? []).forEach((r: any) => { S[r.chiave] = r.valore; });
     return out({ nome: prof.nome, S, lavori, vini });
+  }
+
+
+  /* segnalazione: l'operatore avvisa il responsabile di qualcosa da fare (non cambia la cantina) */
+  if (az === "segnala") {
+    const x = body.segnalazione ?? {};
+    const testo = txt(x.testo, 1000).trim();
+    if (!testo) return out({ code: "bad_request", message: "Scrivi cosa c'è da fare" }, 400);
+    const vasche = (Array.isArray(x.vasche) ? x.vasche : []).slice(0, 200).map((c: unknown) => txt(c, 40)).filter(Boolean);
+    const { data: rec, error } = await adm.from("record").select("id,data").eq("tipo", "lavoro").range(0, 9999);
+    if (error) return out({ code: "db_error", message: error.message }, 500);
+    const cid = String(x.id ?? "");
+    const esiste = (rec ?? []).find((r: any) => r.id === cid);
+    if (esiste && esiste.data?.segnalazione && norm(esiste.data.segnalazione.da) === nome) return out({ ok: true, lavoro: esiste.data }); /* già arrivata (invio ripetuto) */
+    const id = /^[a-z0-9]{6,40}$/i.test(cid) && !esiste ? cid : crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+    const n = (rec ?? []).reduce((m: number, r: any) => Math.max(m, Number(String(r.data?.num ?? "").replace(/\D/g, "")) || 0), 0) + 1;
+    const now = new Date().toISOString(), gia = !!x.giaFatto, urg = !!x.urgente;
+    const l: any = { id, num: "L" + String(n).padStart(4, "0"), titolo: testo.split("\n")[0].slice(0, 80), tipo: "Operazione generica", data: "", ora: "",
+      priorita: urg ? "alta" : "normale", assegnato: "", vasche, mov: [], prodotti: [], istruzioni: testo, _v: 2,
+      segnalazione: { da: prof.nome, il: now, testo, locale: txt(x.locale, 60), urgente: urg, giaFatto: gia },
+      stato: gia ? "eseguito" : "segnalato", creatoIl: now, modificatoIl: now,
+      storia: [{ il: now, stato: "segnalato", nota: "Segnalato da " + prof.nome }] };
+    if (gia) { l.esec = { il: now, da: prof.nome, note: "Fatto da chi l'ha segnalato", comePrevisto: true, diff: "", mov: null, prodotti: null, spunte: null, dichiaratoIl: now };
+      l.storia.push({ il: now, stato: "eseguito", nota: "Fatto — dichiarato da " + prof.nome }); }
+    const { error: ie } = await adm.from("record").insert({ tipo: "lavoro", id, data: l });
+    if (ie) return out({ code: "db_error", message: ie.message }, 500);
+    return out({ ok: true, lavoro: l });
   }
 
   if (az === "dichiara") {

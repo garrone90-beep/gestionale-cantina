@@ -542,6 +542,7 @@ body.op-only #bk-ban,body.op-only .ban-esempio{display:none!important}
 body.op-only{padding-left:0!important;padding-bottom:0!important}
 body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 .op-top{margin:4px 0 8px}
+.chip.segn{background:#E3EEF7;color:#2D5F8A;border-color:transparent}
 .op-act{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:sticky;bottom:0;padding:12px 0;background:var(--bg);margin-top:12px}
 .op-act .btn{min-height:58px;font-size:1.15rem}
 </style>
@@ -1279,7 +1280,7 @@ window.addEventListener('hashchange',e=>{ const da=(e.oldURL||'').split('#')[1]|
 function refresh(){ lavCheckPend(); try{ lavAttuale(); }catch(e){} save(); route(); }
 
 /* ===================== Vista: vasche ===================== */
-const BADGE_IC={hour:'<path d="M7 3h10M7 21h10M8 3c0 5.5 8 6 8 9s-8 3.5-8 9M16 3c0 5.5-8 6-8 9s8 3.5 8 9"/>',
+const BADGE_IC={flag:'<path d="M7 21V4M7 4h10l-2.5 4L17 12H7"/>',hour:'<path d="M7 3h10M7 21h10M8 3c0 5.5 8 6 8 9s-8 3.5-8 9M16 3c0 5.5-8 6-8 9s8 3.5 8 9"/>',
   alert:'<path d="M12 4.5v9.5M12 19.2v.3" stroke-width="4"/>',
   ferm:'<circle cx="9" cy="15.5" r="3.6"/><circle cx="15.5" cy="10" r="2.6"/><circle cx="9.5" cy="6.5" r="1.7"/>',
   cal:'<rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M4 10.5h16M9 3v4.5M15 3v4.5M8.5 15l2.3 2.3 4.7-4.7"/>'};
@@ -1301,7 +1302,7 @@ function tankSVG(v){
     ${(()=>{ const R=v.kind==='botte'&&v.r>=40?14:Math.max(8.5,Math.min(11,v.r*0.45)); let o='';
       if(s.imp){ const sc=(s.imps||[s.imp]).some(im=>impScaduta(im)); o+=badgeSVG(v.x-v.r*0.74,v.y-v.r*0.74,R,sc?'var(--danger)':'var(--warn)',sc?'alert':'hour',sc?'Lavorazione da chiudere':'In lavorazione'); }
       if(s.ferm) o+=badgeSVG(v.x-v.r*0.74,v.y+v.r*0.74,R,'#7B5EA7','ferm','In fermentazione dal '+fd(s.ferm.inizio)); else if(s.vinif) o+=badgeSVG(v.x-v.r*0.74,v.y+v.r*0.74,R,'#A9A0BC','ferm','In vinificazione dal '+fd(s.vinif.inizio)+', fermentazione non ancora iniziata');
-      { const pg=programmate(v.code); if(pg.length) o+=pg.some(l=>l.stato!=='eseguito')?badgeSVG(v.x+v.r*0.74,v.y-v.r*0.74,R,'var(--c2)','cal','Lavoro programmato'):badgeSVG(v.x+v.r*0.74,v.y-v.r*0.74,R,'var(--warn)','cal','Lavoro fatto, da convalidare'); }
+      { const bg=lavBadge(v.code); if(bg) o+=badgeSVG(v.x+v.r*0.74,v.y-v.r*0.74,R,bg[0],bg[1],bg[2]); }
       return o; })()}
     <text class="code" x="${v.x}" y="${v.y-v.r*0.2}" style="font-size:${fC.toFixed(1)}px">${esc(v.label)}</text>
     <text class="vol" x="${v.x}" y="${v.y+v.r*0.5}" style="font-size:${fV.toFixed(1)}px">${nf(v.cap)} hL</text>
@@ -1422,7 +1423,7 @@ function viewVasche(app){
       ${vistaFileOk(DEP)&&!UI.mapEdit?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">Vista:</span><div class="seg" role="group" aria-label="Vista"><button data-vista="pianta" aria-pressed="${!vistaFile(DEP)}">Pianta</button><button data-vista="file" aria-pressed="${vistaFile(DEP)}">Per file</button></div></div>`:''}
       ${grpTipiDi(DEP).length&&!vistaFile(DEP)?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">${esc(grpTipiDi(DEP).map(t=>t==='tonneau'?'Tonneaux':t.charAt(0).toUpperCase()+(PLUR[t]||t).slice(1)).join(' e '))}:</span><div class="seg" role="group" aria-label="Barrique sulla pianta"><button data-grpm="1" aria-pressed="${grpAttivo(DEP)}">Raggruppate</button><button data-grpm="0" aria-pressed="${!grpAttivo(DEP)}">Una per una</button></div></div>`:''}
       ${vistaFile(DEP)&&!UI.mapEdit?`<div id="vfile">${fileHTML(DEP)}</div>`:`<div class="map-wrap${UI.mapEdit?' editing':''}">${mapSVG(DEP)}</div>`}
-      <div class="legend"><span><i class="dot t-bianco"></i>Bianco</span><span><i class="dot t-rosato"></i>Rosato</span><span><i class="dot t-rosso"></i>Rosso</span><span><i class="dot" style="background:transparent;box-shadow:inset 0 0 0 2.5px var(--ok)"></i>Vino pronto da imbottigliare (bordo verde)</span><span><i class="leg-ring" style="border:2.5px solid var(--accent)"></i>Selezionata</span><span><i class="leg-ring" style="border:2px dashed var(--danger)"></i>Oltre la nominale</span><span>${badgeLeg('var(--c2)','cal')}Lavoro programmato</span><span>${badgeLeg('var(--warn)','cal')}Lavoro fatto, da convalidare</span><span><i class="dot" style="background:color-mix(in srgb,var(--man) 18%,var(--surface));border:1px solid var(--man)"></i>In manutenzione</span><span>${badgeLeg('var(--warn)','hour')}In lavorazione</span><span>${badgeLeg('#7B5EA7','ferm')}In fermentazione</span><span>${badgeLeg('#A9A0BC','ferm')}In vinificazione (non ancora in fermentazione)</span><span>${badgeLeg('var(--danger)','alert')}Lavorazione da chiudere</span><span>Planimetria non in scala</span></div>
+      <div class="legend"><span><i class="dot t-bianco"></i>Bianco</span><span><i class="dot t-rosato"></i>Rosato</span><span><i class="dot t-rosso"></i>Rosso</span><span><i class="dot" style="background:transparent;box-shadow:inset 0 0 0 2.5px var(--ok)"></i>Vino pronto da imbottigliare (bordo verde)</span><span><i class="leg-ring" style="border:2.5px solid var(--accent)"></i>Selezionata</span><span><i class="leg-ring" style="border:2px dashed var(--danger)"></i>Oltre la nominale</span><span>${badgeLeg('var(--c2)','cal')}Lavoro programmato</span><span>${badgeLeg('var(--warn)','cal')}Lavoro fatto, da convalidare</span><span>${badgeLeg('#3E7CB1','flag')}Segnalazione da un operatore</span><span><i class="dot" style="background:color-mix(in srgb,var(--man) 18%,var(--surface));border:1px solid var(--man)"></i>In manutenzione</span><span>${badgeLeg('var(--warn)','hour')}In lavorazione</span><span>${badgeLeg('#7B5EA7','ferm')}In fermentazione</span><span>${badgeLeg('#A9A0BC','ferm')}In vinificazione (non ancora in fermentazione)</span><span>${badgeLeg('var(--danger)','alert')}Lavorazione da chiudere</span><span>Planimetria non in scala</span></div>
     </div>
     <div id="side">${vascaPanel(UI.sel)}</div>
   </div>
@@ -1805,11 +1806,11 @@ const LT = t=>LTIPI[t]||(lavVociDati().includes(t)?{vas:'Vasche',vol:true,prod:t
 const lavTipiOpts = sel=>{ const fix=Object.keys(LTIPI).filter(k=>k!=='Operazione generica'), dat=lavVociDati(); const o=t=>`<option ${sel===t?'selected':''}>${esc(t)}</option>`;
   return `<optgroup label="Lavori">${fix.map(o).join('')}</optgroup>${dat.length?`<optgroup label="Dall'elenco lavorazioni (Dati)">${dat.map(o).join('')}</optgroup>`:''}<optgroup label="Altro">${o('Operazione generica')}${sel&&!fix.includes(sel)&&!dat.includes(sel)&&sel!=='Operazione generica'?o(sel):''}</optgroup>`; };
 /* Stati: un lavoro è fatto o non fatto. «In corso» non c'è più (i vecchi tornano «Da fare»). */
-const LSTATI = {bozza:'Bozza',dafare:'Da fare',incorso:'Da fare',eseguito:'Fatto · da convalidare',convalidato:'Convalidato',noneseguito:'Non fatto',annullato:'Annullato'};
-const LSTCLS = {bozza:'bozza',dafare:'',incorso:'',eseguito:'warn',convalidato:'ok',noneseguito:'scad',annullato:''};
+const LSTATI = {segnalato:'Segnalato',bozza:'Bozza',dafare:'Da fare',incorso:'Da fare',eseguito:'Fatto · da convalidare',convalidato:'Convalidato',noneseguito:'Non fatto',annullato:'Annullato'};
+const LSTCLS = {segnalato:'segn',bozza:'bozza',dafare:'',incorso:'',eseguito:'warn',convalidato:'ok',noneseguito:'scad',annullato:''};
 const LPRIO = {alta:'Alta',normale:'Normale',bassa:'Bassa'};
 const lavAperto = l=>['dafare','incorso','eseguito','noneseguito'].includes(l.stato);
-const lavAttivo = l=>lavAperto(l)||l.stato==='bozza';
+const lavAttivo = l=>lavAperto(l)||l.stato==='bozza'||l.stato==='segnalato';
 /* movimenti: «si» sempre (travaso, assemblaggio, colmatura); «opz» a scelta (filtrazione, chiarifica, aggiunte, voci di Dati) */
 const LMOV = t=>{ const T=LT(t)||{}; return T.reg==='trav'?'si':(T.reg==='lav'&&t!=='Rimontaggio / vinificazione')?'opz':'no'; };
 /* lavori del vecchio formato: «più vasche → una destinazione» diventa una riga per vasca */
@@ -1825,7 +1826,9 @@ const isCode = c=>!!(c&&VMAP[c]);
 const lavHaMov = l=>LMOV(l.tipo)==='si'||(LMOV(l.tipo)==='opz'&&!!l.conTrasf);
 const lavMov = l=>lavHaMov(l)?(l.mov||[]):[];
 const lavCodes = l=>[...new Set([...(lavHaMov(l)?[]:(l.vasche||[])),...lavMov(l).flatMap(m=>[m.da,m.a])].filter(isCode))];
-const programmate = code=>lavori().filter(l=>lavAperto(l)&&lavCodes(l).includes(code));
+const programmate = code=>lavori().filter(l=>(lavAperto(l)||l.stato==='segnalato')&&lavCodes(l).includes(code));
+/* icona sulla pianta: lavoro da fare (blu), solo fatti da convalidare (arancio), solo segnalazioni (bandierina) */
+const lavBadge = code=>{ const pg=programmate(code); if(!pg.length) return null; if(pg.some(l=>!['eseguito','segnalato'].includes(l.stato))) return ['var(--c2)','cal','Lavoro programmato']; if(pg.some(l=>l.stato==='eseguito')) return ['var(--warn)','cal','Lavoro fatto, da convalidare']; return ['#3E7CB1','flag','Segnalazione da un operatore']; };
 const stOggi = ()=>replay(S.eventi,{data:today(),ord:Infinity}).st;
 /* operatore (sito): non ha le registrazioni, usa la situazione «attuale» salvata nel lavoro dal responsabile */
 const OPM = ()=>typeof window!=='undefined'&&window.__OP;
@@ -1930,11 +1933,11 @@ function sceltaMulti(o){ /* o: {titolo, scelti:[], escludi:[], vino:''|'+'|'-', 
 const ordinaCodici = cs=>[...cs].sort((a,c)=>VASCHE.findIndex(v=>v.code===a)-VASCHE.findIndex(v=>v.code===c));
 
 /* ===================== Vista: Lavori ===================== */
-const LQ = {oggi:'Oggi',scaduti:'Scaduti',senzadata:'Senza data',nonass:'Non assegnati',bozze:'Bozze',dacon:'Da convalidare',nonfatti:'Non fatti'};
-const lqTest = (k,l)=>k==='oggi'?l.data===today()&&lavAperto(l):k==='scaduti'?lavScaduto(l):k==='senzadata'?!l.data&&lavAttivo(l):k==='nonass'?!l.assegnato&&['bozza','dafare'].includes(l.stato):k==='bozze'?l.stato==='bozza':k==='dacon'?l.stato==='eseguito':k==='nonfatti'?l.stato==='noneseguito':true;
+const LQ = {segnalati:'Segnalazioni',oggi:'Oggi',scaduti:'Scaduti',senzadata:'Senza data',nonass:'Non assegnati',bozze:'Bozze',dacon:'Da convalidare',nonfatti:'Non fatti'};
+const lqTest = (k,l)=>k==='segnalati'?l.stato==='segnalato':k==='oggi'?l.data===today()&&lavAperto(l):k==='scaduti'?lavScaduto(l):k==='senzadata'?!l.data&&lavAttivo(l):k==='nonass'?!l.assegnato&&['bozza','dafare'].includes(l.stato):k==='bozze'?l.stato==='bozza':k==='dacon'?l.stato==='eseguito':k==='nonfatti'?l.stato==='noneseguito':true;
 function lavCard(l){ const d=lavDiff(l), late=lavScaduto(l), cs=ordinaCodici(lavCodes(l)), mv=lavMov(l);
   return `<button class="lcard" data-lid="${l.id}"><div class="spread" style="width:100%;gap:6px"><span class="row" style="gap:6px">${l.priorita==='alta'?'<span class="chip scad">Alta</span>':l.priorita==='bassa'?'<span class="chip">Bassa</span>':''}<b>${esc(lavTitolo(l))}</b></span><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span></div>
-    <div class="small muted">${esc(l.num||'')} · ${esc(l.tipo)} · ${l.data?fd(l.data)+(l.ora?' '+esc(l.ora):''):'senza data'} · ${l.assegnato?'👤 '+esc(l.assegnato):'<i>non assegnato</i>'}</div>
+    ${l.segnalazione?`<div class="small"><span class="chip segn">Segnalato da ${esc(l.segnalazione.da||'')}</span> <span class="muted">${fd((l.segnalazione.il||l.creatoIl||'').slice(0,10))}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}</span></div>`:''}<div class="small muted">${esc(l.num||'')} · ${esc(l.tipo)} · ${l.data?fd(l.data)+(l.ora?' '+esc(l.ora):''):'senza data'} · ${l.assegnato?'👤 '+esc(l.assegnato):'<i>non assegnato</i>'}</div>
     ${cs.length?`<div class="small">${esc(elencoV(cs))}${lavVini(l).length?' <span class="muted">· '+lavVini(l).map(v=>esc(vName(v))).join(', ')+'</span>':''}</div>`:''}
     <div class="row small" style="gap:6px">${mv.length?`<span class="chip">${mv.length} moviment${mv.length===1?'o':'i'}</span>`:''}${(l.prodotti||[]).length?`<span class="chip">${l.prodotti.length} prodott${l.prodotti.length===1?'o':'i'}</span>`:''}${d?'<span class="chip warn">Da verificare</span>':''}${late?'<span class="chip scad">Data superata</span>':''}${l.esec&&l.stato==='eseguito'?`<span class="small muted">fatto${l.esec.da?' da '+esc(l.esec.da):''}${l.esec.comePrevisto===false?' · con differenze':''}</span>`:''}</div></button>`; }
 function viewLavori(app){
@@ -1947,9 +1950,9 @@ function viewLavori(app){
   let body='';
   if(V.vista==='elenco'||chiusi){
     if(chiusi) body=all.length?[...all].sort((a,b)=>(b.modificatoIl||'')<(a.modificatoIl||'')?-1:1).map(lavCard).join(''):'<p class="muted">Nessun lavoro convalidato o annullato.</p>';
-    else { const bz=all.filter(l=>l.stato==='bozza'), op=all.filter(l=>l.stato!=='bozza'); const dc=op.filter(l=>l.stato==='eseguito'||l.stato==='noneseguito'), rest=op.filter(l=>!dc.includes(l));
+    else { const sg=all.filter(l=>l.stato==='segnalato'), bz=all.filter(l=>l.stato==='bozza'), op=all.filter(l=>l.stato!=='bozza'&&l.stato!=='segnalato'); const dc=op.filter(l=>l.stato==='eseguito'||l.stato==='noneseguito'), rest=op.filter(l=>!dc.includes(l));
       const nd=rest.filter(l=>!l.data), byD={}; rest.filter(l=>l.data).sort(lavSort).forEach(l=>(byD[l.data]=byD[l.data]||[]).push(l));
-      body=(dc.length?group('Fatti o non fatti: tocca a te',dc.sort(lavSort)):'')+(bz.length?group('Bozze',bz.sort(lavSort)):'')+(nd.length?group('Senza data',nd.sort(lavSort)):'')+Object.keys(byD).map(d=>group(`${giornoNome(d)} ${fd(d)}${d===today()?' · oggi':d<today()?' · passato':''}`,byD[d])).join('')||'<p class="muted">Nessun lavoro.</p>'; } }
+      body=(sg.length?group('Segnalazioni degli operatori',sg.sort((a,b)=>(b.creatoIl||'')<(a.creatoIl||'')?-1:1)):'')+(dc.length?group('Fatti o non fatti: tocca a te',dc.sort(lavSort)):'')+(bz.length?group('Bozze',bz.sort(lavSort)):'')+(nd.length?group('Senza data',nd.sort(lavSort)):'')+Object.keys(byD).map(d=>group(`${giornoNome(d)} ${fd(d)}${d===today()?' · oggi':d<today()?' · passato':''}`,byD[d])).join('')||'<p class="muted">Nessun lavoro.</p>'; } }
   else { const days=V.vista==='giorno'?[V.giorno]:settimana(V.giorno);
     body=`<div class="${V.vista==='settimana'?'lweek':''}">${days.map(d=>group(`${giornoNome(d)} ${fd(d)}${d===today()?' · oggi':''}`,all.filter(l=>l.data===d).sort(lavSort))).join('')}</div>
       ${all.some(l=>!l.data)?`<p class="small muted">Ci sono anche ${all.filter(l=>!l.data).length} lavori senza data: li vedi in «Elenco».</p>`:''}`; }
@@ -1961,7 +1964,7 @@ function viewLavori(app){
   app.innerHTML=`<div class="spread"><h2>Programmazione lavori</h2><div class="row" style="gap:6px"><a class="btn" href="#operatore">Vedi come operatore</a><button class="btn pri" id="lv-new">Nuovo lavoro</button></div></div>
   <p class="hint">Qui si programma e si controlla il lavoro. Un lavoro, anche se segnato come fatto, <b>non cambia mai</b> giacenze, vasche, partite o storico: cambiano solo quando, in convalida, registri l'operazione vera.</p>
   ${legacy.length?`<div class="box warn small" style="color:var(--ink)"><b>${legacy.length} operazion${legacy.length===1?'e registrata':'i registrate'} con data futura</b> (vecchio sistema delle operazioni programmate). Ora le operazioni future si programmano qui. <button class="btn sm" id="lv-conv">Trasformale in lavori</button><ul style="margin:6px 0 0;padding-left:18px">${legacy.map(e=>`<li>${fd(e.data)} · ${esc(evTitle(e))}</li>`).join('')}</ul></div>`:''}
-  ${chiusi?'':`<div class="lq" role="group" aria-label="In evidenza">${Object.entries(LQ).map(([k,t])=>{ const n=cnt(k); return `<button type="button" data-lq="${k}" aria-pressed="${V.q===k}" class="${n&&['scaduti','dacon','nonfatti'].includes(k)?'hot':''}"${n||V.q===k?'':' disabled'}><span class="n">${n}</span> ${t}</button>`; }).join('')}</div>`}
+  ${chiusi?'':`<div class="lq" role="group" aria-label="In evidenza">${Object.entries(LQ).map(([k,t])=>{ const n=cnt(k); return `<button type="button" data-lq="${k}" aria-pressed="${V.q===k}" class="${n&&['segnalati','scaduti','dacon','nonfatti'].includes(k)?'hot':''}"${n||V.q===k?'':' disabled'}><span class="n">${n}</span> ${t}</button>`; }).join('')}</div>`}
   <div class="panel"><div class="spread"><div class="seg" role="group" aria-label="Vista">${[['elenco','Elenco'],['giorno','Giorno'],['settimana','Settimana'],['chiusi','Convalidati e annullati']].map(([k,t])=>`<button data-lvv="${k}" aria-pressed="${V.vista===k}">${t}</button>`).join('')}</div>
     ${V.vista==='giorno'||V.vista==='settimana'?`<div class="row"><button class="btn sm" data-lvn="-1">←</button><input type="date" data-free id="lv-g" value="${V.giorno}" style="width:auto"><button class="btn sm" data-lvn="1">→</button><button class="btn sm ghost" data-lvn="0">Oggi</button></div>`:''}</div>
     <div class="fg" style="margin-top:10px">${locUsed.length>1?sel('locale','Locale',locUsed.map(d=>[d,locNome(d)])):''}${sel('vasca','Contenitore',vsUsed.map(c=>[c,vlab(c)+capTxt(c)]))}${sel('vino','Vino',viUsed.map(v=>[v,vName(v)]))}${sel('tipo','Tipologia',[...new Set([...lavTipiNomi(),...lavori().map(l=>l.tipo)])].map(t=>[t,t]))}${sel('stato','Stato',Object.entries(LSTATI).filter(([k])=>k!=='incorso'&&(chiusi?['convalidato','annullato'].includes(k):!['convalidato','annullato'].includes(k))))}${sel('persona','Assegnato a',[['-','nessuno (non assegnati)'],...peUsed.map(p=>[p,p])])}</div></div>
@@ -2001,7 +2004,7 @@ function formLavoro(ed,preset){
   const st=stOggi(); S.persone=S.persone||[];
   let vs=[...(l.vasche||[])], mv=l.mov.map(m=>({...m})), conT=!!l.conTrasf;
   const vOpt=(sel,extra)=>`<option value="">—</option>${extra||''}`+VASCHE.filter(v=>v.stato==='attivo'||v.code===sel).map(v=>`<option value="${esc(v.code)}" ${v.code===sel?'selected':''}>${vascaLab(v.code,st[v.code])}</option>`).join('');
-  const bozza=ed&&ed.stato==='bozza', nuovo=!ed;
+  const bozza=ed&&(ed.stato==='bozza'||ed.stato==='segnalato'), nuovo=!ed;
   modal(ed?(bozza?'Bozza ':'Modifica lavoro ')+(ed.num||''):'Nuovo lavoro',`<form id="flv" novalidate>
    <div class="fg">
     <label class="f">Tipologia<select id="w-tipo">${lavTipiOpts(l.tipo)}</select></label>
@@ -2031,7 +2034,7 @@ function formLavoro(ed,preset){
    <label class="f wide">Descrizione e istruzioni operative<textarea id="w-ist" placeholder="es. travasare dal basso, lasciare 1 hL di fondo">${esc(l.istruzioni||'')}</textarea></label>
    <div id="w-sovr"></div>
    <div id="msg" class="err"></div>
-   <div class="foot">${ed&&lavAttivo(ed)?`<button type="button" class="btn ghost" id="w-ann" style="margin-right:auto">${bozza?'Scarta la bozza…':'Annulla il lavoro…'}</button>`:''}<button type="button" class="btn" data-close>${ed?'Chiudi senza salvare':'Annulla'}</button>${nuovo||bozza?'<button type="button" class="btn" id="w-bz">Salva bozza</button>':''}<button class="btn pri" id="sv">${nuovo||bozza?'Programma lavoro':'Salva modifiche'}</button></div></form>`,(b,close)=>{
+   <div class="foot">${ed&&lavAttivo(ed)?`<button type="button" class="btn ghost" id="w-ann" style="margin-right:auto">${ed&&ed.stato==='segnalato'?'Scarta la segnalazione…':bozza?'Scarta la bozza…':'Annulla il lavoro…'}</button>`:''}<button type="button" class="btn" data-close>${ed?'Chiudi senza salvare':'Annulla'}</button>${nuovo||bozza?'<button type="button" class="btn" id="w-bz">Salva bozza</button>':''}<button class="btn pri" id="sv">${nuovo||bozza?'Programma lavoro':'Salva modifiche'}</button></div></form>`,(b,close)=>{
     { const wa=$('#w-ann',b); if(wa) wa.onclick=()=>{ const o=lavori().find(x=>x.id===ed.id); close(); if(o) annullaLavoro(o); }; }
     const tipo=()=>$('#w-tipo',b).value, T=()=>LT(tipo())||{};
     const inMov=()=>{ const m=LMOV(tipo()); return m==='si'||(m==='opz'&&conT); };
@@ -2138,7 +2141,8 @@ function formLavoro(ed,preset){
         const now=new Date().toISOString();
         const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:ass,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
         if(ed){ const x=lavori().find(z=>z.id===ed.id); const prima=x.assegnato||'';
-          if(x.stato==='bozza'&&!bz){ Object.assign(x,o); lavLog(x,'dafare','Programmato'); }
+          if((x.stato==='bozza'||x.stato==='segnalato')&&!bz){ const sg=x.stato==='segnalato'; Object.assign(x,o); lavLog(x,'dafare',sg?'Programmato dalla segnalazione':'Programmato'); }
+          else if(x.stato==='segnalato'&&bz){ Object.assign(x,o); lavLog(x,'bozza','Segnalazione trasformata in bozza'); }
           else { (x.storia=x.storia||[]).push({il:now,stato:x.stato,nota:x.stato==='bozza'?'Bozza modificata':'Istruzioni modificate'}); Object.assign(x,o); }
           if(prima!==ass) x.storia.push({il:now,stato:x.stato,nota:ass?'Assegnato a '+ass:'Tolto l\'assegnatario'}); }
         else { const st0=bz?'bozza':'dafare'; lavori().push({id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now,storia:[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(ass?[{il:now,stato:st0,nota:'Assegnato a '+ass}]:[])]}); }
@@ -2166,6 +2170,7 @@ function lavDettaglio(id){
   const vsTxt=cs.map(c=>{const r=rifSt(l)[c]||{}; return `<li><b>${esc(vlab(c))}</b> — ${r.vino?esc(vName(r.vino))+' · '+hL(r.L):'vuota'}</li>`;}).join('');
   modal(`${l.num||'Lavoro'} · ${lavTitolo(l)}`,`
    <div class="row" style="gap:6px"><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span><span class="chip">${esc(l.tipo)}</span>${l.priorita!=='normale'?`<span class="chip ${l.priorita==='alta'?'scad':''}">Priorità ${LPRIO[l.priorita]}</span>`:''}${lavScaduto(l)?'<span class="chip scad">Data superata</span>':''}</div>
+   ${l.segnalazione?`<div class="box small" style="background:var(--surface-2);margin-top:10px"><b>Segnalato da ${esc(l.segnalazione.da||'')}</b> il ${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}${l.segnalazione.urgente?' · <b>urgente</b>':''}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}<div style="white-space:pre-wrap;margin-top:4px">${esc(l.segnalazione.testo||'')}</div></div>`:''}
    <dl class="kv" style="margin-top:10px">
     <dt>Quando</dt><dd>${l.data?fd(l.data)+(l.ora?' alle '+esc(l.ora):''):'<span class="muted">senza data</span>'}</dd>
     <dt>Assegnato a</dt><dd>${l.assegnato?esc(l.assegnato):'<span class="muted">nessuno</span>'}</dd>
@@ -2179,6 +2184,7 @@ function lavDettaglio(id){
    ${esecHTML(l)}
    ${l.convalida?`<div class="box ok small">Convalidato il ${fd(l.convalida.il.slice(0,10))}${l.convalida.ev?` · operazione registrata: <b>${esc(l.convalida.titolo||'')}</b>`:' · senza registrazione di operazioni'}</div>`:''}
    <div class="actions" style="margin-top:10px">
+     ${l.stato==='segnalato'?'<button class="btn pri" id="ld-mod">Programma…</button><button class="btn" id="ld-chiudi">Chiudi…</button><button class="btn ghost" id="ld-ann">Scarta</button>':''}
      ${bz?'<button class="btn pri" id="ld-mod">Completa e programma</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Scarta la bozza</button>':''}
      ${l.stato==='dafare'?'<button class="btn" id="ld-ese">Segna fatto…</button><button class="btn" id="ld-non">Non fatto…</button><button class="btn pri" id="ld-conv">Convalida…</button><button class="btn" id="ld-mod">Modifica</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Annulla lavoro</button>':''}
      ${l.stato==='eseguito'?'<button class="btn pri" id="ld-conv">Convalida…</button><button class="btn" data-ls="dafare">Riporta a «Da fare»</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Annulla lavoro</button>':''}
@@ -2192,6 +2198,8 @@ function lavDettaglio(id){
     if(go('ld-rip')) go('ld-rip').onclick=()=>{ close(); lavLog(l,'dafare','Riprogrammato dopo «non fatto»'); formLavoro(l); };
     if(go('ld-dup')) go('ld-dup').onclick=()=>{ close(); const c=JSON.parse(JSON.stringify(l)); ['id','num','stato','storia','esec','convalida','rif','creatoIl','modificatoIl'].forEach(k=>delete c[k]); c.data=''; formLavoro(null,c); };
     if(go('ld-ann')) go('ld-ann').onclick=()=>{ close(); annullaLavoro(l); };
+    if(go('ld-chiudi')) go('ld-chiudi').onclick=()=>{ close(); modal('Chiudi la segnalazione',`<p>Chiudo <b>${esc(lavTitolo(l))}</b> senza programmare un lavoro (per esempio perché è già sistemato o non serve). In cantina non cambia niente.</p><label class="f">Nota (facoltativa)<input id="cs-n" placeholder="es. già pulito ieri"></label><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="cs-ok">Chiudi</button></div>`,(b2,close2)=>{
+      $('#cs-ok',b2).onclick=()=>{ const n=$('#cs-n',b2).value.trim(); l.convalida={il:new Date().toISOString(),ev:null,nota:n}; lavLog(l,'convalidato','Segnalazione chiusa'+(n?': '+n:'')); close2(); refresh(); toast('Segnalazione chiusa'); }; }); };
     if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); dichiaraEsec(l,'eseguito',{chi:l.assegnato||'',poi:()=>lavDettaglio(l.id)}); };
     if(go('ld-non')) go('ld-non').onclick=()=>{ close(); dichiaraEsec(l,'noneseguito',{chi:l.assegnato||'',poi:()=>lavDettaglio(l.id)}); };
     if(go('ld-conv')) go('ld-conv').onclick=()=>{ close(); formConvalida(l); };
@@ -2303,11 +2311,46 @@ function viewOperatore(app){
   const card=l=>{ const cs=lavCodes(l); return `<button type="button" class="opcard" data-ol="${l.id}"><div class="spread"><b>${esc(lavTitolo(l))}</b>${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}</div>
     <div class="small muted">${l.data?giornoNome(l.data)+' '+fd(l.data)+(l.ora?' · '+esc(l.ora):''):'senza data'} · ${esc(l.tipo)}</div>
     ${cs.length?`<div class="small">${esc(elencoV(cs))}</div>`:''}${l.stato!=='dafare'?`<div><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Segnato fatto':'Segnato non fatto'}</span></div>`:''}</button>`; };
-  app.innerHTML=`<div class="opv">${head}<h2>I miei lavori</h2>
+  const io=x=>String(x||'').trim().toLowerCase()===String(op).trim().toLowerCase();
+  const mieSegn=lavori().filter(l=>l.segnalazione&&io(l.segnalazione.da)&&(l.segnalazione.il||l.creatoIl||'')>=addDays(today(),-30)).sort((a,b)=>(b.segnalazione.il||'')<(a.segnalazione.il||'')?-1:1);
+  const segStato=l=>l.stato==='segnalato'?['In attesa del responsabile','segn']:l.stato==='annullato'?['Scartata','']:l.stato==='convalidato'?[l.convalida&&l.convalida.ev?'Fatta e registrata':'Chiusa','ok']:l.stato==='eseguito'?['Fatta, da convalidare','warn']:l.stato==='noneseguito'?['Non fatta','scad']:['Programmata'+(l.data?' per il '+fd(l.data):'')+(l.assegnato?' · '+l.assegnato:''),'prog'];
+  app.innerHTML=`<div class="opv">${head}<div class="spread"><h2>I miei lavori</h2><button type="button" class="btn pri" id="op-seg">+ Segnala</button></div>
     ${todo.length?sez.filter(([,xs])=>xs.length).map(([t,xs])=>`<h3 class="op-h">${t} <span class="muted small">${xs.length}</span></h3>${xs.map(card).join('')}`).join(''):'<p class="muted">Nessun lavoro da fare. 👍</p>'}
-    ${segn.length?`<h3 class="op-h">Segnalati da te negli ultimi 7 giorni</h3>${segn.map(card).join('')}`:''}</div>`;
+    ${segn.length?`<h3 class="op-h">Lavori segnati da te negli ultimi 7 giorni</h3>${segn.map(card).join('')}`:''}
+    <h3 class="op-h">Le mie segnalazioni <span class="muted small">ultimi 30 giorni</span></h3>
+    ${mieSegn.length?mieSegn.map(l=>{ const [t,c]=segStato(l); return `<div class="opcard" style="cursor:default"><div class="spread"><b>${esc((l.segnalazione.testo||'').split('\n')[0].slice(0,80))}</b>${l.segnalazione.urgente?'<span class="chip scad">Urgente</span>':''}</div><div class="small muted">${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${lavCodes(l).length?' · '+esc(elencoV(lavCodes(l))):''}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}</div><div><span class="chip ${c}">${esc(t)}</span></div></div>`; }).join(''):'<p class="muted small">Nessuna. Con «+ Segnala» avvisi il responsabile di qualcosa da fare (es. pulire il pavimento, lavare la vasca 5, colmare).</p>'}</div>`;
   bindHead(); $$('[data-ol]',app).forEach(x=>x.onclick=()=>{ UI.opSel=x.dataset.ol; viewOperatore(app); window.scrollTo(0,0); });
+  $('#op-seg',app).onclick=()=>formSegnala(op);
 }
+/* ===================== Segnalazione dell'operatore: avvisa il responsabile, non cambia la cantina ===================== */
+function formSegnala(op){ let vs=[];
+  const locs=DEPOSITI.filter(l=>l.stato!=='disattivo'&&l.stato!=='rimosso');
+  modal('Segnala',`<form id="fsg" novalidate>
+    <label class="f wide">Cosa c'è da fare<textarea id="sg-t" rows="3" placeholder="es. c'è da pulire il pavimento · la vasca 5 è da lavare · la 12 è da colmare"></textarea></label>
+    <fieldset class="lvf"><legend>Dove <span class="muted small">(facoltativo)</span></legend>
+      <div class="row" id="sg-vs" style="gap:4px;flex-wrap:wrap"></div>
+      <div class="row" style="gap:6px;align-items:flex-end;flex-wrap:wrap;margin-top:6px"><label class="f" style="min-width:160px">Contenitore<select id="sg-add"></select></label><button type="button" class="btn sm" id="sg-bulk">Più contenitori…</button></div>
+      ${locs.length>1?`<label class="f" style="margin-top:6px">Locale<select id="sg-l"><option value="">—</option>${locs.map(l=>`<option value="${esc(l.id)}">${esc(locNome(l.id))}</option>`).join('')}</select></label>`:''}
+    </fieldset>
+    <label class="row" style="gap:8px;margin:8px 0"><input type="checkbox" id="sg-u"> <span><b>Urgente</b></span></label>
+    <label class="row" style="gap:8px;margin:8px 0"><input type="checkbox" id="sg-f"> <span>L'ho già fatto io <span class="muted small">(resta traccia; il responsabile lo controlla)</span></span></label>
+    <p class="hint">La segnalazione arriva al responsabile, che decide se e quando programmare il lavoro. In cantina non cambia niente.</p>
+    <div id="msg" class="err"></div>
+    <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri" id="sv">Invia segnalazione</button></div></form>`,(b,close)=>{
+    const draw=()=>{ $('#sg-vs',b).innerHTML=vs.map(c=>`<span class="chip">${esc(vlab(c))} <button type="button" data-rm="${esc(c)}" aria-label="Togli ${esc(vlab(c))}" style="border:0;background:none;cursor:pointer">×</button></span>`).join('')||'<span class="muted small">nessun contenitore</span>';
+      $('#sg-add',b).innerHTML='<option value="">—</option>'+VASCHE.filter(v=>v.stato==='attivo'&&!vs.includes(v.code)).map(v=>`<option value="${esc(v.code)}">${esc(vlab(v.code))}</option>`).join('');
+      $$('[data-rm]',b).forEach(x=>x.onclick=()=>{ vs=vs.filter(c=>c!==x.dataset.rm); draw(); }); };
+    $('#sg-add',b).onchange=e=>{ const c=e.target.value; if(c&&!vs.includes(c)) vs.push(c); draw(); };
+    $('#sg-bulk',b).onclick=()=>sceltaMulti({titolo:'Contenitori',scelti:vs,onOk:cs=>{ vs=cs; draw(); }});
+    draw();
+    $('#fsg',b).onsubmit=e=>{ e.preventDefault(); const t=$('#sg-t',b).value.trim(); if(!t){ $('#msg',b).textContent='Scrivi cosa c\'è da fare.'; return; }
+      const now=new Date().toISOString(), gia=$('#sg-f',b).checked, loc=$('#sg-l',b)?$('#sg-l',b).value:'';
+      const l={id:uid(),num:OPM()?'':lavNum(),titolo:t.split('\n')[0].slice(0,80),tipo:'Operazione generica',data:'',ora:'',priorita:$('#sg-u',b).checked?'alta':'normale',assegnato:'',vasche:[...vs],mov:[],prodotti:[],istruzioni:t,_v:2,
+        segnalazione:{da:op,il:now,testo:t,locale:loc,urgente:$('#sg-u',b).checked,giaFatto:gia},stato:gia?'eseguito':'segnalato',creatoIl:now,modificatoIl:now,
+        storia:[{il:now,stato:'segnalato',nota:'Segnalato da '+op}]};
+      if(gia){ l.esec={il:now,da:op,note:'Fatto da chi l\'ha segnalato',comePrevisto:true,diff:'',mov:null,prodotti:null,spunte:null,dichiaratoIl:now}; l.storia.push({il:now,stato:'eseguito',nota:'Fatto — dichiarato da '+op}); }
+      if(!OPM()) l.rif=lavSnap(vs);
+      lavori().push(l); close(); refresh(); toast('Segnalazione inviata'); }; }); }
 function opDettaglio(app,l,op,head,bindHead){
   const st=stLav(l), mv=lavMov(l), cs=lavHaMov(l)?[]:(l.vasche||[]), ps=l.prodotti||[], d=lavDiff(l);
   UI.opSpunte=UI.opSpunte||{}; const spunte=UI.opSpunte[l.id]=UI.opSpunte[l.id]||new Set();
@@ -5206,7 +5249,7 @@ function rimuoviSel(codes,rerender){ if(!codes.length) return;
 function postoSegni(code,s){ s=s||R.st[code]||{}; const o=[];
   if(s.imp){ const sc=(s.imps||[s.imp]).some(im=>impScaduta(im)); o.push(`<span title="${sc?'Lavorazione da chiudere':'In lavorazione'}">${badgeLeg(sc?'var(--danger)':'var(--warn)',sc?'alert':'hour')}</span>`); }
   if(s.ferm) o.push(`<span title="In fermentazione">${badgeLeg('#7B5EA7','ferm')}</span>`); else if(s.vinif) o.push(`<span title="In vinificazione">${badgeLeg('#A9A0BC','ferm')}</span>`);
-  { const pg=programmate(code); if(pg.length) o.push(pg.some(l=>l.stato!=='eseguito')?`<span title="Lavoro programmato">${badgeLeg('var(--c2)','cal')}</span>`:`<span title="Lavoro fatto, da convalidare">${badgeLeg('var(--warn)','cal')}</span>`); }
+  { const bg=lavBadge(code); if(bg) o.push(`<span title="${bg[2]}">${badgeLeg(bg[0],bg[1])}</span>`); }
   return (o.length?`<span class="fsg">${o.join('')}</span>`:'')+(s.pronto&&s.vino?'<i class="fpr" title="Vino pronto"></i>':''); }
 const postoCls = (code,s)=>{ s=s||R.st[code]||{}; const v=VMAP[code]; return (v&&s.L>v.cap*100+1e-6?' over':'')+(s.man?' inman':''); };
 
@@ -5262,7 +5305,7 @@ function leggiBackup(testo){ try{ const o=JSON.parse(testo); if(!o||!Array.isArr
 
 /* ===================== Annullare un lavoro programmato: stesso risultato da ovunque ===================== */
 function annullaLavoro(l,dopo){
-  modal('Annulla lavoro '+(l.num||''),`<p>Annullo <b>${esc(lavTitolo(l))}</b>${l.data?' del '+fd(l.data):''}${(l.vasche||[]).length?' su '+esc(l.vasche.map(c=>vlab(c)).join(', ')):''}.</p>
+  modal((l.stato==='segnalato'?'Scarta la segnalazione ':'Annulla lavoro ')+(l.num||''),`<p>Annullo <b>${esc(lavTitolo(l))}</b>${l.data?' del '+fd(l.data):''}${(l.vasche||[]).length?' su '+esc(l.vasche.map(c=>vlab(c)).join(', ')):''}.</p>
     <p class="hint">Sparisce dai lavori da fare e dalla pianta; resta nello storico dei lavori come annullato.</p>
     <label class="f">Motivo (facoltativo)<input id="an-m" placeholder="es. non più necessario"></label>
     <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">Annulla il lavoro</button></div>`,(b,close)=>{
