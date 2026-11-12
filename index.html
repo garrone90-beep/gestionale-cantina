@@ -537,6 +537,11 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 .op-ck input{width:26px;height:26px;flex:none;margin:0;accent-color:var(--accent)}
 .op-ck:has(input:checked){border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--surface))}
 .op-act .btn.dim{opacity:.55}
+body.op-only .top{display:none!important}
+body.op-only #bk-ban,body.op-only .ban-esempio{display:none!important}
+body.op-only{padding-left:0!important;padding-bottom:0!important}
+body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
+.op-top{margin:4px 0 8px}
 .op-act{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:sticky;bottom:0;padding:12px 0;background:var(--bg);margin-top:12px}
 .op-act .btn{min-height:58px;font-size:1.15rem}
 </style>
@@ -1259,6 +1264,7 @@ function bannerEsempio(){ const app=$('#app'); if(!app) return; let b=$('#ex-ban
 function route(){
   recompute(); applyBrand(); bannerEsempio(); try{ bkNota(); bkBanner(); }catch(e){}
   if(!S.azienda){ $$('#nav a').forEach(a=>a.setAttribute('aria-current','false')); return viewBenvenuto($('#app')); }
+  if(OPM()){ document.body.classList.add('op-only'); return viewOperatore($('#app')); }
   const h = (location.hash||'#vasche').slice(1);
   if(h.startsWith('vino-')&&UI.lastHash!==h){ if(!UI.keepTab) UI.vinoTab='vasche'; } UI.keepTab=false; UI.lastHash=h;
   const base = h==='operatore'?'lavori':h==='locali'||h==='prodotti'?'dati':h.startsWith('vino-')?'vini':h.startsWith('scheda-')?'vini':h.startsWith('gen-')?'vasche':h.startsWith('lotto-')?'imbottigliamenti':h;
@@ -1272,7 +1278,7 @@ function route(){
 }
 window.addEventListener('hashchange',e=>{ const da=(e.oldURL||'').split('#')[1]||'', a=(location.hash||'').slice(1); if(a==='locali'&&da!=='locali'){ UI.locAperti=new Set(); UI.locOpen=null; UI.archOpen=null; }
   const inVini=h=>h==='vini'||h.startsWith('vino-'); if(inVini(da)&&!inVini(a)) UI.vf={}; route(); });
-function refresh(){ lavCheckPend(); save(); route(); }
+function refresh(){ lavCheckPend(); try{ lavAttuale(); }catch(e){} save(); route(); }
 
 /* ===================== Vista: vasche ===================== */
 const BADGE_IC={hour:'<path d="M7 3h10M7 21h10M8 3c0 5.5 8 6 8 9s-8 3.5-8 9M16 3c0 5.5-8 6-8 9s8 3.5 8 9"/>',
@@ -1823,6 +1829,12 @@ const lavMov = l=>lavHaMov(l)?(l.mov||[]):[];
 const lavCodes = l=>[...new Set([...(lavHaMov(l)?[]:(l.vasche||[])),...lavMov(l).flatMap(m=>[m.da,m.a])].filter(isCode))];
 const programmate = code=>lavori().filter(l=>lavAperto(l)&&lavCodes(l).includes(code));
 const stOggi = ()=>replay(S.eventi,{data:today(),ord:Infinity}).st;
+/* operatore (sito): non ha le registrazioni, usa la situazione «attuale» salvata nel lavoro dal responsabile */
+const OPM = ()=>typeof window!=='undefined'&&window.__OP;
+const stLav = l=>OPM()?((l.attuale&&l.attuale.vasche)||rifSt(l)):stOggi();
+function lavAttuale(){ if(OPM()) return false; const ap=lavori().filter(lavAperto); if(!ap.length) return false; const st=stOggi(); let n=0;
+  ap.forEach(l=>{ const o={}; lavCodes(l).forEach(c=>{ if(st[c]) o[c]={vino:st[c].vino||null,L:Math.round((st[c].L||0)*10)/10}; }); const s=JSON.stringify(o);
+    if(!l.attuale||JSON.stringify(l.attuale.vasche)!==s){ l.attuale={data:today(),vasche:o}; n++; } }); return n>0; }
 function lavSnap(codes){ const st=stOggi(), o={}; [...new Set((codes||[]).filter(isCode))].forEach(c=>{ if(st[c]) o[c]={vino:st[c].vino||null,L:st[c].L||0}; }); return {il:new Date().toISOString(),data:today(),vasche:o}; }
 /* contenitori su cui va un prodotto: senza movimento quelli del lavoro; con movimento le partenze (prima) o gli arrivi (dopo) */
 function prodBase(l,quando){ const mv=lavMov(l); const b=mv.length?(quando==='dopo'?mv.map(m=>m.a):mv.map(m=>m.da)):(l.vasche||[]); return [...new Set(b.filter(isCode))]; }
@@ -1847,7 +1859,7 @@ function movNote(mv){ const out=[], byA={}, byDa={}; mv.forEach(m=>{ if(isCode(m
   return out; }
 /* confronto fra la situazione al momento della programmazione e quella registrata oggi */
 function lavDiff(l){
-  if(!l.rif||!lavAttivo(l)) return null; const st=stOggi(), out=[];
+  if(!l.rif||!lavAttivo(l)) return null; const st=stLav(l), out=[];
   Object.entries(l.rif.vasche).forEach(([c,r])=>{ const n=st[c]; if(!n) return;
     if((r.vino||null)!==(n.vino||null)) out.push({c,tipo:'vino',da:r.vino,a:n.vino,txt:r.vino?`Questo lavoro era previsto sul ${vName(r.vino)} presente in ${vlab(c)}. Il contenuto di ${vlab(c)} è cambiato dopo la programmazione: ora ${n.vino?'c\'è '+vName(n.vino):'è vuota'}.`:`${Vnome(c)} alla programmazione era vuota, ora contiene ${vName(n.vino)}.`});
     else if(Math.abs((r.L||0)-(n.L||0))>Math.max(1,(r.L||0)*0.005)) out.push({c,tipo:'vol',da:r.L,a:n.L,txt:`${Vnome(c)}: ${hL(r.L)} alla programmazione, ora ${hL(n.L)}`}); });
@@ -2275,15 +2287,17 @@ function lavCheckPend(){ const p=UI.pendLav; if(!p) return; const l=lavori().fin
 
 /* ===================== Schermata dell'operatore (telefono): vede i suoi lavori, dice fatto o non fatto ===================== */
 function viewOperatore(app){
-  let op=null; try{ op=localStorage.getItem('gcg-op'); }catch(e){}
+  let op=null; try{ op=localStorage.getItem('gcg-op'); }catch(e){} if(OPM()) op=OPM().nome;
   const pers=persone();
-  const head=`<div class="box small op-banner"><b>Vista operatore</b> — è la schermata che l'operatore vedrà sul suo telefono${op?' (ora: <b>'+esc(op)+'</b>)':''}. ${op?'<button type="button" class="btn sm ghost" id="op-chi">Cambia persona</button>':''} <a class="btn sm" href="#lavori">Torna ai lavori</a></div>`;
-  const bindHead=()=>{ const c=$('#op-chi',app); if(c) c.onclick=()=>{ try{ localStorage.removeItem('gcg-op'); }catch(e){} UI.opSel=null; viewOperatore(app); }; };
+  const head=OPM()?`<div class="spread op-top"><span class="small muted">${esc((S.azienda&&S.azienda.nome)||'')}</span><span class="small">👤 <b>${esc(op)}</b> · <a href="#" id="op-esci">Esci</a></span></div>`
+    :`<div class="box small op-banner"><b>Vista operatore</b> — è la schermata che l'operatore vedrà sul suo telefono${op?' (ora: <b>'+esc(op)+'</b>)':''}. ${op?'<button type="button" class="btn sm ghost" id="op-chi">Cambia persona</button>':''} <a class="btn sm" href="#lavori">Torna ai lavori</a></div>`;
+  const bindHead=()=>{ const c=$('#op-chi',app); if(c) c.onclick=()=>{ try{ localStorage.removeItem('gcg-op'); }catch(e){} UI.opSel=null; viewOperatore(app); };
+    const x=$('#op-esci',app); if(x) x.onclick=e=>{ e.preventDefault(); if(OPM().esci) OPM().esci(); }; };
   if(!op){ app.innerHTML=`<div class="opv">${head}<h2>Chi sei?</h2>${pers.length?`<div class="op-pers">${pers.map(p=>`<button type="button" class="btn" data-op="${esc(p)}">${esc(p)}</button>`).join('')}</div>`:'<p class="muted">Nessuna persona: assegna prima un lavoro a qualcuno.</p>'}<p class="hint">Sul sito la persona sarà quella dell'accesso.</p></div>`;
     bindHead(); $$('[data-op]',app).forEach(x=>x.onclick=()=>{ try{ localStorage.setItem('gcg-op',x.dataset.op); }catch(e){} UI.opNome=x.dataset.op; viewOperatore(app); });
     return; }
-  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&x.assegnato===op); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
-  const mine=lavori().filter(l=>l.assegnato===op);
+  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&String(x.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase()); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
+  const mine=lavori().filter(l=>String(l.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase());
   const todo=mine.filter(l=>l.stato==='dafare').sort(lavSort);
   const sez=[['In ritardo',todo.filter(l=>l.data&&l.data<today())],['Oggi',todo.filter(l=>l.data===today())],['Prossimi giorni',todo.filter(l=>l.data&&l.data>today())],['Senza data',todo.filter(l=>!l.data)]];
   const sett=addDays(today(),-7)+'T';
@@ -2297,7 +2311,7 @@ function viewOperatore(app){
   bindHead(); $$('[data-ol]',app).forEach(x=>x.onclick=()=>{ UI.opSel=x.dataset.ol; viewOperatore(app); window.scrollTo(0,0); });
 }
 function opDettaglio(app,l,op,head,bindHead){
-  const st=stOggi(), mv=lavMov(l), cs=lavHaMov(l)?[]:(l.vasche||[]), ps=l.prodotti||[], d=lavDiff(l);
+  const st=stLav(l), mv=lavMov(l), cs=lavHaMov(l)?[]:(l.vasche||[]), ps=l.prodotti||[], d=lavDiff(l);
   UI.opSpunte=UI.opSpunte||{}; const spunte=UI.opSpunte[l.id]=UI.opSpunte[l.id]||new Set();
   const contTxt=c=>{ const s=st[c]||{}; return `<li><b>${esc(vlab(c))}</b> <span class="muted">${esc(locNome(locDi(c)))}</span><br>${s.vino?esc(vName(s.vino))+' · '+hL(s.L):'vuota'}</li>`; };
   app.innerHTML=`<div class="opv">${head}
@@ -5400,6 +5414,7 @@ function doppiDi(dep){ const D=codiciDoppi(); return VASCHE.filter(v=>v.dep===de
     blk.querySelectorAll('.t-a').forEach(s=>{ if(!s.value&&s._loc&&[...s._loc.options].some(o=>o.value===d)&&s._loc.value!==d){ s._loc.value=d; rendi(s); } }); },true);
 })();
 
+try{ if(lavAttuale()) save(); }catch(e){}
 route();
 </script>
 <script type="text/plain" id="app-ui2">

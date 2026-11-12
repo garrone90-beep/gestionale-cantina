@@ -37,8 +37,8 @@
       const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
       m.style.color=error?'#B3261E':'#2E7D32'; m.textContent=error?'Invio non riuscito: '+error.message:'Ti ho mandato un\'email con il link per scegliere una nuova password.'; };
   }
-  function nuovaPassword(){
-    const d=schermo(`<h2 style="margin:0 0 12px;font-size:1.2rem">Scegli una nuova password</h2><form id="np-f"><input id="np-p" type="password" minlength="8" required placeholder="almeno 8 caratteri" autocomplete="new-password" style="${inp}"><div id="np-m" style="color:#B3261E;font-size:.88rem;min-height:1.2em;margin-bottom:8px"></div><button style="${btn}">Salva password</button></form>`);
+  function nuovaPassword(invito){
+    const d=schermo(`<h2 style="margin:0 0 12px;font-size:1.2rem">${invito?'Benvenuto! Scegli la tua password':'Scegli una nuova password'}</h2><form id="np-f"><input id="np-p" type="password" minlength="8" required placeholder="almeno 8 caratteri" autocomplete="new-password" style="${inp}"><div id="np-m" style="color:#B3261E;font-size:.88rem;min-height:1.2em;margin-bottom:8px"></div><button style="${btn}">Salva password</button></form>`);
     d.querySelector('#np-f').onsubmit=async e=>{ e.preventDefault(); const {error}=await sb.auth.updateUser({password:d.querySelector('#np-p').value});
       if(error){ d.querySelector('#np-m').textContent='Non riuscito: '+error.message; return; } const {data}=await sb.auth.getUser(); avvia(data.user); };
   }
@@ -53,6 +53,7 @@
       const {data:prof,error:pe}=await sb.from('profili').select('ruolo,attivo,nome').eq('id',user.id).maybeSingle(); if(pe) throw pe;
       if(!prof||!prof.attivo) return errore(`L'utente <b>${esc(user.email)}</b> non è ancora abilitato. Chiedi all'amministratore di attivarlo.`,true);
       ruolo=prof.ruolo;
+      if(ruolo==='operatore') return avviaOperatore(prof);
       const [rec,imp]=await Promise.all([tutte('record','tipo,id,data,aggiornato'),tutte('impostazioni','chiave,valore,aggiornato')]);
       const S0={}; imp.forEach(r=>{ S0[r.chiave]=r.valore; }); Object.keys(REC).forEach(k=>{ S0[k]=[]; });
       const per={}; Object.entries(REC).forEach(([k,t])=>per[t]=k);
@@ -74,6 +75,77 @@
     // le correzioni automatiche fatte all'apertura vanno salvate
     setTimeout(()=>programma(),1500);
   }
+
+  /* ---------- operatore: vede solo i suoi lavori, passando dalla funzione «operatore» ---------- */
+  async function chiamaOp(body){ const {data:{session}}=await sb.auth.getSession(); if(!session){ const e=new Error('Sessione scaduta: rientra'); e.code='not_granted'; throw e; }
+    const r=await fetch(SB_URL+'/functions/v1/operatore',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token,apikey:SB_KEY},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.message||('Errore '+r.status)); e.code=j.code; e.dati=j; throw e; } return j; }
+  let opSnap={}, opT=null, opIn=false;
+  const opFoto=S=>{ opSnap={}; (S.lavori||[]).forEach(l=>{ if(l&&l.id!=null) opSnap[l.id]=JSON.stringify(l); }); };
+  const avviso=(t)=>{ try{ window.toast(t); }catch(e){} };
+  async function esci(){ if(opT||opIn){ alert('Attendi: sto inviando la tua segnalazione.'); return; } await sb.auth.signOut(); try{ localStorage.removeItem(LS); }catch(x){} location.hash=''; location.reload(); }
+  async function avviaOperatore(prof){
+    let j; try{ j=await chiamaOp({azione:'carica'}); }
+    catch(e){ console.error(e); return errore('Non riesco a leggere i tuoi lavori'+(navigator.onLine?'':' (sei senza connessione)')+'. Riprova tra poco.',true); }
+    window.__OP={nome:j.nome||prof.nome,esci};
+    const S0=Object.assign({},j.S||{},{vini:j.vini||[],lavori:j.lavori||[],eventi:[],analisi:[]});
+    try{ localStorage.setItem(LS,JSON.stringify(S0)); }catch(e){} opFoto(S0);
+    if(location.hash!=='#operatore') history.replaceState(null,'',location.pathname+'#operatore');
+    togliSchermo();
+    ['app-main','app-ui2'].forEach(id=>{ const t=document.getElementById(id); if(!t) return; const s=document.createElement('script'); s.textContent=t.textContent; t.replaceWith(s); });
+    const orig=window.save; window.save=function(){ orig(); clearTimeout(opT); opT=setTimeout(()=>{ opT=null; pushOp(); },300); };
+    setInterval(()=>{ if(!document.hidden) ricaricaOp(); },60000); window.addEventListener('focus',()=>ricaricaOp());
+    window.addEventListener('beforeunload',e=>{ if(opT||opIn){ e.preventDefault(); e.returnValue=''; } });
+  }
+  async function pushOp(){ const S=getS(); if(!S||opIn) return; opIn=true;
+    try{ for(const l of (S.lavori||[])){ if(!l||l.id==null) continue; const s=JSON.stringify(l); if(opSnap[l.id]===s) continue;
+        const prima=opSnap[l.id]?JSON.parse(opSnap[l.id]):null;
+        if(prima&&['dafare','incorso'].includes(prima.stato)&&['eseguito','noneseguito'].includes(l.stato)){
+          const nota=((l.storia||[]).slice(-1)[0]||{}).nota||'';
+          try{ const j=await chiamaOp({azione:'dichiara',id:l.id,stato:l.stato,esec:l.esec,nota}); Object.assign(l,j.lavoro); opSnap[l.id]=JSON.stringify(l); avviso('Inviato al responsabile'); }
+          catch(e){ if(e.code==='conflict'&&e.dati&&e.dati.lavoro){ const i=S.lavori.indexOf(l); S.lavori[i]=e.dati.lavoro; opSnap[l.id]=JSON.stringify(e.dati.lavoro); avviso(e.message); try{ window.route(); }catch(x){} }
+            else { avviso('Non inviato: riprovo tra poco'+(navigator.onLine?'':' (senza connessione)')); setTimeout(()=>window.save(),10000); } }
+        } else opSnap[l.id]=s; /* le altre modifiche restano solo su questo telefono */ }
+      try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){}
+    } finally{ opIn=false; } }
+  async function ricaricaOp(){ const S=getS(); if(!S||opT||opIn||document.querySelector('.ov')) return;
+    if((S.lavori||[]).some(l=>l&&opSnap[l.id]!==undefined&&opSnap[l.id]!==JSON.stringify(l)&&['eseguito','noneseguito'].includes(l.stato))) return;
+    try{ const j=await chiamaOp({azione:'carica'}); if(opT||opIn) return; S.lavori=j.lavori||[]; S.vini=j.vini||[]; Object.assign(S,j.S||{}); opFoto(S);
+      try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} try{ window.route(); }catch(e){} }catch(e){} }
+
+  /* ---------- amministratore: utenti e inviti ---------- */
+  function pannello(html){ let d=document.getElementById('cl-utp'); if(!d){ d=document.createElement('div'); d.id='cl-utp'; document.body.appendChild(d); }
+    d.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(0,0,0,.4);padding:24px 12px;overflow:auto;font-family:system-ui,-apple-system,Segoe UI,sans-serif';
+    d.innerHTML=`<div style="background:#fff;color:#222;border-radius:14px;padding:22px;width:100%;max-width:720px;box-shadow:0 10px 40px rgba(0,0,0,.2)">${html}</div>`;
+    d.onclick=e=>{ if(e.target===d) d.remove(); }; return d; }
+  const RUOLI=[['admin','Amministratore'],['dipendente','Dipendente (tutto il gestionale)'],['operatore','Operatore (solo i suoi lavori)']];
+  const selR=(v,dis)=>`<select data-r ${dis?'disabled':''} style="padding:6px;border:1px solid #ccc;border-radius:6px">${RUOLI.map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('')}</select>`;
+  async function utenti(msg){
+    const {data,error}=await sb.from('profili').select('id,email,nome,ruolo,attivo').order('email');
+    const io=utente&&utente.id;
+    const d=pannello(`<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:1.2rem">Utenti</h2><button id="ut-x" style="border:0;background:none;font-size:1.4rem;cursor:pointer" aria-label="Chiudi">×</button></div>
+      ${error?`<p style="color:#B3261E">Non riesco a leggere gli utenti: ${esc(error.message)}</p>`:`<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.9rem;margin-top:10px"><thead><tr style="text-align:left;color:#666"><th style="padding:6px">Email</th><th>Nome</th><th>Ruolo</th><th>Attivo</th><th></th></tr></thead><tbody>
+      ${(data||[]).map(p=>`<tr data-id="${esc(p.id)}" style="border-top:1px solid #eee"><td style="padding:6px">${esc(p.email)}</td><td><input data-n value="${esc(p.nome||'')}" style="width:110px;padding:6px;border:1px solid #ccc;border-radius:6px"></td><td>${selR(p.ruolo,p.id===io)}</td><td><input type="checkbox" data-a ${p.attivo?'checked':''} ${p.id===io?'disabled':''}></td><td><button data-s style="padding:6px 10px;border:1px solid #8A1C3C;color:#8A1C3C;background:#fff;border-radius:6px;cursor:pointer">Salva</button></td></tr>`).join('')}</tbody></table></div>`}
+      <p style="font-size:.82rem;color:#666;margin:8px 0 0">L'<b>operatore</b> vede solo i lavori assegnati a lui e può dire «fatto» o «non fatto»: il suo <b>nome</b> deve essere uguale a quello che scrivi in «Assegnato a» nei Lavori.</p>
+      <h3 style="margin:18px 0 6px;font-size:1rem">Invita un nuovo utente</h3>
+      <form id="ut-f" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:end">
+        <label style="font-size:.85rem">Email<input id="ut-e" type="email" required style="${inp};margin:2px 0 0"></label>
+        <label style="font-size:.85rem">Nome<input id="ut-n" required placeholder="es. Nathan" style="${inp};margin:2px 0 0"></label>
+        <label style="font-size:.85rem">Ruolo${selR('operatore').replace('data-r','id="ut-r"')}</label>
+        <button style="${btn}">Invia invito</button></form>
+      <p style="font-size:.82rem;color:#666">Riceve un'email con il link per scegliere la password. Sul telefono può poi usare «Aggiungi alla schermata Home».</p>
+      <div id="ut-m" style="font-size:.9rem;min-height:1.2em;color:${msg&&msg.err?'#B3261E':'#2E7D32'}">${esc(msg?msg.t:'')}</div>`);
+    d.querySelector('#ut-x').onclick=()=>d.remove();
+    d.querySelectorAll('[data-s]').forEach(b=>b.onclick=async()=>{ const tr=b.closest('tr'); const id=tr.dataset.id; const o={nome:tr.querySelector('[data-n]').value.trim()};
+      if(id!==io){ o.ruolo=tr.querySelector('[data-r]').value; o.attivo=tr.querySelector('[data-a]').checked; }
+      const {error}=await sb.from('profili').update(o).eq('id',id); if(!error) aggPersona(o.nome,o.ruolo); utenti(error?{t:'Non salvato: '+error.message,err:1}:{t:'Salvato.'}); });
+    d.querySelector('#ut-f').onsubmit=async e=>{ e.preventDefault(); const m=d.querySelector('#ut-m'); m.style.color='#666'; m.textContent='Invio…';
+      const email=d.querySelector('#ut-e').value.trim(), nome=d.querySelector('#ut-n').value.trim(), r=d.querySelector('#ut-r').value;
+      try{ const j=await chiamaOp({azione:'invita',email,nome,ruolo:r,redirectTo:location.origin+location.pathname}); aggPersona(nome,r);
+        utenti({t:j.inviato?`Invito inviato a ${email}.`:`${email} aveva già un accesso: ho aggiornato nome e ruolo.`}); }
+      catch(x){ m.style.color='#B3261E'; m.textContent=x.message; } }; }
+  /* l'operatore compare subito tra le persone a cui assegnare i lavori */
+  function aggPersona(nome,r){ const S=getS(); if(!S||r!=='operatore'||!nome) return; S.persone=S.persone||[]; if(!S.persone.includes(nome)){ S.persone.push(nome); try{ window.save(); }catch(e){} } }
 
   /* ---------- salvataggio ---------- */
   function programma(){ clearTimeout(timer); stato('Modifiche da salvare…',''); timer=setTimeout(()=>{ timer=null; push(); },700); }
@@ -126,7 +198,8 @@
     n.parentNode.insertBefore(d,n.nextSibling); disegna(); }
   function stato(t,c){ statoTxt=t; statoCls=c; disegna(); }
   function disegna(){ const d=document.getElementById('cl-bar'); if(!d) return; const col={ok:'#5BB974',warn:'#E0A030',err:'#E5484D'}[statoCls]||'#999';
-    d.innerHTML=`<div><span style="color:${col}">●</span> ${esc(statoTxt||'Collegato')}</div><div>${esc(utente&&utente.email||'')}${ruolo==='admin'?' · amministratore':''} · <a href="#" id="cl-esci" style="color:inherit;text-decoration:underline">Esci</a></div>`;
+    d.innerHTML=`<div><span style="color:${col}">●</span> ${esc(statoTxt||'Collegato')}</div><div>${esc(utente&&utente.email||'')}${ruolo==='admin'?' · amministratore · <a href="#" id="cl-ut" style="color:inherit;text-decoration:underline">Utenti</a>':''} · <a href="#" id="cl-esci" style="color:inherit;text-decoration:underline">Esci</a></div>`;
+    { const u=d.querySelector('#cl-ut'); if(u) u.onclick=e=>{ e.preventDefault(); utenti(); }; }
     d.querySelector('#cl-esci').onclick=async e=>{ e.preventDefault(); if(timer||inCorso){ alert('Attendi il salvataggio delle ultime modifiche.'); return; } await sb.auth.signOut(); try{ localStorage.removeItem(LS); }catch(x){} location.reload(); }; }
 
   /* ---------- lettura documenti con la funzione «leggi» ---------- */
@@ -144,6 +217,8 @@
   /* ---------- avvio ---------- */
   sb.auth.onAuthStateChange(ev=>{ if(ev==='PASSWORD_RECOVERY') nuovaPassword(); });
   // si parte a pagina letta: il programma è più sotto nella pagina, in <script type="text/plain">
-  const via=async()=>{ if(/type=recovery/.test(location.hash)) return; const {data:{session}}=await sb.auth.getSession(); if(session) avvia(session.user); else login(); };
+  const via=async()=>{ if(/type=recovery/.test(location.hash)) return;
+    if(/type=invite/.test(location.hash)){ for(let i=0;i<24;i++){ const {data:{session}}=await sb.auth.getSession(); if(session){ history.replaceState(null,'',location.pathname); return nuovaPassword(true); } await new Promise(r=>setTimeout(r,250)); }
+      return login('Il link di invito non è più valido: chiedi un nuovo invito, oppure usa «Password dimenticata?».'); } const {data:{session}}=await sb.auth.getSession(); if(session) avvia(session.user); else login(); };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',via); else via();
 })();
