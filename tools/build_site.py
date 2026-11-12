@@ -46,6 +46,17 @@ s = re.sub(r'<title>[^<]*</title>', '<title>Gestionale di cantina</title>', s, c
 if '<title>' not in s:
     s = s.replace('<meta charset=utf8>', '<meta charset=utf8><title>Gestionale di cantina</title>', 1)
 
+# icona e apertura a schermo intero quando il sito si aggiunge alla schermata Home (uguale per tutte le cantine)
+TESTA = ('<link rel="manifest" href="/manifest.webmanifest">'
+         '<link rel="icon" type="image/png" sizes="32x32" href="/icone/icona-32.png">'
+         '<link rel="apple-touch-icon" href="/icone/icona-180.png">'
+         '<meta name="theme-color" content="#620123">'
+         '<meta name="apple-mobile-web-app-capable" content="yes">'
+         '<meta name="mobile-web-app-capable" content="yes">'
+         '<meta name="apple-mobile-web-app-title" content="Cantina">'
+         '<meta name="apple-mobile-web-app-status-bar-style" content="default">')
+rep('<title>Gestionale di cantina</title>', '<title>Gestionale di cantina</title>' + TESTA)
+
 out = ROOT / 'index.html'
 out.write_text(s, encoding='utf-8')
 print('scritto', out, len(s), 'caratteri')
