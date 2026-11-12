@@ -24,17 +24,28 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return out({ code: "method", message: "Usa POST" }, 405);
   const t0 = Date.now();
+  console.log(JSON.stringify({ evento: "ricevuta", byte: req.headers.get("content-length") }));
   const auth = req.headers.get("Authorization") ?? "";
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
   const { data: u } = await sb.auth.getUser();
+  console.log(JSON.stringify({ evento: "utente", ok: !!u?.user, ms: Date.now() - t0 }));
   if (!u?.user) return out({ code: "not_granted", message: "Accesso non valido" }, 401);
   const { data: prof } = await sb.from("profili").select("attivo,ruolo").eq("id", u.user.id).maybeSingle();
   if (!prof?.attivo || prof.ruolo === "operatore") return out({ code: "not_granted", message: "Utente non autorizzato" }, 403);
 
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) return out({ code: "no_key", message: "Chiave API Anthropic non impostata nei segreti del progetto" }, 500);
+  /* il documento deve arrivare entro 40 s, altrimenti lo diciamo (prima la pagina riceveva solo «Failed to fetch») */
   let body: any;
-  try { body = await req.json(); } catch (_) { return out({ code: "bad_request", message: "Richiesta non valida" }, 400); }
+  try {
+    const raw = await Promise.race([req.text(), new Promise<string>((_, ko) => setTimeout(() => ko(new Error("corpo_lento")), 40000))]);
+    console.log(JSON.stringify({ evento: "corpo", byte: raw.length, ms: Date.now() - t0 }));
+    body = JSON.parse(raw);
+  } catch (e) {
+    console.log(JSON.stringify({ evento: "corpo_errore", errore: String(e), ms: Date.now() - t0 }));
+    if (String(e).includes("corpo_lento")) return out({ code: "upload_timeout", message: "Il documento non è arrivato al server in tempo: la connessione è lenta o il file è troppo pesante. Riprova, oppure con meno pagine." }, 408);
+    return out({ code: "bad_request", message: "Richiesta non valida" }, 400);
+  }
   const prompt = String(body?.prompt ?? "");
   if (!prompt) return out({ code: "bad_request", message: "Manca il testo" }, 400);
   const imgs: { media_type: string; data: string }[] = Array.isArray(body?.images) ? body.images.slice(0, 8) : [];

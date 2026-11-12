@@ -215,7 +215,8 @@
     const imgs=await Promise.all((opt.images||[]).map(async x=>x instanceof Blob?{media_type:x.type||'image/jpeg',data:await b64(x)}:x));
     const {data:{session}}=await sb.auth.getSession(); if(!session){ const e=new Error('Sessione scaduta: rientra'); e.code='not_granted'; throw e; }
     let r; try{ r=await fetch(SB_URL+'/functions/v1/leggi',{method:'POST',signal:opt.signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token,apikey:SB_KEY},body:JSON.stringify({prompt,images:imgs,json})}); }
-    catch(e){ if(e&&e.name==='AbortError'){ const x=new Error('Interrotto'); x.code='cancelled'; throw x; } throw e; }
+    catch(e){ if(e&&e.name==='AbortError'){ const x=new Error('Interrotto'); x.code='cancelled'; throw x; }
+      const x=new Error(navigator.onLine?'il collegamento con il server si è interrotto prima della risposta (documento troppo lungo o server lento): riprova, oppure con meno pagine':'sei senza connessione'); x.code='network'; throw x; }
     const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.message||('Errore '+r.status)); e.code=j.code||'api_error'; throw e; }
     return json?j.json:j.text; }
   const sample={ limits:async()=>({images:true}), json:(p,o)=>chiama(p,o,true), text:(p,o)=>chiama(p,o,false), complete:(p,o)=>chiama(p,o,false) };
