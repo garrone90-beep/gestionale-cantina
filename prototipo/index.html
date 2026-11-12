@@ -507,6 +507,10 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 .lp-w{display:flex;flex-direction:column;gap:3px;width:100%}
 .lp-w>select.loc-pick{width:auto;max-width:100%;align-self:flex-start;font-size:.78rem;padding:2px 26px 2px 8px;min-height:0;height:auto;color:var(--muted);border-style:dashed}
 .lp-w>select.cont-pick{width:100%;min-width:0}
+
+/* schema dei passaggi: anni */
+.gsvg .gy{font:700 12px var(--f-body);fill:var(--ink)}
+.gsvg .gyear{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 4;opacity:.7}
 </style>
 
 <header class="top"><div class="in">
@@ -1056,16 +1060,20 @@ function grpStepHTML(g,G,Lnow){ const p=VLAB_D; VLAB_D=g.ev.data; try{ const src
       <details style="margin-top:4px"><summary class="small" style="cursor:pointer">Dettaglio dei ${g.items.length} arrivi</summary><ul class="small">${g.items.map(st=>{ const tx=stepText(st,G,Lnow); return `<li>${tx.body}</li>`; }).join('')}</ul></details>
       ${g.ev.note?`<div class="nt muted small">${esc(g.ev.note)}</div>`:''}</div></li>`; } finally{ VLAB_D=p; } }
 const KIND = {cert:['Certificazione','var(--ok)'],fine:['Fine lavorazione','var(--ok)'],stato:['Stato','var(--ok)'],entrata:['Entrata','var(--ink)'],ingresso:['Ingresso da altra partita','var(--c2)'],assemblaggio:['Assemblaggio','var(--accent)'],nodo:['Travaso','var(--accent)'],agg:['Lavorazione','var(--ok)'],mis:['Misura','var(--steel)'],imb:['Imbottigliamento','var(--warn)'],out:['Uscita','var(--warn)']};
-function genDiagram(G){
+function genDiagram(G,fineLab){
   const lanes=[]; G.lin.filter(n=>!n.leaf).sort((a,b)=>a.i-b.i).forEach(n=>{if(!lanes.includes(n.vasca)) lanes.push(n.vasca);});
   const cols=[...new Set(G.steps.map(s=>s.i))].sort((a,b)=>a-b);
-  const CW=78, LW=64, TOP=46, LH=56;
-  const X=i=>LW+30+cols.indexOf(i)*CW, XN=LW+30+cols.length*CW, Y=v=>TOP+lanes.indexOf(v)*LH;
+  const CW=78, LW=64, TOP=60, LH=56;
+  const X=i=>{ let k=cols.indexOf(i); if(k<0){ k=cols.findIndex(c=>c>i); if(k<0) k=cols.length; } return LW+30+k*CW; }, XN=LW+30+cols.length*CW, Y=v=>TOP+lanes.indexOf(v)*LH;
   const W=XN+60, H=TOP+lanes.length*LH;
   let g='';
   lanes.forEach(v=>{g+=`<text x="8" y="${Y(v)+4}" class="gl">${esc(Vnome(v))}</text><line x1="${LW+10}" x2="${XN+20}" y1="${Y(v)}" y2="${Y(v)}" class="gguide"/>`;});
-  let lastD=''; cols.forEach(i=>{const st=G.steps.find(s=>s.i===i); const d=fd(st.ev.data||'').slice(0,5); if(d!==lastD){g+=`<text x="${X(i)}" y="18" class="gd">${d}</text>`; lastD=d;}});
-  g+=`<text x="${XN}" y="18" class="gd">oggi</text>`;
+  /* date complete: l'anno compare a ogni cambio d'anno, con una linea; giorno e mese sotto (mai date di anni diversi confuse) */
+  let lastD='', lastY='', anni=[]; cols.forEach((i,j)=>{const st=G.steps.find(s=>s.i===i); const dd=st.ev.data||''; const y=dd.slice(0,4);
+    if(y&&y!==lastY){ anni.push(y); const xl=X(i)-CW/2+4; if(j>0) g+=`<line x1="${xl}" x2="${xl}" y1="4" y2="${H}" class="gyear"/>`; g+=`<text x="${j>0?xl+4:X(i)-10}" y="15" class="gy">${y}</text>`; lastY=y; }
+    if(dd!==lastD){g+=`<text x="${X(i)}" y="33" class="gd">${fd(dd).slice(0,5)}</text>`; lastD=dd;}});
+  g+=`<text x="${XN}" y="33" class="gd">${esc(fineLab||'oggi')}</text>`;
+  const periodo=anni.length?(anni[0]===anni[anni.length-1]?anni[0]:anni[0]+'–'+anni[anni.length-1]):'';
   G.lin.filter(n=>!n.leaf).forEach(n=>{ const end=G.ends[n.id]; const x2=end===Infinity?XN:X(end); const w=vino(n.vino);
     g+=`<line x1="${X(n.i)}" x2="${x2}" y1="${Y(n.vasca)}" y2="${Y(n.vasca)}" stroke="${w?`var(--${w.tipo})`:'var(--steel)'}" stroke-width="7" stroke-linecap="round"/>`;
     n.parents.filter(p=>p.kind==='arrivo').forEach(p=>{const P=R.nodes[p.n];
@@ -1073,9 +1081,9 @@ function genDiagram(G){
       else { const y1=Y(P.vasca), y2=Y(n.vasca), x=X(n.i); g+=`<path d="M${x-14} ${y1} C ${x-2} ${y1}, ${x-12} ${y2}, ${x} ${y2}" class="garrow" marker-end="url(#ah)"/><text x="${x-18}" y="${(y1+y2)/2+(y2>y1?-2:10)}" class="gq" text-anchor="end">${nf(p.L/100,1)} hL</text>`; } }); });
   const used={};
   G.steps.forEach(st=>{ const k=st.i+'|'+st.vasca; const off=(used[k]=(used[k]||0)+1)-1; const x=X(st.i)+off*16, y=Y(st.vasca);
-    g+=`<g><circle cx="${x}" cy="${y}" r="9" fill="var(--surface)" stroke="${KIND[st.kind][1]}" stroke-width="2.2"/><text x="${x}" y="${y+3.5}" class="gn-num">${st.num}</text><title>${st.num}. ${KIND[st.kind][0]}</title></g>`; });
+    g+=`<g><circle cx="${x}" cy="${y}" r="9" fill="var(--surface)" stroke="${KIND[st.kind][1]}" stroke-width="2.2"/><text x="${x}" y="${y+3.5}" class="gn-num">${st.num}</text><title>${st.num}. ${KIND[st.kind][0]} · ${fd(st.ev.data||'')}</title></g>`; });
   G.lin.filter(n=>!n.leaf&&G.ends[n.id]===Infinity).forEach(n=>{g+=`<text x="${XN+12}" y="${Y(n.vasca)+4}" class="gl">${hL(n.Ltot===undefined?0:R.st[n.vasca].L)}</text>`;});
-  return `<div class="map-wrap"><svg class="gsvg" viewBox="0 0 ${W+40} ${H}" width="${W+40}" height="${H}" role="img" aria-label="Schema dei passaggi tra vasche">
+  return `${periodo?`<div class="small muted" style="margin:-4px 0 6px">Periodo rappresentato: <b>${periodo}</b>${anni.length>1?' · la linea tratteggiata segna l\'inizio di ogni anno':''}</div>`:''}<div class="map-wrap"><svg class="gsvg" viewBox="0 0 ${W+40} ${H}" width="${W+40}" height="${H}" role="img" aria-label="Schema dei passaggi tra vasche">
     <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--ink)"/></marker></defs>${g}</svg></div>`;
 }
 function compRows(G,Ltot,btn){
@@ -1117,17 +1125,19 @@ const KEST=['Alcool distillazione','Zuccheri riduttori totali','Glucosio + Frutt
 function stimaTaglio(rootId,refDate){
   refDate=refDate||asOf(); const sup={}; Object.values(R.nodes).forEach(c=>c.parents.forEach(p=>{ const P=R.nodes[p.n]; if(P&&P.vasca===c.vasca&&!c.leaf){ if(sup[p.n]==null||c.i<sup[p.n]) sup[p.n]=c.i; } }));
   const endD=n=>sup[n.id]!=null?(R.idxDate[sup[n.id]]||'9999-12-31'):'9999-12-31';
-  const measured=n=>S.analisi.filter(a=>a.vino===n.vino&&a.data>=n.data&&a.data<=endD(n)&&a.data<=refDate&&(a.ambito!=='vasca'||anVasche(a).includes(n.vasca))).sort((x,y)=>x.data<y.data?1:-1);
+  /* un'analisi vale per una porzione solo se fatta mentre la porzione era nella vasca: fino a quando la vasca riceve altro vino (endD)
+     e, per una porzione uscita, fino al giorno dell'uscita (cut). Un'analisi successiva del residuo non cambia le porzioni già uscite. */
+  const measured=(n,cut)=>{ const lim=[endD(n),refDate,cut||'9999-12-31'].sort()[0]; return S.analisi.filter(a=>a.vino===n.vino&&a.data>=n.data&&a.data<=lim&&(a.ambito!=='vasca'||anVasche(a).includes(n.vasca))).sort((x,y)=>x.data<y.data?1:-1); };
   const memo={};
-  const est=id=>{ if(memo[id]) return memo[id]; const n=R.nodes[id]; let r={vals:{},cov:{},fonti:[]};
-    if(!n||n.leaf){ return memo[id]=r; }
-    const m=measured(n);
-    if(m.length){ KEST.forEach(k=>{ const a=m.find(a=>a.valori[k]&&a.valori[k].v!=null&&!a.valori[k].lod); if(a){ r.vals[k]=a.valori[k].v; r.cov[k]=1; } }); r.fonti=[{tipo:'misurata',n,an:m[0].id,data:m[0].data,vasca:n.vasca,vino:n.vino}]; if(Object.keys(r.vals).length) return memo[id]=r; }
+  const est=(id,cut)=>{ const mk=id+'|'+(cut||''); if(memo[mk]) return memo[mk]; const n=R.nodes[id]; let r={vals:{},cov:{},fonti:[]};
+    if(!n||n.leaf){ return memo[mk]=r; }
+    const m=measured(n,cut);
+    if(m.length){ KEST.forEach(k=>{ const a=m.find(a=>a.valori[k]&&a.valori[k].v!=null&&!a.valori[k].lod); if(a){ r.vals[k]=a.valori[k].v; r.cov[k]=1; } }); r.fonti=[{tipo:'misurata',n,an:m[0].id,data:m[0].data,vasca:n.vasca,vino:n.vino}]; if(Object.keys(r.vals).length) return memo[mk]=r; }
     const tot=n.parents.reduce((s2,p)=>s2+p.L,0)||1;
-    n.parents.forEach(p=>{ const e=est(p.n); r.fonti.push(...e.fonti.map(f=>({...f,quota:(f.quota??1)*p.L/tot})));
+    n.parents.forEach(p=>{ const e=est(p.n,n.data); r.fonti.push(...e.fonti.map(f=>({...f,quota:(f.quota??1)*p.L/tot})));
       KEST.forEach(k=>{ if(e.vals[k]==null) return; const w=p.L*(e.cov[k]||0); r.vals[k]=(r.vals[k]||0)+e.vals[k]*w; r.cov[k]=(r.cov[k]||0)+w; }); });
     KEST.forEach(k=>{ if(r.cov[k]){ r.vals[k]=r.vals[k]/r.cov[k]; r.cov[k]=r.cov[k]/tot; } });
-    return memo[id]=r; };
+    return memo[mk]=r; };
   const n=R.nodes[rootId]; if(!n) return null; const direct=measured(n);
   const r=est(rootId); return {direct:direct[0]||null,stima:r,isMix:n.parents.length>1||n.parents.some(p=>{const P=R.nodes[p.n];return P&&!P.leaf&&P.parents.length>1;})};
 }
@@ -3186,7 +3196,7 @@ function formImbottigliamento(p={},corrId){
 }
 
 /* ===================== Registro imbottigliamenti e lotti ===================== */
-function lottoProv(e){ const info=R.imb[e.id]; if(!info||!info.node) return null; const G=genData(info.node, info.i, 'op'); return {info,G}; }
+function lottoProv(e,mode){ const info=R.imb[e.id]; if(!info||!info.node) return null; const G=genData(info.node, info.i, mode||'op'); return {info,G}; }
 function provShort(G){ return Object.entries(G.compo).filter(([,f])=>f>1e-9).sort((a,b)=>b[1]-a[1]).map(([k,f])=>{
   if(k.startsWith('own:')){ const ot=origTxt(R.nodes[k.slice(4)]); return `${esc(vName(G.root.vino))}${ot?' · '+esc(ot):''} ${nf(f*100,0)}%`; }
   const bd=G.bounds[k]; return `${esc(vName(bd.p.vino))} ${nf(f*100,1)}%`; }).join('<br>'); }
@@ -3208,7 +3218,7 @@ function viewImb(app){
 function viewLotto(app,id){
   const e=S.eventi.find(x=>x.id===id&&x.tipo==='imbottigliamento');
   if(!e){app.innerHTML='<div class="empty">Imbottigliamento non trovato. <a href="#imbottigliamenti">Torna al registro</a></div>';return;}
-  const lp=lottoProv(e);
+  const lmode=UI.lotMode||'op'; const lp=lottoProv(e,lmode);
   const attuale=e.stato==='rettificato'?(()=>{ let c=e, n=0; while(c&&c.stato==='rettificato'&&c.rettificatoDa&&n++<50) c=S.eventi.find(x=>x.id===c.rettificatoDa); return c&&c!==e?c:null; })():null;
   const avv=e.stato==='rettificato'?`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;color:var(--ink)"><span><b>Versione sostituita</b> da una correzione del ${fd((e.rettificatoIl||'').slice(0,10))}. Questi sono i dati di prima: non entrano più nelle giacenze.</span>${attuale&&(!attuale.stato||attuale.stato==='attivo')?`<a class="btn sm pri" href="#lotto-${attuale.id}">Vai alla versione attuale (${hL(attuale.L)})</a>`:attuale?'<span class="small muted">Anche la versione corretta è stata annullata.</span>':''}</div>`
     :e.stato==='annullato'?`<div class="box warn" style="color:var(--ink)"><b>Lotto annullato</b>${e.annullatoIl?' il '+fd(e.annullatoIl.slice(0,10)):''}${e.motivo?': '+esc(e.motivo):''}. Non entra nelle giacenze.</div>`:'';
@@ -3222,11 +3232,14 @@ function viewLotto(app,id){
     if(f){ const P=R.nodes[f.p], C=R.nodes[f.c]; G=genData(f.p,C.i,'op',{i:C.i,a:C.vasca}); G.focusC=C; Lnow=f.L; const prev=UI.lotStack.length>1;
       fh=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;color:var(--ink)"><span>${P.leaf?`Questa porzione è <b>entrata in cantina direttamente nella ${esc(vnome(C.vasca))}</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> il ${fd(P.data)}.`:`Storia della <b>porzione aggiunta</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> dalla vasca ${esc(vlab(P.vasca))}, entrati in ${esc(vnome(C.vasca))} il ${fd(C.data)}.`} Fa parte del vino del lotto ${esc(e.lotto)}.</span><span class="row"><button class="btn sm" id="lt-back">← ${prev?'Indietro':'Torna al lotto'}</button>${prev?'<button class="btn sm ghost" id="lt-top">Lotto</button>':''}</span></div>`; }
     const list=[...G.steps].reverse();
-    app.innerHTML=head+fh+`<div class="panel"><h3>${f?'Composizione della porzione':'Provenienza del vino imbottigliato'} · ${hL(Lnow)}</h3><p class="hint">${f?'Partite che formavano la porzione quando è entrata nel vino del lotto.':`Composizione del vino in ${esc(vnome(e.vasca))} al momento dell'imbottigliamento, applicata alla quantità del lotto. «Storia di questa porzione» risale alle partite entrate per assemblaggio, sempre alla data del lotto.`}</p>${compRows(G,Lnow,true)}</div>
+    app.innerHTML=head+fh+`<div class="panel"><div class="spread"><h3>${f?'Composizione della porzione':'Provenienza del vino imbottigliato'} · ${hL(Lnow)}</h3>${f?'':`<div class="seg" role="group" aria-label="Livello"><button aria-pressed="${lmode==='op'}" data-lm="op">Operativa</button><button aria-pressed="${lmode==='full'}" data-lm="full">Tracciabilità completa</button></div>`}</div>
+      <p class="hint">${f?'Partite che formavano la porzione quando è entrata nel vino del lotto.':lmode==='full'?`Tracciabilità completa: le origini iniziali (entrate in cantina, pigiature) di tutto il vino del lotto, riunite anche attraverso più assemblaggi, con la parte di ciascuna e i litri attribuiti al lotto (${hL(e.L)}). Sempre alla data del lotto.`:`Composizione del vino in ${esc(vnome(e.vasca))} al momento dell'imbottigliamento, applicata alla quantità del lotto. «Storia di questa porzione» risale alle partite entrate per assemblaggio, sempre alla data del lotto.`}</p>${compRows(G,Lnow,true)}</div>
+    ${!f&&lmode==='full'?`<div class="panel"><h3>Schema dei passaggi</h3><p class="hint">Ogni riga è una vasca, il tempo va da sinistra a destra. I numeri rimandano all'elenco sotto.</p>${genDiagram(G,'imbott.')}</div>`:''}
     <div class="panel"><h3>Percorso e lavorazioni <span class="muted small" style="font-family:var(--f-body);font-weight:400">· dal più recente</span></h3><ol class="gsteps">
      ${f?'':`<li><span class="gnum" style="border-color:var(--warn)">▣</span><div><div class="gdate">${fd(e.data)} · <span style="color:var(--warn);font-weight:700">Imbottigliamento</span></div><b>Lotto ${esc(e.lotto)} · ${esc(vnome(e.vasca))}</b><div>escono <b>${hL(e.L)}</b>${e.formato?` · ${nf(bott(e),0)} ${pezzi(e,bott(e))} (${fmtTxt(e)})`:''}</div></div></li>`}
      ${list.map(st=>{const tx=stepText(st,G,Lnow); tx.body=tx.body.split('del vino attuale').join(f?'della porzione':'del lotto'); return `<li><span class="gnum" style="border-color:${KIND[st.kind][1]}">${st.num}</span><div><div class="gdate">${fd(st.ev.data)} · <span style="color:${KIND[st.kind][1]};font-weight:700">${(st.kind==='nodo'||st.kind==='agg')&&st.ev.lav?esc(st.ev.lav):KIND[st.kind][0]}</span>${st.ev.pronto&&st.ev.tipo==='lavorazione'?' <span class="chip pronto">vino pronto</span>':''}</div><b>${tx.title}</b><div>${tx.body}</div></div></li>`}).join('')}
     </ol><p class="hint">Tutto è alla data del lotto: la vasca oggi può contenere altro vino.</p></div>`;
+    $$('[data-lm]',app).forEach(b=>b.onclick=()=>{ UI.lotMode=b.dataset.lm; viewLotto(app,id); });
     $$('[data-focus]',app).forEach(b=>b.onclick=()=>{ const [pp,cc]=b.dataset.focus.split('>'); UI.lotStack.push({p:pp,c:cc,L:+b.dataset.l}); viewLotto(app,id); window.scrollTo({top:0}); });
     const lb=$('#lt-back',app); if(lb) lb.onclick=()=>{ UI.lotStack.pop(); viewLotto(app,id); };
     const lt=$('#lt-top',app); if(lt) lt.onclick=()=>{ UI.lotStack=[]; viewLotto(app,id); }; }
