@@ -4362,13 +4362,13 @@ function formReferto(vidDef){
    <div id="rf-step1" class="row" style="flex-direction:column;align-items:stretch;gap:10px">
      <p class="hint">Carica il PDF del laboratorio (anche scansionato) oppure una foto del referto. Claude legge campioni e valori; poi li controlli e scegli a quale vino e vasca associarli. Niente viene salvato senza la tua conferma.</p>
      <input type="file" id="rf-file" accept="application/pdf,image/jpeg,image/png,image/webp">
-     <div class="row"><button class="btn pri" id="rf-go" disabled>Leggi referto</button><button class="btn" id="rf-stop" hidden>Interrompi</button><button class="btn ghost" id="rf-demo">Prova con l'esempio OINOS</button></div>
+     <div class="row"><button class="btn pri" id="rf-go" disabled>Leggi referto</button><button class="btn" id="rf-stop" hidden>Interrompi</button></div>
      <div id="rf-st" class="hint"></div>
    </div>
    <div id="rf-rev"></div>`,(b,close)=>{
     let file=null, ctl=null;
     $('#rf-file',b).onchange=e=>{ file=e.target.files[0]||null; $('#rf-go',b).disabled=!file; $('#rf-st',b).textContent=''; };
-    $('#rf-demo',b).onclick=()=>renderReview(b,OINOS_RES,OINOS.fonte,close,vidDef);
+    if($('#rf-demo',b)) $('#rf-demo',b).onclick=()=>renderReview(b,OINOS_RES,OINOS.fonte,close,vidDef);
     $('#rf-stop',b).onclick=()=>ctl&&ctl.abort();
     $('#rf-go',b).onclick=async()=>{
       const st=$('#rf-st',b); const go=$('#rf-go',b);

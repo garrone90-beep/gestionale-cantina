@@ -37,6 +37,10 @@ rep("$('#bv-ex',app).onclick=", "if($('#bv-ex',app)) $('#bv-ex',app).onclick=")
 rep('<div class="actions"><button class="btn" id="rz">Carica dati di esempio</button></div>', '<p class="hint">Sul sito la cantina di esempio non c\'è: sostituirebbe i dati veri di tutti.</p>')
 rep("$('#rz',app).onclick=", "if($('#rz',app)) $('#rz',app).onclick=")
 
+# 3b. niente referto di esempio OINOS sul sito: confermandolo, le analisi d'esempio finirebbero nei dati veri
+rep('<button class="btn ghost" id="rf-demo">Prova con l\'esempio OINOS</button>', '')
+rep("$('#rf-demo',b).onclick=", "if($('#rf-demo',b)) $('#rf-demo',b).onclick=")
+
 # 4. testo «Dove sono i dati»
 rep('<p>In questo prototipo tutto resta nel browser che stai usando: non viene caricato nessun dato su server o cloud. Se cancelli i dati del browser o cambi dispositivo, li perdi: per questo conviene fare spesso una copia di backup.</p>',
     '<p>I dati sono salvati online (database della cantina) e sono gli stessi da ogni computer, tablet o telefono dopo l\'accesso. Ogni modifica si salva da sola: lo stato è indicato in basso nel menu. Il backup resta utile come copia di sicurezza.</p>')
