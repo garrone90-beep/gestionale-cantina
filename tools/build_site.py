@@ -42,9 +42,9 @@ rep('<p>In questo prototipo tutto resta nel browser che stai usando: non viene c
     '<p>I dati sono salvati online (database della cantina) e sono gli stessi da ogni computer, tablet o telefono dopo l\'accesso. Ogni modifica si salva da sola: lo stato è indicato in basso nel menu. Il backup resta utile come copia di sicurezza.</p>')
 
 # titolo della pagina
-s = re.sub(r'<title>[^<]*</title>', '<title>Gestionale di cantina</title>', s, count=1)
+s = re.sub(r'<title>[^<]*</title>', '<title>Cantina Pratica</title>', s, count=1)
 if '<title>' not in s:
-    s = s.replace('<meta charset=utf8>', '<meta charset=utf8><title>Gestionale di cantina</title>', 1)
+    s = s.replace('<meta charset=utf8>', '<meta charset=utf8><title>Cantina Pratica</title>', 1)
 
 # icona e apertura a schermo intero quando il sito si aggiunge alla schermata Home (uguale per tutte le cantine)
 TESTA = ('<link rel="manifest" href="/manifest.webmanifest">'
@@ -53,9 +53,9 @@ TESTA = ('<link rel="manifest" href="/manifest.webmanifest">'
          '<meta name="theme-color" content="#620123">'
          '<meta name="apple-mobile-web-app-capable" content="yes">'
          '<meta name="mobile-web-app-capable" content="yes">'
-         '<meta name="apple-mobile-web-app-title" content="Cantina">'
+         '<meta name="apple-mobile-web-app-title" content="Cantina Pratica">'
          '<meta name="apple-mobile-web-app-status-bar-style" content="default">')
-rep('<title>Gestionale di cantina</title>', '<title>Gestionale di cantina</title>' + TESTA)
+rep('<title>Cantina Pratica</title>', '<title>Cantina Pratica</title>' + TESTA)
 
 out = ROOT / 'index.html'
 out.write_text(s, encoding='utf-8')

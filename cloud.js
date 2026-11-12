@@ -22,7 +22,7 @@
   const inp = 'width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:1rem;margin:4px 0 12px';
   const btn = 'width:100%;padding:11px;border:0;border-radius:8px;background:#8A1C3C;color:#fff;font-weight:700;font-size:1rem;cursor:pointer';
   function login(msg){
-    const d=schermo(`<h2 style="margin:0 0 4px;font-size:1.3rem">Gestionale di cantina</h2><p style="margin:0 0 18px;color:#666;font-size:.9rem">Accedi con la tua email aziendale.</p>
+    const d=schermo(`<h2 style="margin:0 0 4px;font-size:1.3rem">Cantina Pratica</h2><p style="margin:0 0 18px;color:#666;font-size:.9rem">Accedi con la tua email aziendale.</p>
       <form id="cl-f"><label style="font-size:.85rem;font-weight:600">Email<input id="cl-e" type="email" autocomplete="username" required style="${inp}"></label>
       <label style="font-size:.85rem;font-weight:600">Password<input id="cl-p" type="password" autocomplete="current-password" required style="${inp}"></label>
       <div id="cl-m" style="color:#B3261E;font-size:.88rem;min-height:1.2em;margin-bottom:8px">${esc(msg||'')}</div>
@@ -42,7 +42,7 @@
     d.querySelector('#np-f').onsubmit=async e=>{ e.preventDefault(); const {error}=await sb.auth.updateUser({password:d.querySelector('#np-p').value});
       if(error){ d.querySelector('#np-m').textContent='Non riuscito: '+error.message; return; } const {data}=await sb.auth.getUser(); avvia(data.user); };
   }
-  function errore(t,riprova){ const d=schermo(`<h2 style="margin:0 0 10px;font-size:1.2rem">Gestionale di cantina</h2><p style="margin:0 0 16px">${t}</p>${riprova?`<button id="cl-rp" style="${btn}">Riprova</button>`:''}<p style="margin:12px 0 0;text-align:center"><a href="#" id="cl-out" style="color:#8A1C3C;font-size:.85rem">Esci</a></p>`);
+  function errore(t,riprova){ const d=schermo(`<h2 style="margin:0 0 10px;font-size:1.2rem">Cantina Pratica</h2><p style="margin:0 0 16px">${t}</p>${riprova?`<button id="cl-rp" style="${btn}">Riprova</button>`:''}<p style="margin:12px 0 0;text-align:center"><a href="#" id="cl-out" style="color:#8A1C3C;font-size:.85rem">Esci</a></p>`);
     const r=d.querySelector('#cl-rp'); if(r) r.onclick=()=>location.reload(); d.querySelector('#cl-out').onclick=async e=>{ e.preventDefault(); await sb.auth.signOut(); location.reload(); }; }
 
   /* ---------- caricamento ---------- */
