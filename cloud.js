@@ -54,7 +54,7 @@
       if(!prof||!prof.attivo) return errore(`L'utente <b>${esc(user.email)}</b> non è ancora abilitato. Chiedi all'amministratore di attivarlo.`,true);
       ruolo=prof.ruolo;
       if(ruolo==='operatore') return avviaOperatore(prof);
-      const [rec,imp]=await Promise.all([tutte('record','tipo,id,data,aggiornato'),tutte('impostazioni','chiave,valore,aggiornato')]);
+      const [rec,imp]=await Promise.all([tutte('record','tipo,id,data,aggiornato'),tutte('impostazioni','chiave,valore,aggiornato'),caricaUtenti()]);
       const S0={}; imp.forEach(r=>{ S0[r.chiave]=r.valore; }); Object.keys(REC).forEach(k=>{ S0[k]=[]; });
       const per={}; Object.entries(REC).forEach(([k,t])=>per[t]=k);
       rec.forEach(r=>{ const k=per[r.tipo]; if(k&&r.data) S0[k].push(r.data); });
@@ -70,7 +70,7 @@
   function eseguiProgramma(){
     ['app-main','app-ui2'].forEach(id=>{ const t=document.getElementById(id); if(!t) return; const s=document.createElement('script'); s.textContent=t.textContent; t.replaceWith(s); });
     const orig=window.save; window.save=function(){ orig(); programma(); };
-    barra(); setInterval(()=>{ if(!document.hidden) pull(); },45000); window.addEventListener('focus',()=>pull());
+    barra(); setInterval(()=>{ if(!document.hidden) pull(); },45000); setInterval(()=>{ if(!document.hidden) caricaUtenti(); },300000); window.addEventListener('focus',()=>pull());
     window.addEventListener('beforeunload',e=>{ if(timer||inCorso){ e.preventDefault(); e.returnValue=''; } });
     // le correzioni automatiche fatte all'apertura vanno salvate
     setTimeout(()=>programma(),1500);
@@ -150,8 +150,9 @@
       try{ const j=await chiamaOp({azione:'invita',email,nome,ruolo:r,redirectTo:location.origin+location.pathname}); aggPersona(nome,r);
         utenti({t:j.inviato?`Invito inviato a ${email}.`:`${email} aveva già un accesso: ho aggiornato nome e ruolo.`}); }
       catch(x){ m.style.color='#B3261E'; m.textContent=x.message; } }; }
-  /* l'operatore compare subito tra le persone a cui assegnare i lavori */
-  function aggPersona(nome,r){ const S=getS(); if(!S||r!=='operatore'||!nome) return; S.persone=S.persone||[]; if(!S.persone.includes(nome)){ S.persone.push(nome); try{ window.save(); }catch(e){} } }
+  /* elenco per «Assegnato a»: solo nomi e ruoli degli utenti attivi */
+  async function caricaUtenti(){ try{ const {data,error}=await sb.rpc('nomi_utenti'); if(!error&&Array.isArray(data)) window.__UTENTI=data.map(u=>({nome:u.nome,ruolo:u.ruolo})); }catch(e){} }
+  function aggPersona(){ caricaUtenti(); }
 
   /* ---------- salvataggio ---------- */
   function programma(){ clearTimeout(timer); stato('Modifiche da salvare…',''); timer=setTimeout(()=>{ timer=null; push(); },700); }
