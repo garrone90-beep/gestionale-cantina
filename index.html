@@ -511,6 +511,34 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 /* schema dei passaggi: anni */
 .gsvg .gy{font:700 12px var(--f-body);fill:var(--ink)}
 .gsvg .gyear{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 4;opacity:.7}
+.chip.bozza{border-style:dashed;color:var(--muted)}
+.lq{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.lq button{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.lq button .n{font-weight:700}
+.lq button.hot{border-color:var(--warn);color:var(--warn)}
+.lq button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.lq button:disabled{opacity:.45;cursor:default}
+.mrow{display:grid;grid-template-columns:minmax(0,1.2fr) auto minmax(0,1.2fr) minmax(0,1fr) 90px auto;gap:8px;align-items:end;margin-bottom:6px}
+.mrow .m-ar{padding-bottom:10px;font-weight:700;color:var(--muted)}
+@media (max-width:700px){.mrow{grid-template-columns:1fr 1fr;padding:8px;border:1px solid var(--line);border-radius:10px}.mrow .m-ar{display:none}}
+.lprod.lprod2{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-items:end;padding:8px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+.lprod2 .wide{grid-column:1/-1}
+.lprod2 .f>span{display:block}
+.sm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;max-height:min(46vh,380px);overflow:auto;padding:4px}
+.sm-grid .fpost.sel::after{content:'✓';position:absolute;top:2px;right:4px;font-weight:800;font-size:.8rem;color:var(--accent)}
+.sm-grid .fpost span.vn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opv{max-width:560px;margin:0 auto}
+.op-banner{background:var(--surface-2)}
+.op-pers{display:grid;gap:8px}.op-pers .btn{min-height:52px;font-size:1.05rem}
+.opcard{display:block;width:100%;text-align:left;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--surface);margin:8px 0;font:inherit;color:inherit;cursor:pointer}
+.op-h{margin:16px 0 4px}
+.op-list{padding-left:20px;margin:4px 0}.op-list li{margin:6px 0}
+.op-chk{list-style:none;padding-left:0}.op-ck{display:flex;gap:12px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
+.op-ck input{width:26px;height:26px;flex:none;margin:0;accent-color:var(--accent)}
+.op-ck:has(input:checked){border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--surface))}
+.op-act .btn.dim{opacity:.55}
+.op-act{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:sticky;bottom:0;padding:12px 0;background:var(--bg);margin-top:12px}
+.op-act .btn{min-height:58px;font-size:1.15rem}
 </style>
 
 <header class="top"><div class="in">
@@ -589,9 +617,9 @@ function applyLayout(){ const L=(S&&S.layout)||{}; VASCHE.forEach(v=>{ const p=L
 const UDM = ['mg/L','g/hL','mL/hL','kg/10hL','kg/hL','g/L','mL/L','g in tutto','kg in tutto','mL in tutto','L in tutto'];
 /* ===================== Catalogo prodotti enologici =====================
    Elenco generico di partenza (senza dosi: dipendono dalla scheda tecnica e alcune hanno limiti di legge).
-   titolo = % di principio attivo nel prodotto: la dose si ragiona sul principio (es. SO₂) e il gestionale calcola quanto prodotto pesare. */
+   titolo = % di principio attivo nel prodotto: la dose è SEMPRE del prodotto scelto; il gestionale indica in più quanto principio attivo (es. SO₂ pura) si aggiunge. */
 const CAT_PROD=['Solfitanti','Antiossidanti','Acidificanti','Disacidificanti','Chiarificanti','Stabilizzanti','Colloidi','Tannini','Lieviti','Nutrienti','Enzimi','Batteri','Legno','Gas','Altro'];
-const PROD_BASE=[['Metabisolfito di potassio','Solfitanti','mg/L',57.6,'SO₂','Resa teorica in SO₂ ≈ 57,6 %: verifica la scheda tecnica'],['Soluzione solforosa','Solfitanti','mg/L',null,'SO₂','Indica il titolo della tua soluzione (es. 6 %, 10 %, 18 %) e «si dosa in millilitri»','mL'],
+const PROD_BASE=[['Metabisolfito di potassio','Solfitanti','g/hL',57.6,'SO₂','Resa teorica in SO₂ ≈ 57,6 %: verifica la scheda tecnica'],['Soluzione solforosa','Solfitanti','mL/hL',null,'SO₂','Indica il titolo della tua soluzione (es. 6 %, 10 %, 18 %) e «si dosa in millilitri»','mL'],
   ['Acido ascorbico','Antiossidanti','g/hL'],['Acido tartarico','Acidificanti','g/hL'],['Acido citrico','Stabilizzanti','g/hL'],['Acido malico','Acidificanti','g/hL'],['Bicarbonato di potassio','Disacidificanti','g/hL'],
   ['Acido metatartarico','Stabilizzanti','g/hL'],['Carbossimetilcellulosa (CMC)','Stabilizzanti','mL/hL'],['Gomma arabica','Colloidi','mL/hL'],['Mannoproteine','Colloidi','g/hL'],
   ['Bentonite','Chiarificanti','g/hL'],['Gelatina','Chiarificanti','g/hL'],['PVPP','Chiarificanti','g/hL'],['Caseinato di potassio','Chiarificanti','g/hL'],['Proteine vegetali','Chiarificanti','g/hL'],['Carbone enologico','Chiarificanti','g/hL'],['Chitosano','Chiarificanti','g/hL'],['Gel di silice','Chiarificanti','mL/hL'],
@@ -600,10 +628,13 @@ const PROD_BASE=[['Metabisolfito di potassio','Solfitanti','mg/L',57.6,'SO₂','
   .map(([nome,categoria,udm,titolo,principio,note,misura])=>({nome,categoria,udm,...(titolo!=null?{titolo}:{}),...(principio?{principio}:{}),...(note?{note}:{}),...(misura?{misura}:{})}));
 const prodOf = n=>n?(S.prodotti||[]).find(x=>x.nome.toLowerCase()===String(n).trim().toLowerCase()):null;
 const prodVisibili = ()=>(S.prodotti||[]).filter(x=>!x.nascosto);
-function migraProdotti(){ if(!S||S.prodBase) return; S.prodotti=S.prodotti||[];
+function migraProdotti(){ if(!S) return; S.prodotti=S.prodotti||[];
+  /* v2: la dose segue il prodotto; i due solfitanti di base si dosano in g/hL e mL/hL (se l'unità non è stata cambiata) */
+  if(S.prodBase===1){ [['Metabisolfito di potassio','g/hL'],['Soluzione solforosa','mL/hL']].forEach(([n,u])=>{ const c=prodOf(n); if(c&&c.base&&c.udm==='mg/L'&&c.dose==null&&c.doseMax==null) c.udm=u; }); S.prodBase=2; }
+  if(S.prodBase) return;
   PROD_BASE.forEach(p=>{ const c=prodOf(p.nome); if(!c) S.prodotti.push({...p,base:true}); else { if(!c.categoria) c.categoria=p.categoria; } });
   const cat={'SO₂':'Solfitanti','Rame (cu)':'Altro','Gelsol':'Chiarificanti','Zenith Uno':'Stabilizzanti'}; S.prodotti.forEach(x=>{ if(!x.categoria&&cat[x.nome]) x.categoria=cat[x.nome]; });
-  S.prodBase=1; }
+  S.prodBase=2; }
 /* confronto dosi tra unità della stessa natura (massa/volume per litro) */
 const UDM_F={'mg/L':['m',1],'g/hL':['m',10],'g/L':['m',1000],'kg/hL':['m',10000],'kg/10hL':['m',1000],'mL/hL':['v',10],'mL/L':['v',1000]};
 function sopraMax(prod,dose,udm){ const p=prodOf(prod); if(!p||p.doseMax==null||dose==null) return null; const a=UDM_F[udm], b=UDM_F[p.udm];
@@ -803,14 +834,15 @@ function num(s){ if(s==null) return null; if(typeof s==='number') return isNaN(s
   const n=parseFloat(s); return isNaN(n)?null:n; }
 function toL(v,u){ const n=num(v); return n==null?null:(u==='hL'?n*100:n); }
 function qtaTeorica(dose,udm,L,prod){
+  /* la dose è del prodotto scelto: se il prodotto ha un titolo, si indica anche quanto principio attivo (es. SO₂ pura) si aggiunge */
   if(dose==null) return null; const pr=prodOf(prod);
-  if(/ in tutto$/.test(udm||'')){ const u=udm.replace(' in tutto',''); const t=pr&&pr.titolo>0&&pr.principio?` di ${pr.principio} = ${nf(dose*100/pr.titolo,2)} ${pr.misura==='mL'?({g:'mL',kg:'L'}[u]||u):u} di ${pr.nome}`:''; return nf(dose,dose<10?2:1)+' '+u+t; }
+  const fmt=(v,u)=>{ if(u==='g'&&v>=1000){v/=1000;u='kg'} if(u==='mL'&&v>=1000){v/=1000;u='L'} return nf(v,v<10?2:1)+' '+u; };
+  const princ=(v,u)=>{ if(!(pr&&pr.titolo>0&&pr.principio)) return ''; const pu={mL:'g',L:'kg'}[u]||u; return ` di ${pr.nome} = ${fmt(v*pr.titolo/100,pu)} di ${pr.principio}`; };
+  if(/ in tutto$/.test(udm||'')){ const u=udm.replace(' in tutto',''); return fmt(dose,u)+princ(dose,u); }
   if(!L) return null;
   const m={'mg/L':[L/1000,'g'],'g/hL':[L/100,'g'],'mL/hL':[L/100,'mL'],'kg/10hL':[L/1000,'kg'],'kg/hL':[L/100,'kg'],'g/L':[L,'g'],'mL/L':[L,'mL']}[udm];
-  if(!m) return null; let v=dose*m[0], u=m[1];
-  const fmt=(v,u)=>{ if(u==='g'&&v>=1000){v/=1000;u='kg'} if(u==='mL'&&v>=1000){v/=1000;u='L'} return nf(v,v<10?2:1)+' '+u; };
-  if(pr&&pr.titolo>0&&pr.principio){ const up=pr.misura==='mL'&&u==='g'?'mL':u; return `${fmt(v,u)} di ${pr.principio} = ${fmt(v*100/pr.titolo,up)} di ${pr.nome}`; }
-  return fmt(v,u);
+  if(!m) return null; const v=dose*m[0], u=m[1];
+  return fmt(v,u)+princ(v,u);
 }
 function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.append(d);setTimeout(()=>d.remove(),2200);}
 const tipoDot = id=>{const v=vino(id);return v?`<span class="dot t-${v.tipo}"></span>`:''};
@@ -1229,14 +1261,14 @@ function route(){
   if(!S.azienda){ $$('#nav a').forEach(a=>a.setAttribute('aria-current','false')); return viewBenvenuto($('#app')); }
   const h = (location.hash||'#vasche').slice(1);
   if(h.startsWith('vino-')&&UI.lastHash!==h){ if(!UI.keepTab) UI.vinoTab='vasche'; } UI.keepTab=false; UI.lastHash=h;
-  const base = h==='locali'||h==='prodotti'?'dati':h.startsWith('vino-')?'vini':h.startsWith('scheda-')?'vini':h.startsWith('gen-')?'vasche':h.startsWith('lotto-')?'imbottigliamenti':h;
+  const base = h==='operatore'?'lavori':h==='locali'||h==='prodotti'?'dati':h.startsWith('vino-')?'vini':h.startsWith('scheda-')?'vini':h.startsWith('gen-')?'vasche':h.startsWith('lotto-')?'imbottigliamenti':h;
   $$('#nav a').forEach(a=>a.setAttribute('aria-current',a.getAttribute('href')==='#'+base?'page':'false'));
   const app = $('#app');
   if(h.startsWith('vino-')) return viewVino(app,h.slice(5));
   if(h.startsWith('gen-')) return viewGen(app,h.slice(4));
   if(h.startsWith('scheda-')) return viewScheda(app,h.slice(7));
   if(h.startsWith('lotto-')) return viewLotto(app,h.slice(6));
-  ({prodotti:viewProdotti,locali:viewLocali,vasche:viewVasche,vendemmia:viewVendemmia,lavori:viewLavori,vini:viewVini,inventario:viewInventario,imbottigliamenti:viewImb,registro:viewRegistro,dati:viewDati}[h]||viewVasche)(app);
+  ({operatore:viewOperatore,prodotti:viewProdotti,locali:viewLocali,vasche:viewVasche,vendemmia:viewVendemmia,lavori:viewLavori,vini:viewVini,inventario:viewInventario,imbottigliamenti:viewImb,registro:viewRegistro,dati:viewDati}[h]||viewVasche)(app);
 }
 window.addEventListener('hashchange',e=>{ const da=(e.oldURL||'').split('#')[1]||'', a=(location.hash||'').slice(1); if(a==='locali'&&da!=='locali'){ UI.locAperti=new Set(); UI.locOpen=null; UI.archOpen=null; }
   const inVini=h=>h==='vini'||h.startsWith('vino-'); if(inVini(da)&&!inVini(a)) UI.vf={}; route(); });
@@ -1265,7 +1297,7 @@ function tankSVG(v){
     ${(()=>{ const R=v.kind==='botte'&&v.r>=40?14:Math.max(8.5,Math.min(11,v.r*0.45)); let o='';
       if(s.imp){ const sc=(s.imps||[s.imp]).some(im=>impScaduta(im)); o+=badgeSVG(v.x-v.r*0.74,v.y-v.r*0.74,R,sc?'var(--danger)':'var(--warn)',sc?'alert':'hour',sc?'Lavorazione da chiudere':'In lavorazione'); }
       if(s.ferm) o+=badgeSVG(v.x-v.r*0.74,v.y+v.r*0.74,R,'#7B5EA7','ferm','In fermentazione dal '+fd(s.ferm.inizio)); else if(s.vinif) o+=badgeSVG(v.x-v.r*0.74,v.y+v.r*0.74,R,'#A9A0BC','ferm','In vinificazione dal '+fd(s.vinif.inizio)+', fermentazione non ancora iniziata');
-      if(programmate(v.code).length) o+=badgeSVG(v.x+v.r*0.74,v.y-v.r*0.74,R,'var(--c2)','cal','Lavoro programmato');
+      { const pg=programmate(v.code); if(pg.length) o+=pg.some(l=>l.stato!=='eseguito')?badgeSVG(v.x+v.r*0.74,v.y-v.r*0.74,R,'var(--c2)','cal','Lavoro programmato'):badgeSVG(v.x+v.r*0.74,v.y-v.r*0.74,R,'var(--warn)','cal','Lavoro fatto, da convalidare'); }
       return o; })()}
     <text class="code" x="${v.x}" y="${v.y-v.r*0.2}" style="font-size:${fC.toFixed(1)}px">${esc(v.label)}</text>
     <text class="vol" x="${v.x}" y="${v.y+v.r*0.5}" style="font-size:${fV.toFixed(1)}px">${nf(v.cap)} hL</text>
@@ -1386,7 +1418,7 @@ function viewVasche(app){
       ${vistaFileOk(DEP)&&!UI.mapEdit?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">Vista:</span><div class="seg" role="group" aria-label="Vista"><button data-vista="pianta" aria-pressed="${!vistaFile(DEP)}">Pianta</button><button data-vista="file" aria-pressed="${vistaFile(DEP)}">Per file</button></div></div>`:''}
       ${grpTipiDi(DEP).length&&!vistaFile(DEP)?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">${esc(grpTipiDi(DEP).map(t=>t==='tonneau'?'Tonneaux':t.charAt(0).toUpperCase()+(PLUR[t]||t).slice(1)).join(' e '))}:</span><div class="seg" role="group" aria-label="Barrique sulla pianta"><button data-grpm="1" aria-pressed="${grpAttivo(DEP)}">Raggruppate</button><button data-grpm="0" aria-pressed="${!grpAttivo(DEP)}">Una per una</button></div></div>`:''}
       ${vistaFile(DEP)&&!UI.mapEdit?`<div id="vfile">${fileHTML(DEP)}</div>`:`<div class="map-wrap${UI.mapEdit?' editing':''}">${mapSVG(DEP)}</div>`}
-      <div class="legend"><span><i class="dot t-bianco"></i>Bianco</span><span><i class="dot t-rosato"></i>Rosato</span><span><i class="dot t-rosso"></i>Rosso</span><span><i class="dot" style="background:transparent;box-shadow:inset 0 0 0 2.5px var(--ok)"></i>Vino pronto da imbottigliare (bordo verde)</span><span><i class="leg-ring" style="border:2.5px solid var(--accent)"></i>Selezionata</span><span><i class="leg-ring" style="border:2px dashed var(--danger)"></i>Oltre la nominale</span><span>${badgeLeg('var(--c2)','cal')}Lavoro programmato</span><span><i class="dot" style="background:color-mix(in srgb,var(--man) 18%,var(--surface));border:1px solid var(--man)"></i>In manutenzione</span><span>${badgeLeg('var(--warn)','hour')}In lavorazione</span><span>${badgeLeg('#7B5EA7','ferm')}In fermentazione</span><span>${badgeLeg('#A9A0BC','ferm')}In vinificazione (non ancora in fermentazione)</span><span>${badgeLeg('var(--danger)','alert')}Lavorazione da chiudere</span><span>Planimetria non in scala</span></div>
+      <div class="legend"><span><i class="dot t-bianco"></i>Bianco</span><span><i class="dot t-rosato"></i>Rosato</span><span><i class="dot t-rosso"></i>Rosso</span><span><i class="dot" style="background:transparent;box-shadow:inset 0 0 0 2.5px var(--ok)"></i>Vino pronto da imbottigliare (bordo verde)</span><span><i class="leg-ring" style="border:2.5px solid var(--accent)"></i>Selezionata</span><span><i class="leg-ring" style="border:2px dashed var(--danger)"></i>Oltre la nominale</span><span>${badgeLeg('var(--c2)','cal')}Lavoro programmato</span><span>${badgeLeg('var(--warn)','cal')}Lavoro fatto, da convalidare</span><span><i class="dot" style="background:color-mix(in srgb,var(--man) 18%,var(--surface));border:1px solid var(--man)"></i>In manutenzione</span><span>${badgeLeg('var(--warn)','hour')}In lavorazione</span><span>${badgeLeg('#7B5EA7','ferm')}In fermentazione</span><span>${badgeLeg('#A9A0BC','ferm')}In vinificazione (non ancora in fermentazione)</span><span>${badgeLeg('var(--danger)','alert')}Lavorazione da chiudere</span><span>Planimetria non in scala</span></div>
     </div>
     <div id="side">${vascaPanel(UI.sel)}</div>
   </div>
@@ -1768,68 +1800,165 @@ const lavTipiNomi = ()=>[...Object.keys(LTIPI).filter(k=>k!=='Operazione generic
 const LT = t=>LTIPI[t]||(lavVociDati().includes(t)?{vas:'Vasche',vol:true,prod:true,reg:'lav',voce:true}:{vas:'Vasche (facoltative)',opt:true,reg:null});
 const lavTipiOpts = sel=>{ const fix=Object.keys(LTIPI).filter(k=>k!=='Operazione generica'), dat=lavVociDati(); const o=t=>`<option ${sel===t?'selected':''}>${esc(t)}</option>`;
   return `<optgroup label="Lavori">${fix.map(o).join('')}</optgroup>${dat.length?`<optgroup label="Dall'elenco lavorazioni (Dati)">${dat.map(o).join('')}</optgroup>`:''}<optgroup label="Altro">${o('Operazione generica')}${sel&&!fix.includes(sel)&&!dat.includes(sel)&&sel!=='Operazione generica'?o(sel):''}</optgroup>`; };
-const LSTATI = {dafare:'Da fare',incorso:'In corso',eseguito:'Eseguito · da convalidare',convalidato:'Convalidato',noneseguito:'Non eseguito',annullato:'Annullato'};
-const LSTCLS = {dafare:'',incorso:'prog',eseguito:'warn',convalidato:'ok',noneseguito:'scad',annullato:''};
+/* Stati: un lavoro è fatto o non fatto. «In corso» non c'è più (i vecchi tornano «Da fare»). */
+const LSTATI = {bozza:'Bozza',dafare:'Da fare',incorso:'Da fare',eseguito:'Fatto · da convalidare',convalidato:'Convalidato',noneseguito:'Non fatto',annullato:'Annullato'};
+const LSTCLS = {bozza:'bozza',dafare:'',incorso:'',eseguito:'warn',convalidato:'ok',noneseguito:'scad',annullato:''};
 const LPRIO = {alta:'Alta',normale:'Normale',bassa:'Bassa'};
-const lavAperto = l=>['dafare','incorso','eseguito'].includes(l.stato);
-const lavori = ()=>(S.lavori=S.lavori||[]);
-const programmate = code=>lavori().filter(l=>lavAperto(l)&&((l.vasche||[]).includes(code)||l.dest===code));
+const lavAperto = l=>['dafare','incorso','eseguito','noneseguito'].includes(l.stato);
+const lavAttivo = l=>lavAperto(l)||l.stato==='bozza';
+/* movimenti: «si» sempre (travaso, assemblaggio, colmatura); «opz» a scelta (filtrazione, chiarifica, aggiunte, voci di Dati) */
+const LMOV = t=>{ const T=LT(t)||{}; return T.reg==='trav'?'si':(T.reg==='lav'&&t!=='Rimontaggio / vinificazione')?'opz':'no'; };
+/* lavori del vecchio formato: «più vasche → una destinazione» diventa una riga per vasca */
+function lavNorm(l){ if(!l||l._v===2) return l;
+  if(l.stato==='incorso') l.stato='dafare';
+  if(!Array.isArray(l.mov)){ l.mov=[];
+    if(l.dest){ const src=l.vasche||[]; const una=src.length===1&&l.volL;
+      l.mov=src.map(c=>({da:c,a:l.dest,q:una?'hL':'dadef',L:una?l.volL:null}));
+      if(LMOV(l.tipo)==='si') l.vasche=[]; else l.conTrasf=true; l.dest=''; } }
+  l._v=2; return l; }
+const lavori = ()=>{ S.lavori=S.lavori||[]; S.lavori.forEach(lavNorm); return S.lavori; };
+const isCode = c=>!!(c&&VMAP[c]);
+const lavHaMov = l=>LMOV(l.tipo)==='si'||(LMOV(l.tipo)==='opz'&&!!l.conTrasf);
+const lavMov = l=>lavHaMov(l)?(l.mov||[]):[];
+const lavCodes = l=>[...new Set([...(lavHaMov(l)?[]:(l.vasche||[])),...lavMov(l).flatMap(m=>[m.da,m.a])].filter(isCode))];
+const programmate = code=>lavori().filter(l=>lavAperto(l)&&lavCodes(l).includes(code));
 const stOggi = ()=>replay(S.eventi,{data:today(),ord:Infinity}).st;
-function lavSnap(vs,dest){ const st=stOggi(), o={}; [...new Set([...(vs||[]),...(dest?[dest]:[])])].forEach(c=>{ if(st[c]) o[c]={vino:st[c].vino||null,L:st[c].L||0}; }); return {il:new Date().toISOString(),data:today(),vasche:o}; }
-const lavVolBase = l=>l.volL||(l.vasche||[]).reduce((s,c)=>s+((l.rif&&l.rif.vasche[c]||{}).L||0),0);
+function lavSnap(codes){ const st=stOggi(), o={}; [...new Set((codes||[]).filter(isCode))].forEach(c=>{ if(st[c]) o[c]={vino:st[c].vino||null,L:st[c].L||0}; }); return {il:new Date().toISOString(),data:today(),vasche:o}; }
+/* contenitori su cui va un prodotto: senza movimento quelli del lavoro; con movimento le partenze (prima) o gli arrivi (dopo) */
+function prodBase(l,quando){ const mv=lavMov(l); const b=mv.length?(quando==='dopo'?mv.map(m=>m.a):mv.map(m=>m.da)):(l.vasche||[]); return [...new Set(b.filter(isCode))]; }
+const prodSu = (l,p)=>{ const b=prodBase(l,p.quando); return Array.isArray(p.su)?p.su.filter(c=>b.includes(c)):b; };
+function movQtaL(m,st,mv){ if(m.q==='hL') return m.L||null; if(m.q==='tutto'){ const n=mv.filter(x=>x.da===m.da).length; return n===1?((st[m.da]||{}).L||null):null; } return null; }
+function prodVolRif(l,p,st){ const cs=prodSu(l,p), mv=lavMov(l);
+  if(mv.length&&p.quando==='dopo'){ let tot=0, ok=true; cs.forEach(c=>{ tot+=(st[c]||{}).L||0; mv.filter(m=>m.a===c).forEach(m=>{ const q=movQtaL(m,st,mv); if(q==null) ok=false; else tot+=q; }); }); return ok&&tot>0?tot:null; }
+  return cs.reduce((s,c)=>s+((st[c]||{}).L||0),0)||null; }
+const rifSt = l=>(l.rif&&l.rif.vasche)||{};
+/* quanto prodotto in ciascun contenitore (con i volumi della programmazione) */
+function prodRipart(l,p){ const su=prodSu(l,p); if(su.length<2||su.length>12||p.qtaTot||p.dose==null||/ in tutto$/.test(p.udm||'')||p.volMan) return '';
+  const r=rifSt(l), st={}; Object.entries(r).forEach(([c,x])=>st[c]={L:x.L});
+  const parti=su.map(c=>{ const v=prodVolRif(l,{...p,su:[c]},st); const q=v?qtaTeorica(p.dose,p.udm,v,p.prodotto):null; return q?`${vlab(c)} ${q.split(' = ')[0].replace(/ di .*$/,'')}`:null; });
+  return parti.every(Boolean)?parti.join(' · '):''; }
+const lavVolBase = l=>l.volL||lavCodes(l).reduce((s,c)=>s+((rifSt(l)[c]||{}).L||0),0);
+const movQtaTxt = m=>m.q==='hL'&&m.L?hL(m.L):m.q==='tutto'?'tutto il contenuto':'<span class="muted">da definire</span>';
+const movArr = a=>a==='?'?'<span class="chip warn">da concordare</span>':a?esc(vlab(a)):'<span class="muted">—</span>';
+/* l'ordine reale: dove si uniscono vini diversi e dove un vino si divide */
+function movNote(mv){ const out=[], byA={}, byDa={}; mv.forEach(m=>{ if(isCode(m.a)&&m.da) (byA[m.a]=byA[m.a]||new Set()).add(m.da); if(m.da&&(isCode(m.a)||m.a==='?')) (byDa[m.da]=byDa[m.da]||[]).push(m.a); });
+  Object.entries(byA).forEach(([a,s])=>{ if(s.size>1) out.push(`In <b>${esc(vlab(a))}</b> si uniscono ${esc([...s].map(c=>vlab(c)).join(', '))}: è un assemblaggio.`); });
+  Object.entries(byDa).forEach(([d,as])=>{ if(as.length>1) out.push(`<b>${esc(vlab(d))}</b> si divide in ${as.length} arrivi: ${as.map(a=>a==='?'?'da concordare':esc(vlab(a))).join(', ')}.`); });
+  return out; }
 /* confronto fra la situazione al momento della programmazione e quella registrata oggi */
 function lavDiff(l){
-  if(!l.rif||!lavAperto(l)) return null; const st=stOggi(), out=[];
+  if(!l.rif||!lavAttivo(l)) return null; const st=stOggi(), out=[];
   Object.entries(l.rif.vasche).forEach(([c,r])=>{ const n=st[c]; if(!n) return;
-    if((r.vino||null)!==(n.vino||null)) out.push({c,tipo:'vino',da:r.vino,a:n.vino,txt:`${esc(vnome(c))}: alla programmazione conteneva ${r.vino?vName(r.vino):'niente (vuota)'}, ora ${n.vino?vName(n.vino):'è vuota'}`});
-    else if(Math.abs((r.L||0)-(n.L||0))>Math.max(1,(r.L||0)*0.005)) out.push({c,tipo:'vol',da:r.L,a:n.L,txt:`${esc(vnome(c))}: ${hL(r.L)} alla programmazione, ora ${hL(n.L)}`}); });
-  if(!out.length) return null;
-  const rifTot=(l.vasche||[]).reduce((s,c)=>s+((l.rif.vasche[c]||{}).L||0),0), curTot=(l.vasche||[]).reduce((s,c)=>s+((st[c]||{}).L||0),0);
-  return {righe:out, rifTot, curTot, fattore:rifTot>0?curTot/rifTot:null};
+    if((r.vino||null)!==(n.vino||null)) out.push({c,tipo:'vino',da:r.vino,a:n.vino,txt:r.vino?`Questo lavoro era previsto sul ${vName(r.vino)} presente in ${vlab(c)}. Il contenuto di ${vlab(c)} è cambiato dopo la programmazione: ora ${n.vino?'c\'è '+vName(n.vino):'è vuota'}.`:`${Vnome(c)} alla programmazione era vuota, ora contiene ${vName(n.vino)}.`});
+    else if(Math.abs((r.L||0)-(n.L||0))>Math.max(1,(r.L||0)*0.005)) out.push({c,tipo:'vol',da:r.L,a:n.L,txt:`${Vnome(c)}: ${hL(r.L)} alla programmazione, ora ${hL(n.L)}`}); });
+  return out.length?{righe:out}:null;
 }
-function lavDiffHTML(l){ const d=lavDiff(l); if(!d) return '';
-  const pr=(l.prodotti||[]).filter(p=>p.dose!=null&&p.volL);
+function lavDiffHTML(l){ const d=lavDiff(l); if(!d) return ''; const st=stOggi();
+  const pr=(l.prodotti||[]).filter(p=>p.dose!=null&&p.volL&&!p.volMan&&!/ in tutto$/.test(p.udm||'')).map(p=>({p,v:prodVolRif(l,p,st)})).filter(x=>x.v&&Math.abs(x.v-x.p.volL)>1);
+  const man=(l.prodotti||[]).filter(p=>p.volMan);
   return `<div class="box warn small" style="color:var(--ink)"><b>Da verificare: la cantina è cambiata dalla programmazione (${fd(l.rif.data)}).</b>
     <ul style="margin:6px 0;padding-left:18px">${d.righe.map(r=>`<li>${esc(r.txt)}</li>`).join('')}</ul>
-    ${pr.length&&d.fattore!=null&&!l.volL?`<div>Quantità teoriche con i volumi attuali (le istruzioni originali <b>non</b> sono cambiate):</div><ul style="margin:6px 0;padding-left:18px">${pr.map(p=>`<li>${esc(p.prodotto)} ${nf(p.dose,3)} ${esc(p.udm)}: programmati <b>${qtaTeorica(p.dose,p.udm,p.volL)}</b> su ${hL(p.volL)} → oggi <b>${qtaTeorica(p.dose,p.udm,p.volL*d.fattore)||'—'}</b> su ${hL(p.volL*d.fattore)}</li>`).join('')}</ul>`:''}
-    ${pr.length&&l.volL?`<div>Il volume da trattare era scritto a mano (${hL(l.volL)}): controlla se è ancora giusto.</div>`:''}</div>`; }
-const lavVini = l=>[...new Set(Object.values((l.rif||{}).vasche||{}).map(r=>r.vino).filter(Boolean))];
-function lavTitolo(l){ return l.titolo||[l.tipo,(l.vasche||[]).length?elencoV(l.vasche):'',l.dest?'→ '+l.dest:''].filter(Boolean).join(' · '); }
+    ${pr.length?`<div>Quantità con i volumi di oggi (le istruzioni assegnate <b>non</b> sono cambiate: verifica tu):</div><ul style="margin:6px 0;padding-left:18px">${pr.map(({p,v})=>`<li>${esc(p.prodotto)} ${nf(p.dose,3)} ${esc(p.udm)}: programmati <b>${qtaTeorica(p.dose,p.udm,p.volL,p.prodotto)}</b> su ${hL(p.volL)} → oggi <b>${qtaTeorica(p.dose,p.udm,v,p.prodotto)||'—'}</b> su ${hL(v)}</li>`).join('')}</ul>`:''}
+    ${man.length?`<div>Volume da trattare scritto a mano per ${esc(man.map(p=>p.prodotto).join(', '))}: controlla se è ancora giusto.</div>`:''}
+    <div class="muted">Il lavoro non passa da solo al nuovo vino: decidi tu se modificarlo o annullarlo.</div></div>`; }
+const lavVini = l=>[...new Set(Object.values(rifSt(l)).map(r=>r.vino).filter(Boolean))];
+function lavTitolo(l){ if(l.titolo) return l.titolo; const mv=lavMov(l);
+  if(mv.length){ const da=[...new Set(mv.map(m=>m.da).filter(isCode))], a=[...new Set(mv.map(m=>m.a).filter(isCode))];
+    return [l.tipo,[da.length?elencoV(da):'',a.length?'→ '+elencoV(a):(mv.some(m=>m.a==='?')?'→ da concordare':'')].filter(Boolean).join(' ')].filter(Boolean).join(' · '); }
+  return [l.tipo,(l.vasche||[]).length?elencoV(l.vasche):''].filter(Boolean).join(' · '); }
 const lavLog = (l,stato,nota)=>{ (l.storia=l.storia||[]).push({il:new Date().toISOString(),stato,nota:nota||''}); l.stato=stato; l.modificatoIl=new Date().toISOString(); };
 const lavNum = ()=>{ const n=lavori().reduce((m,l)=>Math.max(m,+(String(l.num||'').replace(/\D/g,''))||0),0)+1; return 'L'+String(n).padStart(4,'0'); };
+const lavSort = (a,b)=>{ const pO={alta:0,normale:1,bassa:2}; return (a.data||'9999')<(b.data||'9999')?-1:(a.data||'9999')>(b.data||'9999')?1:(a.ora||'99')<(b.ora||'99')?-1:(a.ora||'99')>(b.ora||'99')?1:pO[a.priorita||'normale']-pO[b.priorita||'normale']; };
+const lavScaduto = l=>['dafare','noneseguito'].includes(l.stato)&&l.data&&l.data<today();
+/* altri lavori aperti sugli stessi contenitori: lo segnalo, decide il responsabile */
+function lavSovrapposti(codes,escludi){ return lavori().filter(x=>x.id!==escludi&&lavAttivo(x)&&lavCodes(x).some(c=>codes.includes(c))); }
+const sovrHTML = (codes,escludi)=>{ const xs=lavSovrapposti(codes,escludi); if(!xs.length) return '';
+  return `<div class="box small" style="background:var(--surface-2)"><b>Altri lavori aperti sugli stessi contenitori</b><ul style="margin:4px 0 0;padding-left:18px">${xs.map(x=>`<li>${esc(x.num||'')} · ${esc(lavTitolo(x))} · ${x.data?fd(x.data):'senza data'} <span class="chip ${LSTCLS[x.stato]}">${LSTATI[x.stato]}</span> <span class="muted">(${esc(lavCodes(x).filter(c=>codes.includes(c)).map(c=>vlab(c)).join(', '))})</span></li>`).join('')}</ul></div>`; };
+const persone = ()=>[...new Set([...(S.persone||[]),...lavori().map(l=>l.assegnato).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'it'));
+const locDi = c=>VMAP[c]?VMAP[c].dep:null;
 
+/* ===================== Scelta di più contenitori insieme (ricerca, filtri, «seleziona tutti») ===================== */
+function sceltaMulti(o){ /* o: {titolo, scelti:[], escludi:[], vino:''|'+'|'-', onOk(codes)} */
+  const st=stOggi(); const sel=new Set(o.scelti||[]);
+  const locs=DEPOSITI.filter(l=>l.stato!=='disattivo'&&l.stato!=='rimosso');
+  const pool=VASCHE.filter(v=>v.stato==='attivo'&&locs.some(l=>l.id===v.dep)&&!(o.escludi||[]).includes(v.code));
+  const tipi=[...new Set(pool.map(v=>v.tipo))].sort();
+  const vini=[...new Set(pool.map(v=>(st[v.code]||{}).vino).filter(Boolean))].sort((a,b)=>vName(a).localeCompare(vName(b),'it'));
+  const l0=locs.length>1&&!sel.size&&UI.dep&&locs.some(l=>l.id===UI.dep)?UI.dep:'';
+  const cap1=t=>t.charAt(0).toUpperCase()+t.slice(1);
+  modal(o.titolo||'Scegli i contenitori',`<div class="fg">
+    <label class="f">Cerca<input id="sm-q" placeholder="codice, nome o vino" autocomplete="off"></label>
+    ${locs.length>1?`<label class="f">Locale<select id="sm-l"><option value="">tutti</option>${locs.map(l=>`<option value="${esc(l.id)}" ${l.id===l0?'selected':''}>${esc(locNome(l.id))}</option>`).join('')}</select></label>`:''}
+    <label class="f">Tipo<select id="sm-t"><option value="">tutti</option>${tipi.map(t=>`<option value="${esc(t)}">${esc(cap1(PLUR[t]||t))}</option>`).join('')}</select></label>
+    <label class="f">Vino<select id="sm-v"><option value="">tutti</option><option value="+">solo pieni</option><option value="-">solo vuoti</option>${vini.map(v=>`<option value="${esc(v)}">${esc(vName(v))}</option>`).join('')}</select></label></div>
+    <div class="row small" style="gap:6px;margin:8px 0 4px;flex-wrap:wrap"><button type="button" class="btn sm" id="sm-all">Seleziona tutti i filtrati</button><button type="button" class="btn sm ghost" id="sm-none">Togli i filtrati</button><span class="muted" id="sm-n"></span></div>
+    <div id="sm-g" class="sm-grid"></div>
+    <div id="sm-s" class="box small" style="margin-top:8px"></div>
+    <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button type="button" class="btn pri" id="sm-ok">Conferma</button></div>`,(b,close)=>{
+    if(o.vino) $('#sm-v',b).value=o.vino;
+    const filt=()=>{ const q=$('#sm-q',b).value.trim().toLowerCase(), l=$('#sm-l',b)?$('#sm-l',b).value:'', t=$('#sm-t',b).value, vv=$('#sm-v',b).value;
+      return pool.filter(v=>{ const s=st[v.code]||{}, pieno=(s.L||0)>1e-6;
+        if(l&&v.dep!==l) return false; if(t&&v.tipo!==t) return false;
+        if(vv==='+'&&!pieno) return false; if(vv==='-'&&pieno) return false; if(vv&&vv!=='+'&&vv!=='-'&&s.vino!==vv) return false;
+        if(q){ const hay=[v.label,vlab(v.code),v.code,locNome(v.dep),(LOCMAP[v.dep]||{}).sigla,pieno&&s.vino?vName(s.vino):''].filter(Boolean).join(' ').toLowerCase(); if(!hay.includes(q)) return false; }
+        return true; })
+        .sort((a,c)=>DEPOSITI.findIndex(x=>x.id===a.dep)-DEPOSITI.findIndex(x=>x.id===c.dep)||natCmp(a.rec.gruppo||'',c.rec.gruppo||'')||natCmp(a.rec.posto||a.label,c.rec.posto||c.label)||natCmp(a.label,c.label)); };
+    const draw=()=>{ const vs=filt(); const tuttiLoc=locs.length>1&&!($('#sm-l',b)&&$('#sm-l',b).value);
+      $('#sm-g',b).innerHTML=vs.map(v=>{ const s=st[v.code]||{}, pieno=(s.L||0)>1e-6, ff=pieno?Math.min(1,s.L/(v.cap*100)):0, on=sel.has(v.code);
+        const loc=tuttiLoc&&vlab(v.code)===v.label?`<span>${esc((LOCMAP[v.dep]||{}).sigla||locNome(v.dep))}</span>`:'';
+        return `<button type="button" class="fpost${on?' sel':''}" data-sm="${esc(v.code)}" aria-pressed="${on}" style="--pc:${pieno?partCol(s.vino):'transparent'};--pf:${(ff*100).toFixed(0)}%" title="${esc(Vnome(v.code))} · ${esc(locNome(v.dep))} · ${nf(v.cap)} hL${pieno?' · '+esc(vName(s.vino))+' '+hL(s.L):' · vuota'}"><b>${esc(vlab(v.code))}</b>${loc}<span class="vn">${pieno?esc(vName(s.vino)):'vuota'}</span><span>${pieno?esc(hL(s.L)):nf(v.cap)+' hL'}</span></button>`; }).join('')||'<p class="muted small">Nessun contenitore con questi filtri.</p>';
+      $$('[data-sm]',b).forEach(x=>x.onclick=()=>{ const c=x.dataset.sm; sel.has(c)?sel.delete(c):sel.add(c); draw(); });
+      const tot=[...sel].reduce((a,c)=>a+((st[c]||{}).L||0),0);
+      $('#sm-n',b).textContent=`${vs.length} mostrat${vs.length===1?'o':'i'}`;
+      $('#sm-s',b).innerHTML=sel.size?`<b>${sel.size} scelt${sel.size===1?'o':'i'}</b>: ${esc(elencoV(ordinaCodici([...sel])))}${tot?' · '+hL(tot)+' registrati oggi':''}`:'<span class="muted">Nessun contenitore scelto.</span>';
+      $('#sm-ok',b).textContent=sel.size?`Conferma (${sel.size})`:'Conferma'; };
+    ['#sm-l','#sm-t','#sm-v'].forEach(s=>{ const e=$(s,b); if(e) e.onchange=draw; }); $('#sm-q',b).oninput=draw;
+    $('#sm-all',b).onclick=()=>{ filt().forEach(v=>sel.add(v.code)); draw(); };
+    $('#sm-none',b).onclick=()=>{ filt().forEach(v=>sel.delete(v.code)); draw(); };
+    $('#sm-ok',b).onclick=()=>{ close(); o.onOk(ordinaCodici([...sel])); };
+    draw(); setTimeout(()=>{ try{ $('#sm-q',b).focus(); }catch(e){} },30); }); }
+const ordinaCodici = cs=>[...cs].sort((a,c)=>VASCHE.findIndex(v=>v.code===a)-VASCHE.findIndex(v=>v.code===c));
+
+/* ===================== Vista: Lavori ===================== */
+const LQ = {oggi:'Oggi',scaduti:'Scaduti',senzadata:'Senza data',nonass:'Non assegnati',bozze:'Bozze',dacon:'Da convalidare',nonfatti:'Non fatti'};
+const lqTest = (k,l)=>k==='oggi'?l.data===today()&&lavAperto(l):k==='scaduti'?lavScaduto(l):k==='senzadata'?!l.data&&lavAttivo(l):k==='nonass'?!l.assegnato&&['bozza','dafare'].includes(l.stato):k==='bozze'?l.stato==='bozza':k==='dacon'?l.stato==='eseguito':k==='nonfatti'?l.stato==='noneseguito':true;
+function lavCard(l){ const d=lavDiff(l), late=lavScaduto(l), cs=ordinaCodici(lavCodes(l)), mv=lavMov(l);
+  return `<button class="lcard" data-lid="${l.id}"><div class="spread" style="width:100%;gap:6px"><span class="row" style="gap:6px">${l.priorita==='alta'?'<span class="chip scad">Alta</span>':l.priorita==='bassa'?'<span class="chip">Bassa</span>':''}<b>${esc(lavTitolo(l))}</b></span><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span></div>
+    <div class="small muted">${esc(l.num||'')} · ${esc(l.tipo)} · ${l.data?fd(l.data)+(l.ora?' '+esc(l.ora):''):'senza data'} · ${l.assegnato?'👤 '+esc(l.assegnato):'<i>non assegnato</i>'}</div>
+    ${cs.length?`<div class="small">${esc(elencoV(cs))}${lavVini(l).length?' <span class="muted">· '+lavVini(l).map(v=>esc(vName(v))).join(', ')+'</span>':''}</div>`:''}
+    <div class="row small" style="gap:6px">${mv.length?`<span class="chip">${mv.length} moviment${mv.length===1?'o':'i'}</span>`:''}${(l.prodotti||[]).length?`<span class="chip">${l.prodotti.length} prodott${l.prodotti.length===1?'o':'i'}</span>`:''}${d?'<span class="chip warn">Da verificare</span>':''}${late?'<span class="chip scad">Data superata</span>':''}${l.esec&&l.stato==='eseguito'?`<span class="small muted">fatto${l.esec.da?' da '+esc(l.esec.da):''}${l.esec.comePrevisto===false?' · con differenze':''}</span>`:''}</div></button>`; }
 function viewLavori(app){
   UI.lv=UI.lv||{vista:'elenco',giorno:today(),f:{}}; const V=UI.lv, F=V.f;
   const legacy=attivi(S.eventi).filter(e=>!e.storico&&e.data>today());
-  const match=l=>(!F.vasca||(l.vasche||[]).includes(F.vasca)||l.dest===F.vasca)&&(!F.vino||lavVini(l).includes(F.vino))&&(!F.tipo||l.tipo===F.tipo)&&(!F.persona||l.assegnato===F.persona)&&(!F.stato||l.stato===F.stato);
+  const match=l=>(!F.locale||lavCodes(l).some(c=>locDi(c)===F.locale))&&(!F.vasca||lavCodes(l).includes(F.vasca))&&(!F.vino||lavVini(l).includes(F.vino))&&(!F.tipo||l.tipo===F.tipo)&&(!F.persona||(F.persona==='-'?!l.assegnato:l.assegnato===F.persona))&&(!F.stato||l.stato===F.stato)&&(!V.q||lqTest(V.q,l));
   const chiusi=V.vista==='chiusi';
-  const all=lavori().filter(l=>(chiusi?!lavAperto(l):lavAperto(l))&&match(l));
-  const pOrd={alta:0,normale:1,bassa:2};
-  const sortF=(a,b)=>(a.data||'9999')<(b.data||'9999')?-1:(a.data||'9999')>(b.data||'9999')?1:(a.ora||'99')<(b.ora||'99')?-1:(a.ora||'99')>(b.ora||'99')?1:pOrd[a.priorita||'normale']-pOrd[b.priorita||'normale'];
-  const card=l=>{ const d=lavDiff(l), late=lavAperto(l)&&l.data&&l.data<today()&&l.stato!=='eseguito';
-    return `<button class="lcard" data-lid="${l.id}"><div class="spread" style="width:100%;gap:6px"><span class="row" style="gap:6px">${l.priorita==='alta'?'<span class="chip scad">Alta</span>':l.priorita==='bassa'?'<span class="chip">Bassa</span>':''}<b>${esc(lavTitolo(l))}</b></span><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span></div>
-      <div class="small muted">${esc(l.tipo)}${l.data?' · '+fd(l.data)+(l.ora?' '+esc(l.ora):''):' · senza data'}${l.assegnato?' · 👤 '+esc(l.assegnato):''}${lavVini(l).length?' · '+lavVini(l).map(v=>esc(vName(v))).join(', '):''}</div>
-      ${d||late?`<div class="row" style="gap:6px">${d?'<span class="chip warn">Da verificare</span>':''}${late?'<span class="chip scad">Data superata</span>':''}</div>`:''}</button>`; };
-  const group=(lab,list)=>`<div class="lgroup"><h3>${lab} <span class="muted small">${list.length}</span></h3>${list.length?list.map(card).join(''):'<p class="muted small">Nessun lavoro.</p>'}</div>`;
+  const all=lavori().filter(l=>(chiusi?!lavAttivo(l):lavAttivo(l))&&match(l));
+  const group=(lab,list)=>`<div class="lgroup"><h3>${lab} <span class="muted small">${list.length}</span></h3>${list.length?list.map(lavCard).join(''):'<p class="muted small">Nessun lavoro.</p>'}</div>`;
   let body='';
-  if(V.vista==='elenco'||chiusi){ const nd=all.filter(l=>!l.data), byD={}; all.filter(l=>l.data).sort(sortF).forEach(l=>(byD[l.data]=byD[l.data]||[]).push(l));
-    if(chiusi) body=all.length?[...all].sort((a,b)=>(b.modificatoIl||'')<(a.modificatoIl||'')?-1:1).map(card).join(''):'<p class="muted">Nessun lavoro completato o annullato.</p>';
-    else body=(nd.length?group('Senza data',nd.sort(sortF)):'')+Object.keys(byD).map(d=>group(`${giornoNome(d)} ${fd(d)}${d===today()?' · oggi':d<today()?' · passato':''}`,byD[d])).join('')||'<p class="muted">Nessun lavoro programmato.</p>'; }
+  if(V.vista==='elenco'||chiusi){
+    if(chiusi) body=all.length?[...all].sort((a,b)=>(b.modificatoIl||'')<(a.modificatoIl||'')?-1:1).map(lavCard).join(''):'<p class="muted">Nessun lavoro convalidato o annullato.</p>';
+    else { const bz=all.filter(l=>l.stato==='bozza'), op=all.filter(l=>l.stato!=='bozza'); const dc=op.filter(l=>l.stato==='eseguito'||l.stato==='noneseguito'), rest=op.filter(l=>!dc.includes(l));
+      const nd=rest.filter(l=>!l.data), byD={}; rest.filter(l=>l.data).sort(lavSort).forEach(l=>(byD[l.data]=byD[l.data]||[]).push(l));
+      body=(dc.length?group('Fatti o non fatti: tocca a te',dc.sort(lavSort)):'')+(bz.length?group('Bozze',bz.sort(lavSort)):'')+(nd.length?group('Senza data',nd.sort(lavSort)):'')+Object.keys(byD).map(d=>group(`${giornoNome(d)} ${fd(d)}${d===today()?' · oggi':d<today()?' · passato':''}`,byD[d])).join('')||'<p class="muted">Nessun lavoro.</p>'; } }
   else { const days=V.vista==='giorno'?[V.giorno]:settimana(V.giorno);
-    body=`<div class="${V.vista==='settimana'?'lweek':''}">${days.map(d=>group(`${giornoNome(d)} ${fd(d)}${d===today()?' · oggi':''}`,all.filter(l=>l.data===d).sort(sortF))).join('')}</div>
+    body=`<div class="${V.vista==='settimana'?'lweek':''}">${days.map(d=>group(`${giornoNome(d)} ${fd(d)}${d===today()?' · oggi':''}`,all.filter(l=>l.data===d).sort(lavSort))).join('')}</div>
       ${all.some(l=>!l.data)?`<p class="small muted">Ci sono anche ${all.filter(l=>!l.data).length} lavori senza data: li vedi in «Elenco».</p>`:''}`; }
-  const vsUsed=[...new Set(lavori().flatMap(l=>[...(l.vasche||[]),...(l.dest?[l.dest]:[])]))].sort((a,b)=>a.localeCompare(b,'it',{numeric:true}));
-  const viUsed=[...new Set(lavori().flatMap(lavVini))], peUsed=[...new Set([...(S.persone||[]),...lavori().map(l=>l.assegnato).filter(Boolean)])];
-  const sel=(k,lab,opts)=>`<label class="f">${lab}<select data-lf="${k}"><option value="">tutti</option>${opts.map(([v,t])=>`<option value="${esc(v)}" ${F[k]===v?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
-  app.innerHTML=`<div class="spread"><h2>Programmazione lavori</h2><button class="btn pri" id="lv-new">Nuovo lavoro</button></div>
-  <p class="hint">Qui si programma e si controlla il lavoro. Un lavoro, anche se segnato come eseguito, <b>non cambia mai</b> giacenze, vasche, partite o storico: cambiano solo quando, in convalida, registri l'operazione vera.</p>
+  const vsUsed=ordinaCodici([...new Set(lavori().flatMap(lavCodes))]);
+  const viUsed=[...new Set(lavori().flatMap(lavVini))], peUsed=persone();
+  const locUsed=[...new Set(vsUsed.map(locDi).filter(Boolean))];
+  const sel=(k,lab,opts,tutti)=>`<label class="f">${lab}<select data-lf="${k}"><option value="">${tutti||'tutti'}</option>${opts.map(([v,t])=>`<option value="${esc(v)}" ${F[k]===v?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
+  const att=lavori().filter(lavAttivo); const cnt=k=>att.filter(l=>lqTest(k,l)).length;
+  app.innerHTML=`<div class="spread"><h2>Programmazione lavori</h2><div class="row" style="gap:6px"><a class="btn" href="#operatore">Vedi come operatore</a><button class="btn pri" id="lv-new">Nuovo lavoro</button></div></div>
+  <p class="hint">Qui si programma e si controlla il lavoro. Un lavoro, anche se segnato come fatto, <b>non cambia mai</b> giacenze, vasche, partite o storico: cambiano solo quando, in convalida, registri l'operazione vera.</p>
   ${legacy.length?`<div class="box warn small" style="color:var(--ink)"><b>${legacy.length} operazion${legacy.length===1?'e registrata':'i registrate'} con data futura</b> (vecchio sistema delle operazioni programmate). Ora le operazioni future si programmano qui. <button class="btn sm" id="lv-conv">Trasformale in lavori</button><ul style="margin:6px 0 0;padding-left:18px">${legacy.map(e=>`<li>${fd(e.data)} · ${esc(evTitle(e))}</li>`).join('')}</ul></div>`:''}
-  <div class="panel"><div class="spread"><div class="seg" role="group" aria-label="Vista">${[['elenco','Elenco'],['giorno','Giorno'],['settimana','Settimana'],['chiusi','Completati e annullati']].map(([k,t])=>`<button data-lvv="${k}" aria-pressed="${V.vista===k}">${t}</button>`).join('')}</div>
+  ${chiusi?'':`<div class="lq" role="group" aria-label="In evidenza">${Object.entries(LQ).map(([k,t])=>{ const n=cnt(k); return `<button type="button" data-lq="${k}" aria-pressed="${V.q===k}" class="${n&&['scaduti','dacon','nonfatti'].includes(k)?'hot':''}"${n||V.q===k?'':' disabled'}><span class="n">${n}</span> ${t}</button>`; }).join('')}</div>`}
+  <div class="panel"><div class="spread"><div class="seg" role="group" aria-label="Vista">${[['elenco','Elenco'],['giorno','Giorno'],['settimana','Settimana'],['chiusi','Convalidati e annullati']].map(([k,t])=>`<button data-lvv="${k}" aria-pressed="${V.vista===k}">${t}</button>`).join('')}</div>
     ${V.vista==='giorno'||V.vista==='settimana'?`<div class="row"><button class="btn sm" data-lvn="-1">←</button><input type="date" data-free id="lv-g" value="${V.giorno}" style="width:auto"><button class="btn sm" data-lvn="1">→</button><button class="btn sm ghost" data-lvn="0">Oggi</button></div>`:''}</div>
-    <div class="fg" style="margin-top:10px">${sel('vasca','Vasca',vsUsed.map(c=>[c,vlab(c)+capTxt(c)]))}${sel('vino','Vino',viUsed.map(v=>[v,vName(v)]))}${sel('tipo','Tipologia',[...new Set([...lavTipiNomi(),...lavori().map(l=>l.tipo)])].map(t=>[t,t]))}${sel('stato','Stato',Object.entries(LSTATI).filter(([k])=>chiusi?!['dafare','incorso','eseguito'].includes(k):['dafare','incorso','eseguito'].includes(k)))}${sel('persona','Assegnato a',peUsed.map(p=>[p,p]))}</div></div>
+    <div class="fg" style="margin-top:10px">${locUsed.length>1?sel('locale','Locale',locUsed.map(d=>[d,locNome(d)])):''}${sel('vasca','Contenitore',vsUsed.map(c=>[c,vlab(c)+capTxt(c)]))}${sel('vino','Vino',viUsed.map(v=>[v,vName(v)]))}${sel('tipo','Tipologia',[...new Set([...lavTipiNomi(),...lavori().map(l=>l.tipo)])].map(t=>[t,t]))}${sel('stato','Stato',Object.entries(LSTATI).filter(([k])=>k!=='incorso'&&(chiusi?['convalidato','annullato'].includes(k):!['convalidato','annullato'].includes(k))))}${sel('persona','Assegnato a',[['-','nessuno (non assegnati)'],...peUsed.map(p=>[p,p])])}</div></div>
   <div class="lbody">${body}</div>`;
   $('#lv-new',app).onclick=()=>formLavoro();
-  $$('[data-lvv]',app).forEach(b=>b.onclick=()=>{V.vista=b.dataset.lvv; if(V.f.stato) V.f.stato=''; viewLavori(app);});
+  $$('[data-lq]',app).forEach(b=>b.onclick=()=>{ V.q=V.q===b.dataset.lq?null:b.dataset.lq; if(V.q) V.vista='elenco'; viewLavori(app); });
+  $$('[data-lvv]',app).forEach(b=>b.onclick=()=>{V.vista=b.dataset.lvv; if(V.f.stato) V.f.stato=''; if(V.vista==='chiusi') V.q=null; viewLavori(app);});
   $$('[data-lvn]',app).forEach(b=>b.onclick=()=>{const n=+b.dataset.lvn; V.giorno=n===0?today():addDays(V.giorno,n*(V.vista==='settimana'?7:1)); viewLavori(app);});
   const g=$('#lv-g',app); if(g) g.onchange=()=>{ if(g.value){V.giorno=g.value; viewLavori(app);} };
   $$('[data-lf]',app).forEach(s=>s.onchange=()=>{F[s.dataset.lf]=s.value; viewLavori(app);});
@@ -1844,172 +1973,345 @@ function convertiProgrammate(list){
    <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">Trasforma</button></div>`,(b,close)=>{
     $('#ok',b).onclick=()=>{ list.forEach(e=>{ const tr=e.tratte||[];
         const tipo=e.tipo==='imbottigliamento'?'Imbottigliamento':tr.length?(new Set(tr.map(t=>t.da)).size>1?'Assemblaggio':'Travaso'):(e.aggiunte||[]).length?'Aggiunta di prodotti enologici':'Operazione generica';
-        const vs=e.vasca?[e.vasca]:tr.length?[...new Set(tr.map(t=>t.da))]:(e.vasche||[]);
-        const l={id:uid(),num:lavNum(),titolo:evTitle(e),tipo,data:e.data,ora:'',priorita:'normale',assegnato:'',vasche:vs,dest:tr[0]&&tr[0].a||'',volL:e.L||(tr.length?tr.reduce((s,t)=>s+(t.L||0),0):null),
-          prodotti:(e.aggiunte||[]).map(a=>({prodotto:a.prodotto,dose:a.dose,udm:a.udm,volL:a.volL||null})),istruzioni:'Creato dall\'operazione programmata del vecchio sistema: '+evTitle(e)+(e.note?'. '+e.note:''),stato:'dafare',creatoIl:new Date().toISOString(),modificatoIl:new Date().toISOString(),storia:[]};
-        l.rif=lavSnap(l.vasche,l.dest); lavori().push(l);
+        const mov=tr.map(t=>({da:t.da,a:t.a||'?',q:t.L?'hL':'dadef',L:t.L||null}));
+        const vs=tr.length?[]:(e.vasca?[e.vasca]:(e.vasche||[]));
+        const l={id:uid(),num:lavNum(),titolo:evTitle(e),tipo,data:e.data,ora:'',priorita:'normale',assegnato:'',vasche:vs,mov,conTrasf:tr.length>0,_v:2,
+          prodotti:(e.aggiunte||[]).map(a=>({prodotto:a.prodotto,dose:a.dose,udm:a.udm,volL:a.volL||null,quando:'dopo',su:a.vasca?[a.vasca]:null})),istruzioni:'Creato dall\'operazione programmata del vecchio sistema: '+evTitle(e)+(e.note?'. '+e.note:''),stato:'dafare',creatoIl:new Date().toISOString(),modificatoIl:new Date().toISOString(),storia:[]};
+        l.rif=lavSnap(lavCodes(l)); lavori().push(l);
         e.stato='annullato'; e.motivo='Trasformata in lavoro programmato '+l.num; e.annullatoIl=new Date().toISOString(); });
       close(); refresh(); toast('Operazioni trasformate in lavori'); };
   });
 }
 
+/* ===================== Scheda del lavoro: essenziale all'inizio, i dettagli si aprono quando servono ===================== */
 function formLavoro(ed,preset){
-  const l=ed?JSON.parse(JSON.stringify(ed)):Object.assign({tipo:'Travaso',priorita:'normale',vasche:[],prodotti:[]},preset||{});
+  const l=ed?JSON.parse(JSON.stringify(lavNorm(ed))):Object.assign({tipo:'Travaso',priorita:'normale',vasche:[],mov:[],prodotti:[]},preset||{});
+  if(!Array.isArray(l.mov)) l.mov=[];
+  if(LMOV(l.tipo)==='si'&&!l.mov.length&&(l.vasche||[]).length){ l.mov=l.vasche.map(c=>({da:c,a:'',q:'dadef',L:null})); l.vasche=[]; }
   const st=stOggi(); S.persone=S.persone||[];
-  const vOpt=(sel,skip)=>`<option value="">—</option>`+VASCHE.filter(v=>(v.stato==='attivo'||v.code===sel)&&(!(skip||[]).includes(v.code)||v.code===sel)).map(v=>{const s=st[v.code];return `<option value="${esc(v.code)}" ${v.code===sel?'selected':''}>${vascaLab(v.code,s)}</option>`}).join('');
-  modal(ed?'Modifica lavoro '+(ed.num||''):'Nuovo lavoro',`<form id="flv" novalidate>
+  let vs=[...(l.vasche||[])], mv=l.mov.map(m=>({...m})), conT=!!l.conTrasf;
+  const vOpt=(sel,extra)=>`<option value="">—</option>${extra||''}`+VASCHE.filter(v=>v.stato==='attivo'||v.code===sel).map(v=>`<option value="${esc(v.code)}" ${v.code===sel?'selected':''}>${vascaLab(v.code,st[v.code])}</option>`).join('');
+  const bozza=ed&&ed.stato==='bozza', nuovo=!ed;
+  modal(ed?(bozza?'Bozza ':'Modifica lavoro ')+(ed.num||''):'Nuovo lavoro',`<form id="flv" novalidate>
    <div class="fg">
     <label class="f">Tipologia<select id="w-tipo">${lavTipiOpts(l.tipo)}</select></label>
-    <label class="f wide">Titolo<input id="w-tit" value="${esc(l.titolo||'')}" placeholder="facoltativo: se vuoto si compone da tipologia e vasche"></label>
+    <label class="f wide">Titolo<input id="w-tit" value="${esc(l.titolo||'')}"></label>
     <label class="f">Data prevista<input type="date" data-free id="w-data" value="${esc(l.data||'')}"></label>
     <label class="f">Ora<input type="time" id="w-ora" value="${esc(l.ora||'')}"></label>
     <label class="f">Priorità<select id="w-prio">${Object.entries(LPRIO).map(([k,t])=>`<option value="${k}" ${l.priorita===k?'selected':''}>${t}</option>`).join('')}</select></label>
-    <label class="f">Assegnato a<input id="w-ass" list="w-pl" value="${esc(l.assegnato||'')}" placeholder="facoltativo"><datalist id="w-pl">${S.persone.map(p=>`<option value="${esc(p)}">`).join('')}</datalist></label>
+    <label class="f">Assegnato a<input id="w-ass" list="w-pl" value="${esc(l.assegnato||'')}" placeholder="facoltativo"><datalist id="w-pl">${persone().map(p=>`<option value="${esc(p)}">`).join('')}</datalist></label>
    </div>
-   <p class="hint" style="margin:4px 0 0">Data e ora sono facoltative: un lavoro senza data resta in elenco «Senza data».</p>
-   <fieldset class="lvf"><legend id="w-vlab">Vasche</legend>
-    <div class="row" id="w-vs"></div>
-    <div class="fg"><label class="f">Aggiungi vasca<select id="w-vadd">${vOpt('',l.vasche)}</select></label>
-     <label class="f" id="w-destw"><span id="w-destl">Vasca di destinazione</span><select id="w-dest">${vOpt(l.dest)}</select></label>
-     <label class="f" id="w-volw">Volume previsto (hL)<input id="w-vol" inputmode="decimal" value="${l.volL?nfIn(l.volL/100,3):''}" placeholder="auto"></label></div>
+   <div class="seg" id="w-trf" role="group" aria-label="Trasferimento" style="margin-top:10px"><button type="button" data-trf="0">Senza trasferimento</button><button type="button" data-trf="1">Con trasferimento tra contenitori</button></div>
+   <fieldset class="lvf" id="w-mf"><legend>Movimenti previsti</legend>
+    <div id="w-rows"></div>
+    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button type="button" class="btn sm" id="w-radd">+ Movimento</button><button type="button" class="btn sm ghost" id="w-rdest">Da una partenza a più arrivi…</button><button type="button" class="btn sm ghost" id="w-rsrc">Da più partenze a un arrivo…</button></div>
+    <div id="w-mnote" class="small" style="margin-top:6px"></div>
+    <p class="hint" style="margin:6px 0 0">Ogni riga è un movimento: partenza → arrivo. Le righe non uniscono i vini da sole: si uniscono solo dove più partenze arrivano nello stesso contenitore. Le quantità sono indicazioni per chi lavora, non movimenti registrati. Volumi di riferimento: registrati al ${fd(today())}.</p>
+   </fieldset>
+   <fieldset class="lvf" id="w-cf"><legend id="w-vlab">Contenitori</legend>
+    <div class="row" id="w-vs" style="gap:4px;flex-wrap:wrap"></div>
+    <div class="row" style="gap:6px;align-items:flex-end;flex-wrap:wrap;margin-top:6px"><label class="f" style="min-width:200px">Aggiungi<select id="w-vadd"></select></label><button type="button" class="btn sm" id="w-vbulk">Scegli più contenitori…</button><button type="button" class="btn sm ghost" id="w-vclr">Togli tutti</button></div>
     <div class="hint" id="w-vinfo"></div>
    </fieldset>
    <fieldset class="lvf" id="w-prw"><legend>Prodotti</legend>
     <datalist id="w-prl">${prodVisibili().map(x=>`<option value="${esc(x.nome)}">${esc(x.categoria||'')}</option>`).join('')}</datalist>
     <div id="w-prs"></div><button type="button" class="btn sm" id="w-padd">+ Aggiungi prodotto</button>
-    <p class="hint" style="margin:6px 0 0">Quantità teorica = dose × volume, con le stesse regole delle aggiunte. È solo programmata: nessuna aggiunta entra nello storico finché non registri l'operazione.</p>
+    <p class="hint" style="margin:6px 0 0">Quantità teorica = dose × volume da trattare, con le regole delle aggiunte. Se scrivi un totale prescritto resta quello: non viene ricalcolato. È solo programmato: nessuna aggiunta entra nello storico finché non convalidi.</p>
    </fieldset>
    <label class="f wide">Descrizione e istruzioni operative<textarea id="w-ist" placeholder="es. travasare dal basso, lasciare 1 hL di fondo">${esc(l.istruzioni||'')}</textarea></label>
+   <div id="w-sovr"></div>
    <div id="msg" class="err"></div>
-   <div class="foot">${ed&&lavAperto(ed)?'<button type="button" class="btn ghost" id="w-ann" style="margin-right:auto">Annulla il lavoro…</button>':''}<button type="button" class="btn" data-close>${ed?'Chiudi senza salvare':'Annulla'}</button><button class="btn pri" id="sv">${ed?'Salva modifiche':'Programma lavoro'}</button></div></form>`,(b,close)=>{
+   <div class="foot">${ed&&lavAttivo(ed)?`<button type="button" class="btn ghost" id="w-ann" style="margin-right:auto">${bozza?'Scarta la bozza…':'Annulla il lavoro…'}</button>`:''}<button type="button" class="btn" data-close>${ed?'Chiudi senza salvare':'Annulla'}</button>${nuovo||bozza?'<button type="button" class="btn" id="w-bz">Salva bozza</button>':''}<button class="btn pri" id="sv">${nuovo||bozza?'Programma lavoro':'Salva modifiche'}</button></div></form>`,(b,close)=>{
     { const wa=$('#w-ann',b); if(wa) wa.onclick=()=>{ const o=lavori().find(x=>x.id===ed.id); close(); if(o) annullaLavoro(o); }; }
-    let vs=[...(l.vasche||[])];
-    const T=()=>LT($('#w-tipo',b).value)||{};
-    const volAuto=()=>vs.reduce((s,c)=>s+((st[c]||{}).L||0),0);
-    const volUsed=()=>toL($('#w-vol',b).value,'hL')||volAuto();
-    const renderVs=()=>{ $('#w-vs',b).innerHTML=vs.length?vs.map(c=>`<span class="chip">${esc(vlab(c))}${st[c]&&st[c].vino?' · '+esc(vName(st[c].vino))+' · '+hL(st[c].L):' · vuota'} <button type="button" class="x" data-rmv="${esc(c)}" aria-label="Togli ${esc(vnome(c))}" style="border:0;background:none;cursor:pointer">×</button></span>`).join(''):'<span class="muted small">nessuna vasca scelta</span>';
-      $$('[data-rmv]',b).forEach(x=>x.onclick=()=>{vs=vs.filter(c=>c!==x.dataset.rmv); $('#w-vadd',b).innerHTML=vOpt('',vs); renderVs(); upd();}); };
-    const prLine=(p={})=>{ const pr=S.prodotti.find(x=>x.nome===p.prodotto)||{}; const d=document.createElement('div'); d.className='line lprod';
+    const tipo=()=>$('#w-tipo',b).value, T=()=>LT(tipo())||{};
+    const inMov=()=>{ const m=LMOV(tipo()); return m==='si'||(m==='opz'&&conT); };
+    const cur=()=>({tipo:tipo(),vasche:inMov()?[]:vs,mov:inMov()?mv:[],conTrasf:LMOV(tipo())==='opz'&&conT});
+    /* contenitori senza movimento */
+    const renderVs=()=>{ $('#w-vs',b).innerHTML=vs.length?(vs.length>3?`<div class="small" style="width:100%"><b>${vs.length} contenitori</b>: ${esc(elencoV(vs))} · ${hL(vs.reduce((a,c)=>a+((st[c]||{}).L||0),0))}</div>`:'')+vs.map(c=>`<span class="chip">${esc(vlab(c))}${st[c]&&st[c].vino?' · '+esc(vName(st[c].vino))+' · '+hL(st[c].L):' · vuota'} <button type="button" class="x" data-rmv="${esc(c)}" aria-label="Togli ${esc(vnome(c))}" style="border:0;background:none;cursor:pointer">×</button></span>`).join(''):'<span class="muted small">nessun contenitore scelto</span>';
+      $('#w-vadd',b).innerHTML=`<option value="">—</option>`+VASCHE.filter(v=>v.stato==='attivo'&&!vs.includes(v.code)).map(v=>`<option value="${esc(v.code)}">${vascaLab(v.code,st[v.code])}</option>`).join('');
+      $$('[data-rmv]',b).forEach(x=>x.onclick=()=>{ vs=vs.filter(c=>c!==x.dataset.rmv); renderVs(); upd(); }); };
+    $('#w-vadd',b).onchange=e=>{ const c=e.target.value; if(c&&!vs.includes(c)) vs.push(c); renderVs(); upd(); };
+    $('#w-vbulk',b).onclick=()=>sceltaMulti({titolo:'Contenitori del lavoro',scelti:vs,onOk:cs=>{ vs=cs; renderVs(); upd(); }});
+    $('#w-vclr',b).onclick=()=>{ vs=[]; renderVs(); upd(); };
+    /* righe di movimento */
+    const renderRows=()=>{ $('#w-rows',b).innerHTML=mv.map((m,i)=>`<div class="line mrow" data-i="${i}">
+        <label class="f">Da<select class="m-da">${vOpt(m.da)}</select></label><span class="m-ar" aria-hidden="true">→</span>
+        <label class="f">A<select class="m-a">${vOpt(m.a,`<option value="?" ${m.a==='?'?'selected':''}>da concordare</option>`)}</select></label>
+        <label class="f">Quantità<select class="m-q"><option value="hL" ${m.q==='hL'?'selected':''}>hL indicati</option><option value="tutto" ${m.q==='tutto'?'selected':''}>tutto il contenuto</option><option value="dadef" ${!m.q||m.q==='dadef'?'selected':''}>da definire</option></select></label>
+        <label class="f m-Lw" ${m.q==='hL'?'':'hidden'}>hL<input class="m-L" inputmode="decimal" value="${m.L?nfIn(m.L/100,3):''}"></label>
+        <button type="button" class="btn sm ghost m-x" aria-label="Togli il movimento ${i+1}">Togli</button></div>`).join('')||'<p class="muted small">Nessun movimento.</p>';
+      $$('.mrow',b).forEach(r=>{ const m=mv[+r.dataset.i];
+        $('.m-da',r).onchange=e=>{ m.da=e.target.value; upd(); }; $('.m-a',r).onchange=e=>{ m.a=e.target.value; upd(); };
+        $('.m-q',r).onchange=e=>{ m.q=e.target.value; $('.m-Lw',r).hidden=m.q!=='hL'; upd(); }; $('.m-L',r).oninput=e=>{ m.L=toL(e.target.value,'hL'); upd(); };
+        $('.m-x',r).onclick=()=>{ mv.splice(+r.dataset.i,1); renderRows(); upd(); }; }); };
+    const ultima=()=>mv[mv.length-1]||{};
+    $('#w-radd',b).onclick=()=>{ const u=ultima(); mv.push({da:u.da||'',a:'',q:'dadef',L:null}); renderRows(); upd(); };
+    $('#w-rdest',b).onclick=()=>{ const da=ultima().da; if(!da){ toast('Scegli prima la partenza nell\'ultima riga'); if(!mv.length){ mv.push({da:'',a:'',q:'dadef',L:null}); renderRows(); upd(); } return; }
+      sceltaMulti({titolo:'Arrivi da '+vlab(da),escludi:[da],onOk:cs=>{ if(!cs.length) return; cs.forEach(c=>{ const u=ultima(); if(u.da===da&&!u.a) u.a=c; else mv.push({da,a:c,q:'dadef',L:null}); }); renderRows(); upd(); }}); };
+    $('#w-rsrc',b).onclick=()=>{ const a=ultima().a; if(!a){ toast('Scegli prima l\'arrivo nell\'ultima riga'); if(!mv.length){ mv.push({da:'',a:'',q:'dadef',L:null}); renderRows(); upd(); } return; }
+      sceltaMulti({titolo:'Partenze verso '+(a==='?'?'arrivo da concordare':vlab(a)),escludi:isCode(a)?[a]:[],vino:'+',onOk:cs=>{ if(!cs.length) return; cs.forEach(c=>{ const u=ultima(); if(u.a===a&&!u.da) u.da=c; else mv.push({da:c,a,q:'tutto',L:null}); }); renderRows(); upd(); }}); };
+    $$('[data-trf]',b).forEach(x=>x.onclick=()=>{ conT=x.dataset.trf==='1'; if(conT&&!mv.length){ mv=vs.length?vs.map(c=>({da:c,a:'',q:'tutto',L:null})):[{da:'',a:'',q:'dadef',L:null}]; renderRows(); } upd(); });
+    /* prodotti */
+    const prLine=(p={})=>{ const pr=S.prodotti.find(x=>x.nome===p.prodotto)||{}; const d=document.createElement('div'); d.className='line lprod lprod2';
+      d._su=Array.isArray(p.su)?[...p.su]:null;
       d.innerHTML=`<label class="f">Prodotto<input class="p-n" list="w-prl" value="${esc(p.prodotto||'')}"></label>
        <label class="f">Tipo<select class="p-c"><option value="">—</option><option value="generico" ${(p.classe||pr.classe)==='generico'?'selected':''}>generico</option><option value="commerciale" ${(p.classe||pr.classe)==='commerciale'?'selected':''}>commerciale</option></select></label>
        <label class="f">Dose<input class="p-d" inputmode="decimal" value="${p.dose!=null?nfIn(p.dose,3):''}"></label>
        <label class="f">Unità<select class="p-u">${UDM.map(u=>`<option ${(p.udm||pr.udm||'g/hL')===u?'selected':''}>${u}</option>`).join('')}</select></label>
+       <label class="f p-ww">Su quale vino<select class="p-w"><option value="prima" ${p.quando!=='dopo'?'selected':''}>quello che parte, prima del trasferimento</option><option value="dopo" ${p.quando==='dopo'?'selected':''}>negli arrivi, dopo il trasferimento</option></select></label>
+       <label class="f">Volume da trattare (hL)<input class="p-v" inputmode="decimal" value="${p.volMan&&p.volL?nfIn(p.volL/100,3):''}" placeholder="auto"></label>
        <div class="f"><span>Quantità teorica</span><b class="p-q">—</b></div>
+       <label class="f">Totale prescritto<input class="p-t" value="${esc(p.qtaTot||'')}" placeholder="facoltativo, es. 2 kg"></label>
+       <div class="f wide p-suw"><span>Contenitori</span><div class="row p-su" style="gap:4px;flex-wrap:wrap"></div><div class="p-sw small" style="color:var(--warn)"></div></div>
+       <label class="f wide">Istruzioni per questo prodotto<input class="p-no" value="${esc(p.note||'')}" placeholder="facoltative, es. sciogliere in acqua"></label>
        <button type="button" class="btn sm ghost p-x">Togli</button>`;
-      $('.p-n',d).onchange=()=>{const q=S.prodotti.find(x=>x.nome===$('.p-n',d).value); if(q){ $('.p-u',d).value=q.udm; if(q.classe) $('.p-c',d).value=q.classe; } upd();};
-      $('.p-x',d).onclick=()=>{d.remove();upd();}; d.oninput=upd; d.onchange=upd; $('#w-prs',b).append(d); };
-    const upd=()=>{ const t=T(); $('#w-vlab',b).textContent=t.vas||'Vasche'; $('#w-destw',b).hidden=!t.dest; $('#w-destl',b).textContent=t.destLab||'Vasca di destinazione';
-      $('#w-volw',b).hidden=!t.vol&&!t.prod; $('#w-prw',b).hidden=!t.prod;
-      const va=volAuto(); $('#w-vol',b).placeholder=va?'auto '+nf(va/100,2):'auto';
-      $('#w-vinfo',b).textContent=vs.length?`Situazione registrata oggi: ${hL(va)} nelle vasche scelte. Viene salvata come riferimento della programmazione.`:(t.opt?'Per questa tipologia le vasche non sono obbligatorie.':'');
-      const vol=volUsed(); $$('.lprod',b).forEach(d=>{ const q=qtaTeorica(num($('.p-d',d).value),$('.p-u',d).value,vol,$('.p-n',d).value); $('.p-q',d).textContent=q?q+' su '+hL(vol):'—'; }); };
-    $('#w-tipo',b).onchange=()=>{ const ty=$('#w-tipo',b).value; if(T().prod&&!$$('.lprod',b).length){ if(ty==='Mantenimento botti') MAN_PROD[MAN_TIPI[0]].forEach(x=>prLine(x)); else prLine(ty==='Aggiunta di SO₂'?{prodotto:'SO₂',udm:'mg/L'}:{}); } upd(); };
-    $('#w-vadd',b).onchange=e=>{ const c=e.target.value; if(c&&!vs.includes(c)){ vs.push(c); } e.target.innerHTML=vOpt('',vs); renderVs(); upd(); };
-    $('#w-padd',b).onclick=()=>{prLine(); upd();};
-    $('#w-vol',b).oninput=upd;
-    (l.prodotti||[]).forEach(prLine); if(!ed&&T().prod&&!(l.prodotti||[]).length){ if(l.tipo==='Mantenimento botti') MAN_PROD[MAN_TIPI[0]].forEach(x=>prLine(x)); else prLine(l.tipo==='Aggiunta di SO₂'?{prodotto:'SO₂',udm:'mg/L'}:{}); }
-    renderVs(); upd();
-    $('#flv',b).onsubmit=e=>{ e.preventDefault(); const m=$('#msg',b); m.textContent=''; const t=T(), tipo=$('#w-tipo',b).value;
-      if(!t.opt&&!vs.length){ m.textContent='Scegli almeno una vasca per questa tipologia (per un lavoro senza vasche usa «Operazione generica» o «Pulizia»).'; return; }
-      const dest=t.dest?$('#w-dest',b).value:''; if(t.dest&&!dest){ m.textContent='Scegli la vasca di '+(t.destLab?'colmatura':'destinazione')+'.'; return; }
-      const volM=(t.vol||t.prod)?toL($('#w-vol',b).value,'hL'):null;
-      const prodotti=t.prod?$$('.lprod',b).map(d=>({prodotto:$('.p-n',d).value.trim(),classe:$('.p-c',d).value,dose:num($('.p-d',d).value),udm:$('.p-u',d).value})).filter(p=>p.prodotto):[];
-      if(prodotti.some(p=>p.dose==null)){ m.textContent='Scrivi la dose di ogni prodotto.'; return; }
-      const rif=lavSnap(vs,dest); const volB=volM||vs.reduce((s,c)=>s+((rif.vasche[c]||{}).L||0),0);
-      prodotti.forEach(p=>{ p.volL=volB||null; p.qta=qtaTeorica(p.dose,p.udm,volB,p.prodotto);
+      $('.p-n',d).onchange=()=>{const q=S.prodotti.find(x=>x.nome===$('.p-n',d).value); if(q){ if(q.udm) $('.p-u',d).value=q.udm; if(q.classe) $('.p-c',d).value=q.classe; } upd();};
+      $('.p-x',d).onclick=()=>{d.remove();upd();}; d.addEventListener('input',e=>{ if(!e.target.matches('[data-su]')) upd(); }); d.addEventListener('change',e=>{ if(e.target.matches('[data-su]')){ const ch=$$('[data-su]',d); const on=ch.filter(x=>x.checked).map(x=>x.dataset.su); d._su=on.length===ch.length?null:on; upd(); } else upd(); });
+      $('#w-prs',b).append(d); };
+    const prodDa=d=>({prodotto:$('.p-n',d).value.trim(),classe:$('.p-c',d).value,dose:num($('.p-d',d).value),udm:$('.p-u',d).value,quando:inMov()?$('.p-w',d).value:'',su:d._su,volMan:toL($('.p-v',d).value,'hL'),qtaTot:$('.p-t',d).value.trim(),note:$('.p-no',d).value.trim()});
+    const seme=ty=>{ if(ty==='Mantenimento botti') MAN_PROD[MAN_TIPI[0]].forEach(x=>prLine(x)); else if(T().prod) prLine(ty==='Aggiunta di SO₂'?{prodotto:'SO₂',udm:'mg/L'}:{}); };
+    const upd=()=>{ const t=T(), mode=LMOV(tipo()), im=inMov(), L=cur();
+      $('#w-trf',b).hidden=mode!=='opz'; $$('[data-trf]',b).forEach(x=>x.setAttribute('aria-pressed',String((x.dataset.trf==='1')===conT)));
+      $('#w-mf',b).hidden=!im; $('#w-cf',b).hidden=im; $('#w-vlab',b).textContent=t.vas&&!/^Da vasca|^Vasca da cui/.test(t.vas)?t.vas.replace(/^Vasche/,'Contenitori').replace('(facoltative)','(facoltativi)'):'Contenitori';
+      if(im&&!mv.length){ mv=vs.length?vs.map(c=>({da:c,a:'',q:mode==='si'?'dadef':'tutto',L:null})):[{da:'',a:'',q:'dadef',L:null}]; renderRows(); }
+      $('#w-tit',b).placeholder='proposto: '+(lavTitolo({...L,titolo:''})||tipo());
+      const va=vs.reduce((s,c)=>s+((st[c]||{}).L||0),0);
+      $('#w-vinfo',b).textContent=vs.length?`Registrati oggi (${fd(today())}): ${hL(va)} nei contenitori scelti. Restano il riferimento della programmazione.`:(t.opt?'Per questa tipologia i contenitori non sono obbligatori.':'');
+      /* avvisi sui movimenti */
+      if(im){ const w=[], out={}, inn={};
+        mv.forEach(m=>{ if(m.da&&m.da===m.a) w.push(`${vlab(m.da)}: partenza e arrivo sono lo stesso contenitore.`); const q=movQtaL(m,st,mv); if(q&&m.da) out[m.da]=(out[m.da]||0)+q; if(q&&isCode(m.a)) inn[m.a]=(inn[m.a]||0)+q; });
+        Object.entries(out).forEach(([c,q])=>{ const L0=(st[c]||{}).L||0; if(q>L0+1e-6) w.push(`${vlab(c)}: in uscita ${hL(q)} ma oggi contiene ${hL(L0)}.`); });
+        oltreNominale(inn,st).forEach(x=>w.push(`${vlab(x.code)}: con questi arrivi va a ${hL(x.L1)} su ${hL(x.cap)} nominali.`));
+        const nC=mv.filter(m=>m.a==='?').length, nD=mv.filter(m=>m.da&&(!m.q||m.q==='dadef')).length;
+        $('#w-mnote',b).innerHTML=[...movNote(mv).map(x=>`<div>${x}</div>`),...w.map(x=>`<div style="color:var(--warn)">${esc(x)}</div>`),nC?`<div class="muted">${nC} arriv${nC===1?'o':'i'} da concordare.</div>`:'',nD?`<div class="muted">${nD} quantità da definire.</div>`:''].join(''); }
+      /* prodotti */
+      $$('.lprod2',b).forEach(d=>{ const p=prodDa(d); $('.p-ww',d).hidden=!im; const base=prodBase(L,p.quando);
+        $('.p-suw',d).hidden=base.length<2&&!(d._su||[]).some(c=>!base.includes(c));
+        const on=c=>!Array.isArray(d._su)||d._su.includes(c);
+        $('.p-su',d).innerHTML=base.map(c=>`<label class="chip" style="cursor:pointer"><input type="checkbox" data-su="${esc(c)}" ${on(c)?'checked':''}> ${esc(vlab(c))}</label>`).join('')||'<span class="muted small">nessun contenitore</span>';
+        const persi=(d._su||[]).filter(c=>!base.includes(c)); const vuoto=Array.isArray(d._su)&&!d._su.some(c=>base.includes(c));
+        $('.p-sw',d).textContent=persi.length?`${persi.map(c=>vlab(c)).join(', ')} non ${persi.length===1?'è':'sono'} più tra i contenitori del lavoro: alla conferma ${persi.length===1?'viene tolto':'vengono tolti'} da questo prodotto.`:vuoto&&base.length?'Nessun contenitore scelto per questo prodotto.':'';
+        const vol=p.volMan||prodVolRif(L,{...p,su:d._su},st); $('.p-v',d).placeholder=vol&&!p.volMan?'auto '+nf(vol/100,2):'auto';
+        const q=qtaTeorica(p.dose,p.udm,vol,p.prodotto);
+        { const dt=$('#w-data',b).value||today(), su=prodSu(L,{...p,su:d._su}), mvL=lavMov(L), dopo=mvL.length&&p.quando==='dopo';
+          const totV=su.reduce((a,c)=>a+((st[c]||{}).L||0),0)||vol;
+          so2Box(d,isSO2Prod(p.prodotto)&&p.dose!=null?so2Valuta(su.map(c=>({c,vino:vinoRicevente(c,st,mvL,dopo),add:so2MgL(p.prodotto,p.dose,p.udm,/ in tutto$/.test(p.udm)?(vol||totV):null)})),dt):null); }
+        $('.p-q',d).innerHTML=q?esc(q)+(vol&&!/ in tutto$/.test(p.udm)?' <span class="muted small">su '+hL(vol)+'</span>':''):(p.dose!=null&&!vol?'<span class="muted small">volume da definire</span>':'—'); });
+      $('#w-sovr',b).innerHTML=sovrHTML(lavCodes(L),ed&&ed.id); };
+    $('#w-tipo',b).onchange=()=>{ if(!$$('.lprod2',b).length) seme(tipo()); upd(); };
+    $('#w-padd',b).onclick=()=>{ prLine(); upd(); };
+    (l.prodotti||[]).forEach(prLine); if(nuovo&&!(l.prodotti||[]).length) seme(l.tipo);
+    renderVs(); renderRows(); upd();
+    const salva=bz=>{ const m=$('#msg',b); m.textContent=''; const t=T(), ty=tipo(), im=inMov();
+      const mov=im?mv.filter(r=>r.da||r.a).map(r=>({da:r.da,a:r.a,q:r.q||'dadef',L:r.q==='hL'?r.L:null})):[];
+      const prodotti=$$('.lprod2',b).map(prodDa).filter(p=>p.prodotto);
+      if(!bz){
+        if(!im&&!t.opt&&!vs.length){ m.textContent='Scegli almeno un contenitore (per un lavoro senza contenitori usa «Operazione generica» o «Pulizia»), oppure salva come bozza.'; return; }
+        if(im&&!mov.length){ m.textContent='Aggiungi almeno un movimento, oppure salva come bozza.'; return; }
+        if(mov.some(r=>!r.da)){ m.textContent='Ogni movimento ha bisogno della partenza.'; return; }
+        if(mov.some(r=>!r.a)){ m.textContent='Scegli l\'arrivo di ogni movimento, o «da concordare».'; return; }
+        if(mov.some(r=>r.q==='hL'&&!r.L)){ m.textContent='Scrivi gli hL del movimento o scegli «da definire».'; return; }
+        if(prodotti.some(p=>p.dose==null&&!p.qtaTot)){ m.textContent='Scrivi la dose (o il totale prescritto) di ogni prodotto.'; return; } }
+      const tmp={tipo:ty,vasche:im?[]:[...vs],mov,conTrasf:LMOV(ty)==='opz'&&conT};
+      const codes=lavCodes(tmp), rif=lavSnap(codes), sr={}; Object.entries(rif.vasche).forEach(([c,r])=>sr[c]={L:r.L});
+      prodotti.forEach(p=>{ const base=prodBase(tmp,p.quando); if(Array.isArray(p.su)){ p.su=p.su.filter(c=>base.includes(c)); }
+        const vol=p.volMan||prodVolRif(tmp,p,sr); p.volL=vol||null; p.volMan=!!p.volMan; p.qta=qtaTeorica(p.dose,p.udm,vol,p.prodotto);
+        if(!p.note) delete p.note; if(!p.qtaTot) delete p.qtaTot;
         const c=S.prodotti.find(x=>x.nome.toLowerCase()===p.prodotto.toLowerCase()); if(!c) S.prodotti.push({nome:p.prodotto,udm:p.udm,classe:p.classe||'',daUso:true}); else if(p.classe&&!c.classe) c.classe=p.classe; });
-      const ass=$('#w-ass',b).value.trim(); if(ass&&!S.persone.includes(ass)) S.persone.push(ass);
-      const now=new Date().toISOString();
-      const o={titolo:$('#w-tit',b).value.trim(),tipo,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:ass,vasche:t.opt||vs.length?vs:[],dest,volL:volM||null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now};
-      if(ed){ const x=lavori().find(z=>z.id===ed.id); (x.storia=x.storia||[]).push({il:now,stato:x.stato,nota:'Istruzioni modificate'}); Object.assign(x,o); }
-      else lavori().push({id:uid(),num:lavNum(),...o,stato:'dafare',creatoIl:now,storia:[{il:now,stato:'dafare',nota:'Programmato'}]});
-      close(); refresh(); toast(ed?'Lavoro aggiornato':'Lavoro programmato');
-    };
+      const ass=$('#w-ass',b).value.trim();
+      const amb=[]; if(!bz){
+        mov.filter(r=>r.a==='?').forEach(r=>amb.push(`Arrivo da concordare per ${vlab(r.da)}.`));
+        const nd=mov.filter(r=>r.q==='dadef').length; if(nd) amb.push(`${nd} quantità da definire nei movimenti.`);
+        prodotti.forEach(p=>{ if(Array.isArray(p.su)&&!p.su.length) amb.push(`«${p.prodotto}»: nessun contenitore scelto.`); else if(p.dose!=null&&!p.volL&&!p.qtaTot&&!/ in tutto$/.test(p.udm)) amb.push(`«${p.prodotto}»: volume da trattare non definito, la quantità non si può calcolare.`); });
+        if(!ass) amb.push('Nessuno è assegnato: il lavoro resta tra i «non assegnati».'); }
+      const go=()=>{ if(ass&&!S.persone.includes(ass)) S.persone.push(ass);
+        const now=new Date().toISOString();
+        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:ass,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
+        if(ed){ const x=lavori().find(z=>z.id===ed.id); const prima=x.assegnato||'';
+          if(x.stato==='bozza'&&!bz){ Object.assign(x,o); lavLog(x,'dafare','Programmato'); }
+          else { (x.storia=x.storia||[]).push({il:now,stato:x.stato,nota:x.stato==='bozza'?'Bozza modificata':'Istruzioni modificate'}); Object.assign(x,o); }
+          if(prima!==ass) x.storia.push({il:now,stato:x.stato,nota:ass?'Assegnato a '+ass:'Tolto l\'assegnatario'}); }
+        else { const st0=bz?'bozza':'dafare'; lavori().push({id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now,storia:[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(ass?[{il:now,stato:st0,nota:'Assegnato a '+ass}]:[])]}); }
+        close(); refresh(); toast(bz?'Bozza salvata':ed&&!bozza?'Lavoro aggiornato':'Lavoro programmato'); };
+      if(amb.length) modal('Prima di programmare',`<p>Ci sono punti ancora aperti:</p><ul>${amb.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="hint">Puoi programmare lo stesso: chi esegue vede le indicazioni come le hai scritte (es. «da concordare»).</p>
+        <div class="foot"><button class="btn" data-close>Torna alla scheda</button><button class="btn" id="a-bz">Salva come bozza</button><button class="btn pri" id="a-ok">Programma lo stesso</button></div>`,(b2,close2)=>{ $('#a-ok',b2).onclick=()=>{ close2(); go(); }; $('#a-bz',b2).onclick=()=>{ close2(); salva(true); }; });
+      else go(); };
+    $('#flv',b).onsubmit=e=>{ e.preventDefault(); salva(false); };
+    { const bzb=$('#w-bz',b); if(bzb) bzb.onclick=()=>salva(true); }
   });
 }
 
+/* ===================== Dettaglio del lavoro (responsabile) ===================== */
+function movTab(l,conEsec){ const mv=lavMov(l); if(!mv.length) return ''; const r=rifSt(l), ex=conEsec&&l.esec&&l.esec.mov?l.esec.mov:null;
+  return `<div class="tbl-wrap"><table><thead><tr><th>Da</th><th>A</th><th class="r">Previsto</th>${ex?'<th class="r">Dichiarato</th>':''}</tr></thead><tbody>${mv.map((m,i)=>{ const x=ex&&ex[i]||{}; const dA=x.a&&x.a!==m.a; return `<tr><td><b>${esc(vlab(m.da))}</b>${r[m.da]&&r[m.da].vino?`<div class="small muted">${esc(vName(r[m.da].vino))} · ${hL(r[m.da].L)}</div>`:''}</td><td>${movArr(m.a)}</td><td class="r">${movQtaTxt(m)}</td>${ex?`<td class="r">${dA?'→ <b>'+esc(vlab(x.a))+'</b> ':''}${x.L?hL(x.L):dA?'':'<span class="muted">come previsto</span>'}</td>`:''}</tr>`; }).join('')}</tbody></table></div>
+    ${movNote(mv).map(x=>`<div class="small">${x}</div>`).join('')}`; }
+function prodTab(l,conEsec){ const ps=l.prodotti||[]; if(!ps.length) return ''; const ex=conEsec&&l.esec&&l.esec.prodotti, mv=lavMov(l).length;
+  return `<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Dose</th><th>Su</th><th class="r">Quantità teorica</th>${ps.some(p=>p.qtaTot)?'<th class="r">Totale prescritto</th>':''}${ex?'<th class="r">Usata davvero</th>':''}</tr></thead><tbody>${ps.map((p,i)=>{ const su=prodSu(l,p); return `<tr><td>${esc(p.prodotto)}${p.note?`<div class="small muted">${esc(p.note)}</div>`:''}</td><td class="r">${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):'—'}</td><td class="small">${esc(elencoV(su))||'—'}${mv?`<div class="muted">${p.quando==='dopo'?'negli arrivi, dopo il trasferimento':'prima del trasferimento'}</div>`:''}</td><td class="r"><b>${esc(qtaTeorica(p.dose,p.udm,p.volL,p.prodotto)||p.qta||'—')}</b>${p.volL&&!/ in tutto$/.test(p.udm||'')?`<div class="small muted">su ${hL(p.volL)}${p.volMan?' (scritto a mano)':''}</div>`:''}${prodRipart(l,p)?`<div class="small muted">${esc(prodRipart(l,p))}</div>`:''}</td>${ps.some(x=>x.qtaTot)?`<td class="r">${esc(p.qtaTot||'')}</td>`:''}${ex?`<td class="r">${esc(ex[i]||'')}</td>`:''}</tr>`; }).join('')}</tbody></table></div>`; }
+const esecHTML = l=>{ const ex=l.esec||{}; if(!ex.il) return '';
+  const nf_=l.stato==='noneseguito'; const quando=new Date(ex.il).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'});
+  return `<div class="box ${nf_?'warn':'ok'} small" style="color:var(--ink)"><b>${nf_?'Non fatto':'Fatto'}</b> · ${quando}${ex.da?' · '+esc(ex.da):''}${!nf_?(ex.comePrevisto===false?' · <b>con differenze</b>':' · come previsto'):''}${ex.note?`<div>${nf_?'Motivo':'Note'}: ${esc(ex.note)}</div>`:''}${ex.diff?`<div><b>Cosa è cambiato:</b> ${esc(ex.diff)}</div>`:''}${ex.volL?`<div>Volume movimentato ${hL(ex.volL)}</div>`:''}${ex.spunte&&ex.spunte.length?`<div>Prodotti spuntati dall'operatore: ${ex.spunte.every(Boolean)?'tutti':`${ex.spunte.filter(Boolean).length} su ${ex.spunte.length}, <b>non spuntati: ${esc((l.prodotti||[]).filter((p,i)=>!ex.spunte[i]).map(p=>p.prodotto).join(', '))}</b>`}</div>`:''}</div>`; };
 function lavDettaglio(id){
-  const l=lavori().find(x=>x.id===id); if(!l) return; const T=LT(l.tipo)||{}; const ap=lavAperto(l);
-  const vsTxt=(l.vasche||[]).map(c=>{const r=(l.rif&&l.rif.vasche[c])||{}; return `<li><b>${esc(vlab(c))}</b> — ${r.vino?esc(vName(r.vino))+' · '+hL(r.L):'vuota'} <span class="muted">(alla programmazione)</span></li>`;}).join('');
-  const ex=l.esec||{};
+  const l=lavori().find(x=>x.id===id); if(!l) return; const T=LT(l.tipo)||{}; const ap=lavAperto(l), bz=l.stato==='bozza';
+  const cs=lavHaMov(l)?[]:(l.vasche||[]);
+  const vsTxt=cs.map(c=>{const r=rifSt(l)[c]||{}; return `<li><b>${esc(vlab(c))}</b> — ${r.vino?esc(vName(r.vino))+' · '+hL(r.L):'vuota'}</li>`;}).join('');
   modal(`${l.num||'Lavoro'} · ${lavTitolo(l)}`,`
-   <div class="row" style="gap:6px"><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span><span class="chip">${esc(l.tipo)}</span>${l.priorita!=='normale'?`<span class="chip ${l.priorita==='alta'?'scad':''}">Priorità ${LPRIO[l.priorita]}</span>`:''}</div>
+   <div class="row" style="gap:6px"><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span><span class="chip">${esc(l.tipo)}</span>${l.priorita!=='normale'?`<span class="chip ${l.priorita==='alta'?'scad':''}">Priorità ${LPRIO[l.priorita]}</span>`:''}${lavScaduto(l)?'<span class="chip scad">Data superata</span>':''}</div>
    <dl class="kv" style="margin-top:10px">
     <dt>Quando</dt><dd>${l.data?fd(l.data)+(l.ora?' alle '+esc(l.ora):''):'<span class="muted">senza data</span>'}</dd>
     <dt>Assegnato a</dt><dd>${l.assegnato?esc(l.assegnato):'<span class="muted">nessuno</span>'}</dd>
-    ${(l.vasche||[]).length?`<dt>${esc(T.vas||'Vasche')}</dt><dd><ul style="margin:0;padding-left:18px">${vsTxt}</ul></dd>`:''}
-    ${l.dest?`<dt>${esc(T.destLab||'Destinazione')}</dt><dd>${esc(vlab(l.dest))}</dd>`:''}
-    ${(T.vol||T.prod)?`<dt>Volume previsto</dt><dd>${hL(lavVolBase(l))}${l.volL?'':' <span class="muted">(volume delle vasche alla programmazione)</span>'}</dd>`:''}
+    ${cs.length?`<dt>Contenitori</dt><dd>${cs.length>6?`<div class="small">${esc(elencoV(cs))}</div><details><summary class="small">dettaglio (alla programmazione)</summary><ul style="margin:0;padding-left:18px">${vsTxt}</ul></details>`:`<ul style="margin:0;padding-left:18px">${vsTxt}</ul><span class="small muted">alla programmazione (${fd((l.rif||{}).data||today())})</span>`}</dd>`:''}
    </dl>
-   ${(l.prodotti||[]).length?`<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th>Tipo</th><th class="r">Dose</th><th class="r">Quantità teorica</th>${ex.prodotti?'<th class="r">Usata davvero</th>':''}</tr></thead><tbody>${l.prodotti.map((p,i)=>`<tr><td>${esc(p.prodotto)}</td><td class="small muted">${esc(p.classe||'')}</td><td class="r">${nf(p.dose,3)} ${esc(p.udm)}</td><td class="r"><b>${qtaTeorica(p.dose,p.udm,p.volL)||'—'}</b> <span class="muted small">su ${hL(p.volL)}</span></td>${ex.prodotti?`<td class="r">${esc(ex.prodotti[i]||'')}</td>`:''}</tr>`).join('')}</tbody></table></div>`:''}
+   ${lavHaMov(l)?`<h3 style="margin:10px 0 4px">Movimenti previsti</h3>${movTab(l,true)}`:''}
+   ${(l.prodotti||[]).length?`<h3 style="margin:10px 0 4px">Prodotti</h3>${prodTab(l,true)}`:''}
    ${l.istruzioni?`<div class="box" style="background:var(--surface-2);white-space:pre-wrap">${esc(l.istruzioni)}</div>`:''}
    ${lavDiffHTML(l)}
-   ${ex.il?`<div class="box ${l.stato==='noneseguito'?'warn':'ok'} small" style="color:var(--ink)"><b>${l.stato==='noneseguito'?'Non eseguito':'Esecuzione dichiarata'}</b> il ${fd(ex.il.slice(0,10))}${ex.da?' da '+esc(ex.da):''}${ex.volL?` · volume movimentato ${hL(ex.volL)}`:''}${ex.note?`<div>Note: ${esc(ex.note)}</div>`:''}${ex.diff?`<div><b>Differenze rispetto alle istruzioni:</b> ${esc(ex.diff)}</div>`:''}</div>`:''}
+   ${lavAttivo(l)?sovrHTML(lavCodes(l),l.id):''}
+   ${esecHTML(l)}
    ${l.convalida?`<div class="box ok small">Convalidato il ${fd(l.convalida.il.slice(0,10))}${l.convalida.ev?` · operazione registrata: <b>${esc(l.convalida.titolo||'')}</b>`:' · senza registrazione di operazioni'}</div>`:''}
-   ${ap?`<div class="actions" style="margin-top:10px">
-     ${l.stato==='dafare'?'<button class="btn" data-ls="incorso">Segna in corso</button>':''}
-     ${l.stato!=='eseguito'?'<button class="btn" id="ld-ese">Segna eseguito…</button><button class="btn" id="ld-non">Non eseguito…</button>':''}
-     <button class="btn pri" id="ld-conv">Convalida…</button>
-     <button class="btn" id="ld-mod">Modifica</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Annulla lavoro</button></div>`:`<div class="actions"><button class="btn" id="ld-dup">Duplica</button>${l.stato!=='convalidato'?'<button class="btn" data-ls="dafare">Riapri</button>':''}</div>`}
+   <div class="actions" style="margin-top:10px">
+     ${bz?'<button class="btn pri" id="ld-mod">Completa e programma</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Scarta la bozza</button>':''}
+     ${l.stato==='dafare'?'<button class="btn" id="ld-ese">Segna fatto…</button><button class="btn" id="ld-non">Non fatto…</button><button class="btn pri" id="ld-conv">Convalida…</button><button class="btn" id="ld-mod">Modifica</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Annulla lavoro</button>':''}
+     ${l.stato==='eseguito'?'<button class="btn pri" id="ld-conv">Convalida…</button><button class="btn" data-ls="dafare">Riporta a «Da fare»</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Annulla lavoro</button>':''}
+     ${l.stato==='noneseguito'?'<button class="btn pri" id="ld-rip">Riprogramma…</button><button class="btn" id="ld-dup">Duplica</button><button class="btn ghost" id="ld-ann">Annulla lavoro</button>':''}
+     ${!lavAttivo(l)?`<button class="btn" id="ld-dup">Duplica</button>${l.stato==='annullato'?'<button class="btn" data-ls="dafare">Riapri</button>':''}`:''}</div>
    <details style="margin-top:10px"><summary class="small">Storia del lavoro</summary><ul class="small" style="padding-left:18px">${(l.storia||[]).map(h=>`<li>${new Date(h.il).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})} · ${LSTATI[h.stato]||h.stato}${h.nota?' — '+esc(h.nota):''}</li>`).join('')}<li class="muted">creato ${l.creatoIl?new Date(l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):''} · ultima modifica ${l.modificatoIl?new Date(l.modificatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):''}</li></ul></details>
    <div class="foot"><button class="btn" data-close>Chiudi</button></div>`,(b,close)=>{
-    const go=f=>{ const o=b.querySelector('#'+f); return o; };
-    $$('[data-ls]',b).forEach(x=>x.onclick=()=>{ lavLog(l,x.dataset.ls,x.dataset.ls==='dafare'?'Riaperto':''); close(); refresh(); lavDettaglio(id); });
+    const go=f=>b.querySelector('#'+f);
+    $$('[data-ls]',b).forEach(x=>x.onclick=()=>{ lavLog(l,x.dataset.ls,l.stato==='annullato'?'Riaperto':'Riportato a «Da fare»'); close(); refresh(); lavDettaglio(id); });
     if(go('ld-mod')) go('ld-mod').onclick=()=>{ close(); formLavoro(l); };
+    if(go('ld-rip')) go('ld-rip').onclick=()=>{ close(); lavLog(l,'dafare','Riprogrammato dopo «non fatto»'); formLavoro(l); };
     if(go('ld-dup')) go('ld-dup').onclick=()=>{ close(); const c=JSON.parse(JSON.stringify(l)); ['id','num','stato','storia','esec','convalida','rif','creatoIl','modificatoIl'].forEach(k=>delete c[k]); c.data=''; formLavoro(null,c); };
     if(go('ld-ann')) go('ld-ann').onclick=()=>{ close(); annullaLavoro(l); };
-    if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); formEsecuzione(l,'eseguito'); };
-    if(go('ld-non')) go('ld-non').onclick=()=>{ close(); formEsecuzione(l,'noneseguito'); };
+    if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); dichiaraEsec(l,'eseguito',{chi:l.assegnato||'',poi:()=>lavDettaglio(l.id)}); };
+    if(go('ld-non')) go('ld-non').onclick=()=>{ close(); dichiaraEsec(l,'noneseguito',{chi:l.assegnato||'',poi:()=>lavDettaglio(l.id)}); };
     if(go('ld-conv')) go('ld-conv').onclick=()=>{ close(); formConvalida(l); };
   });
 }
 
-function formEsecuzione(l,stato){
-  const T=LT(l.tipo)||{}; const ex=l.esec||{};
-  modal(stato==='eseguito'?'Segna eseguito':'Non eseguito',`<form id="fex" novalidate>
-   <p class="hint">${stato==='eseguito'?'È la dichiarazione di chi ha fatto il lavoro. Non cambia giacenze né storico: per quello serve la convalida.':'Il lavoro non è stato fatto: scrivi il motivo.'}</p>
-   <div class="fg"><label class="f">Chi l'ha fatto<input id="x-da" list="x-pl" value="${esc(ex.da||l.assegnato||'')}"><datalist id="x-pl">${(S.persone||[]).map(p=>`<option value="${esc(p)}">`).join('')}</datalist></label>
-   ${stato==='eseguito'&&(T.vol||T.dest)?`<label class="f">Volume movimentato (hL)<input id="x-vol" inputmode="decimal" value="${ex.volL?nfIn(ex.volL/100,3):''}" placeholder="facoltativo"></label>`:''}</div>
-   ${stato==='eseguito'&&(l.prodotti||[]).length?`<fieldset class="lvf"><legend>Quantità usate davvero</legend><div class="fg">${l.prodotti.map((p,i)=>`<label class="f">${esc(p.prodotto)} <span class="muted small">(teorica ${qtaTeorica(p.dose,p.udm,p.volL)||'—'})</span><input data-xp="${i}" value="${esc((ex.prodotti||[])[i]||'')}" placeholder="es. 200 g"></label>`).join('')}</div></fieldset>`:''}
-   <label class="f wide">${stato==='eseguito'?'Note':'Motivo'}<textarea id="x-no">${esc(ex.note||'')}</textarea></label>
-   ${stato==='eseguito'?`<label class="f wide">Differenze rispetto alle istruzioni<textarea id="x-df" placeholder="lascia vuoto se fatto come previsto">${esc(ex.diff||'')}</textarea></label>`:''}
+/* ===================== Fatto / non fatto: la dichiarazione di chi ha lavorato (non cambia la cantina) ===================== */
+function dichiaraEsec(l,stato,o={}){
+  const fatto=stato==='eseguito', mv=lavMov(l), ps=l.prodotti||[], ex=l.esec||{};
+  const pad=n=>String(n).padStart(2,'0'), d=new Date(), ora=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const conc=mv.some(m=>m.a==='?')||!!o.diverso;
+  const vOpt=sel=>`<option value="">come previsto</option>`+VASCHE.filter(v=>v.stato==='attivo').map(v=>`<option value="${esc(v.code)}" ${v.code===sel?'selected':''}>${esc(vlab(v.code))}</option>`).join('');
+  modal(fatto?'Fatto':'Non fatto',`<form id="fex" novalidate>
+   <p class="small" style="margin-top:0"><b>${esc(lavTitolo(l))}</b></p>
+   ${fatto?`<div class="fg"><label class="f">Quando l'hai fatto<input type="datetime-local" id="x-il" value="${ora}"></label>${o.op?'':`<label class="f">Chi l'ha fatto<input id="x-da" list="x-pl" value="${esc(o.chi||'')}"><datalist id="x-pl">${persone().map(p=>`<option value="${esc(p)}">`).join('')}</datalist></label>`}</div>
+     <label class="row" style="gap:8px;margin:10px 0"><input type="checkbox" id="x-dv" ${conc?'checked':''}> <span>Qualcosa è andato diversamente dal previsto</span></label>
+     <div id="x-box" ${conc?'':'hidden'}>
+      ${mv.length?`<fieldset class="lvf"><legend>Movimenti fatti davvero</legend>${mv.map((m,i)=>`<div class="fg" style="align-items:end"><div class="f"><span>${esc(vlab(m.da))} → ${m.a==='?'?'da concordare':esc(vlab(m.a))}</span><span class="small muted">previsto: ${movQtaTxt(m)}</span></div>
+         <label class="f">Arrivato in${m.a==='?'?' <b>(da indicare)</b>':''}<select data-xa="${i}">${vOpt('')}</select></label><label class="f">hL davvero<input data-xl="${i}" inputmode="decimal" placeholder="come previsto"></label></div>`).join('')}</fieldset>`:''}
+      ${ps.length?`<fieldset class="lvf"><legend>Prodotti usati davvero</legend><div class="fg">${ps.map((p,i)=>`<label class="f">${esc(p.prodotto)} <span class="muted small">(previsti ${esc(p.qtaTot||qtaTeorica(p.dose,p.udm,p.volL,p.prodotto)||p.qta||'—')})</span><input data-xp="${i}" value="${esc((o.prodX||ex.prodotti||[])[i]||'')}" placeholder="come previsto"></label>`).join('')}</div></fieldset>`:''}
+      <label class="f wide">Cosa è cambiato<textarea id="x-df" placeholder="es. G08 era sporca, il vino è andato in G11">${esc(o.diff||ex.diff||'')}</textarea></label>
+     </div>
+     <label class="f wide">Note<textarea id="x-no" placeholder="facoltative">${esc(ex.note||'')}</textarea></label>`
+   :`${o.op?'':`<label class="f">Chi doveva farlo<input id="x-da" value="${esc(o.chi||'')}"></label>`}<label class="f wide">Perché non è stato fatto<textarea id="x-no" placeholder="es. pompa guasta, manca il prodotto"></textarea></label>`}
+   <p class="hint">${fatto?'Lo dichiari tu: giacenze e storico restano come sono finché il responsabile non convalida.':'Il responsabile lo vede e decide se riprogrammarlo o annullarlo.'}</p>
    <div id="msg" class="err"></div>
-   <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri" id="sv">Salva</button></div></form>`,(b,close)=>{
-    $('#fex',b).onsubmit=e=>{ e.preventDefault(); const no=$('#x-no',b).value.trim();
-      if(stato==='noneseguito'&&!no){ $('#msg',b).textContent='Scrivi il motivo.'; return; }
-      l.esec={il:new Date().toISOString(),da:$('#x-da',b).value.trim(),note:no,diff:$('#x-df',b)?$('#x-df',b).value.trim():'',volL:$('#x-vol',b)?toL($('#x-vol',b).value,'hL'):null,prodotti:$$('[data-xp]',b).map(i=>i.value.trim())};
-      lavLog(l,stato,stato==='eseguito'?(l.esec.diff?'Eseguito con differenze':'Eseguito'):'Non eseguito: '+no); close(); refresh(); lavDettaglio(l.id); };
+   <div class="foot"><button type="button" class="btn" data-close>Indietro</button><button class="btn pri" id="sv">${fatto?'Conferma: fatto':'Conferma: non fatto'}</button></div></form>`,(b,close)=>{
+    const dv=$('#x-dv',b); if(dv) dv.onchange=()=>{ $('#x-box',b).hidden=!dv.checked; };
+    $('#fex',b).onsubmit=e=>{ e.preventDefault(); const m=$('#msg',b); const no=$('#x-no',b).value.trim(); const chi=o.op||($('#x-da',b)?$('#x-da',b).value.trim():'');
+      if(!fatto&&!no){ m.textContent='Scrivi il motivo.'; return; }
+      const diverso=fatto&&dv.checked;
+      let movX=null, prodX=null;
+      if(diverso){ movX=mv.map((r,i)=>{ const a=$(`[data-xa="${i}"]`,b).value, L=toL($(`[data-xl="${i}"]`,b).value,'hL'); return {a:a||'',L:L||null}; });
+        const manca=mv.findIndex((r,i)=>r.a==='?'&&!movX[i].a); if(manca>=0){ m.textContent='Indica dove è arrivato il vino di '+vlab(mv[manca].da)+'.'; return; }
+        prodX=ps.map((p,i)=>$(`[data-xp="${i}"]`,b).value.trim()); }
+      const il=fatto&&$('#x-il',b).value?new Date($('#x-il',b).value).toISOString():new Date().toISOString();
+      l.esec={il,da:chi,note:no,comePrevisto:fatto?!diverso:null,diff:diverso?$('#x-df',b).value.trim():'',mov:movX,prodotti:prodX,spunte:o.spunte||null,dichiaratoIl:new Date().toISOString()};
+      lavLog(l,stato,(fatto?(diverso?'Fatto, con differenze':'Fatto come previsto'):'Non fatto: '+no)+(chi?' — dichiarato da '+chi:''));
+      close(); if(o.prima) o.prima(); refresh(); toast(fatto?'Segnato come fatto':'Segnato come non fatto'); if(o.poi) o.poi(); };
   });
 }
 
+/* ===================== Convalida: solo qui la cantina cambia ===================== */
 function formConvalida(l){
-  const T=LT(l.tipo)||{}; const d=lavDiff(l);
+  const T=LT(l.tipo)||{};
   modal('Convalida · '+lavTitolo(l),`
-   ${l.stato!=='eseguito'?'<div class="box warn small">Nessuno ha ancora dichiarato il lavoro come eseguito: convalidi direttamente tu.</div>':''}
+   ${l.stato!=='eseguito'?'<div class="box warn small">Nessuno ha ancora dichiarato il lavoro come fatto: convalidi direttamente tu.</div>':''}
+   ${esecHTML(l)}
    ${lavDiffHTML(l)}
-   <p>La convalida chiude il lavoro. ${T.reg?'Per aggiornare giacenze e storico apri il modulo dell\'operazione vera, già compilato con i dati del lavoro: controllalo e salvalo. Il lavoro risulta convalidato solo dopo il salvataggio.':'Questa tipologia di solito non produce movimenti di vino.'}</p>
+   <p>La convalida chiude il lavoro. ${T.reg?'Per aggiornare giacenze e storico apri il modulo dell\'operazione vera, già compilato con i dati del lavoro (e con quelli dichiarati, se diversi): controllalo e salvalo. Il lavoro risulta convalidato solo dopo il salvataggio.':'Questa tipologia di solito non produce movimenti di vino.'}</p>
    <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn" id="cv-no">Convalida senza registrare</button>${T.reg?`<button class="btn pri" id="cv-reg">Registra ${T.reg==='an'?'l\'analisi':'l\'operazione'}…</button>`:''}</div>`,(b,close)=>{
     $('#cv-no',b).onclick=()=>{ l.convalida={il:new Date().toISOString(),ev:null}; lavLog(l,'convalidato','Convalidato senza registrare operazioni'); close(); refresh(); toast('Lavoro convalidato'); };
     const r=$('#cv-reg',b); if(r) r.onclick=()=>{ close(); apriRegistrazione(l); };
   });
 }
 function apriRegistrazione(l){
-  const T=LT(l.tipo)||{}, ex=l.esec||{}, st=stOggi(); const vol=ex.volL||l.volL||null;
-  const agg=(l.prodotti||[]).map((p,i)=>({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:'',volL:null,volManual:false,reale:(ex.prodotti||[])[i]||''}));
+  const T=LT(l.tipo)||{}, ex=l.esec||{}, st=stOggi(), mv=lavMov(l);
   const note=[`Da lavoro ${l.num||''}: ${lavTitolo(l)}`,ex.diff?'Differenze: '+ex.diff:'',ex.note||''].filter(Boolean).join('. ');
+  const tratte=mv.map((m,i)=>{ const x=(ex.mov||[])[i]||{}; const a=x.a||(m.a==='?'?'':m.a); const L=x.L||movQtaL(m,st,mv); return {da:m.da,a,L:L||null}; });
+  const trattati=mv.length?[...new Set(tratte.map(t=>t.a).filter(isCode))]:lavCodes(l);
+  /* un prodotto su tutti i contenitori trattati: una riga; su una parte: una riga per contenitore */
+  const agg=[]; (l.prodotti||[]).forEach((p,i)=>{ const su=prodSu(l,p); const reale=(ex.prodotti||[])[i]||'';
+    const tutti=mv.length?(p.quando==='dopo'&&trattati.every(c=>su.includes(c))):trattati.every(c=>su.includes(c));
+    if(tutti||!su.length) agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:'',volL:null,volManual:false,reale});
+    else su.forEach((c,k)=>agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:mv.length&&p.quando!=='dopo'?'':c,volL:null,volManual:false,reale:k?'':reale})); });
+  const notaPrima=mv.length&&(l.prodotti||[]).some(p=>p.quando!=='dopo')?' Prodotti previsti prima del trasferimento: '+(l.prodotti||[]).filter(p=>p.quando!=='dopo').map(p=>p.prodotto+' su '+elencoV(prodSu(l,p))).join('; ')+'.':'';
   UI.pendLav={id:l.id,nEv:S.eventi.length,nAn:S.analisi.length};
-  if(T.reg==='trav'){ const src=(l.vasche||[]).filter(c=>st[c]&&st[c].vino); const tratte=(src.length?src:l.vasche).map((c,i)=>({da:c,a:l.dest,L:(src.length<=1?vol:null)}));
-    formLavorazione({lav:l.tipo==='Colmatura'?'Travaso + Colmatura':'Travaso',tratte,aggiunte:agg,note,data:today()}); }
+  if(mv.length){ const nome=T.reg==='trav'?(l.tipo==='Colmatura'?'Travaso + Colmatura':'Travaso'):l.tipo;
+    const fase=T.voce&&lavList('Vinificazione').includes(l.tipo)&&!lavList('Affinamento').includes(l.tipo)?'Vinificazione':undefined;
+    formLavorazione({lav:nome,...(T.voce?{lavori:[l.tipo]}:{}),...(fase?{fase}:{}),tratte,aggiunte:agg,note:note+notaPrima,data:today()}); }
   else if(T.reg==='lav'&&T.voce){ const fase=lavList('Vinificazione').includes(l.tipo)&&!lavList('Affinamento').includes(l.tipo)?'Vinificazione':'Affinamento'; formLavorazione({lavori:[l.tipo],fase,vasche:l.vasche,aggiunte:agg,note,data:today()}); }
-  else if(T.reg==='lav'){ const lavN={'Chiarifica':'Chiarifica','Filtrazione':'','Rimontaggio / vinificazione':''}[l.tipo]; formLavorazione({lav:lavN||'',vasche:l.vasche,aggiunte:agg,note,data:today()}); }
-  else if(T.reg==='man') formManutenzione(l.vasche,{man:l.tipo==='Mantenimento botti'?MAN_TIPI[0]:'Pulizia',prodotti:(l.prodotti||[]).map((p,i)=>({...p,reale:(ex.prodotti||[])[i]||''})),volL:l.volL,note});
-  else if(T.reg==='imb') formImbottigliamento({vasca:l.vasche[0],L:vol,data:today(),note});
-  else if(T.reg==='an'){ const v=(st[l.vasche[0]]||{}).vino; if(!v){ UI.pendLav=null; toast('La vasca non contiene vino: impossibile registrare l\'analisi'); return; } formAnalisi(v,null,{ambito:'vasca',vasche:l.vasche.filter(c=>(st[c]||{}).vino===v),data:today()}); }
+  else if(T.reg==='lav'){ const lavN={'Chiarifica':'Chiarifica','Filtrazione':'Filtrazione','Rimontaggio / vinificazione':''}[l.tipo]; formLavorazione({lav:lavN||'',vasche:l.vasche,aggiunte:agg,note,data:today()}); }
+  else if(T.reg==='man') formManutenzione(l.vasche,{man:l.tipo==='Mantenimento botti'?MAN_TIPI[0]:'Pulizia',prodotti:(l.prodotti||[]).map((p,i)=>({...p,reale:(ex.prodotti||[])[i]||''})),note});
+  else if(T.reg==='imb') formImbottigliamento({vasca:(l.vasche||[])[0],L:lavVolBase(l)||null,data:today(),note});
+  else if(T.reg==='an'){ const v=(st[(l.vasche||[])[0]]||{}).vino; if(!v){ UI.pendLav=null; toast('La vasca non contiene vino: impossibile registrare l\'analisi'); return; } formAnalisi(v,null,{ambito:'vasca',vasche:l.vasche.filter(c=>(st[c]||{}).vino===v),data:today()}); }
 }
 /* chiamata da refresh(): se la registrazione aperta dal lavoro è stata salvata, il lavoro diventa convalidato */
 function lavCheckPend(){ const p=UI.pendLav; if(!p) return; const l=lavori().find(x=>x.id===p.id); if(!l){UI.pendLav=null;return;}
   if(S.eventi.length>p.nEv){ const ev=S.eventi[S.eventi.length-1]; l.convalida={il:new Date().toISOString(),ev:ev.id,titolo:evTitle(ev)}; lavLog(l,'convalidato','Convalidato con registrazione: '+evTitle(ev)); UI.pendLav=null; }
   else if(S.analisi.length>p.nAn){ const a=S.analisi[S.analisi.length-1]; l.convalida={il:new Date().toISOString(),ev:'an:'+a.id,titolo:'Analisi del '+fd(a.data)}; lavLog(l,'convalidato','Convalidato con analisi registrata'); UI.pendLav=null; } }
+
+/* ===================== Schermata dell'operatore (telefono): vede i suoi lavori, dice fatto o non fatto ===================== */
+function viewOperatore(app){
+  let op=null; try{ op=localStorage.getItem('gcg-op'); }catch(e){}
+  const pers=persone();
+  const head=`<div class="box small op-banner"><b>Vista operatore</b> — è la schermata che l'operatore vedrà sul suo telefono${op?' (ora: <b>'+esc(op)+'</b>)':''}. ${op?'<button type="button" class="btn sm ghost" id="op-chi">Cambia persona</button>':''} <a class="btn sm" href="#lavori">Torna ai lavori</a></div>`;
+  const bindHead=()=>{ const c=$('#op-chi',app); if(c) c.onclick=()=>{ try{ localStorage.removeItem('gcg-op'); }catch(e){} UI.opSel=null; viewOperatore(app); }; };
+  if(!op){ app.innerHTML=`<div class="opv">${head}<h2>Chi sei?</h2>${pers.length?`<div class="op-pers">${pers.map(p=>`<button type="button" class="btn" data-op="${esc(p)}">${esc(p)}</button>`).join('')}</div>`:'<p class="muted">Nessuna persona: assegna prima un lavoro a qualcuno.</p>'}<p class="hint">Sul sito la persona sarà quella dell'accesso.</p></div>`;
+    bindHead(); $$('[data-op]',app).forEach(x=>x.onclick=()=>{ try{ localStorage.setItem('gcg-op',x.dataset.op); }catch(e){} UI.opNome=x.dataset.op; viewOperatore(app); });
+    return; }
+  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&x.assegnato===op); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
+  const mine=lavori().filter(l=>l.assegnato===op);
+  const todo=mine.filter(l=>l.stato==='dafare').sort(lavSort);
+  const sez=[['In ritardo',todo.filter(l=>l.data&&l.data<today())],['Oggi',todo.filter(l=>l.data===today())],['Prossimi giorni',todo.filter(l=>l.data&&l.data>today())],['Senza data',todo.filter(l=>!l.data)]];
+  const sett=addDays(today(),-7)+'T';
+  const segn=mine.filter(l=>['eseguito','noneseguito'].includes(l.stato)&&(l.esec&&l.esec.dichiaratoIl||'')>=sett).sort((a,b)=>(b.esec.dichiaratoIl||'')<(a.esec.dichiaratoIl||'')?-1:1);
+  const card=l=>{ const cs=lavCodes(l); return `<button type="button" class="opcard" data-ol="${l.id}"><div class="spread"><b>${esc(lavTitolo(l))}</b>${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}</div>
+    <div class="small muted">${l.data?giornoNome(l.data)+' '+fd(l.data)+(l.ora?' · '+esc(l.ora):''):'senza data'} · ${esc(l.tipo)}</div>
+    ${cs.length?`<div class="small">${esc(elencoV(cs))}</div>`:''}${l.stato!=='dafare'?`<div><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Segnato fatto':'Segnato non fatto'}</span></div>`:''}</button>`; };
+  app.innerHTML=`<div class="opv">${head}<h2>I miei lavori</h2>
+    ${todo.length?sez.filter(([,xs])=>xs.length).map(([t,xs])=>`<h3 class="op-h">${t} <span class="muted small">${xs.length}</span></h3>${xs.map(card).join('')}`).join(''):'<p class="muted">Nessun lavoro da fare. 👍</p>'}
+    ${segn.length?`<h3 class="op-h">Segnalati da te negli ultimi 7 giorni</h3>${segn.map(card).join('')}`:''}</div>`;
+  bindHead(); $$('[data-ol]',app).forEach(x=>x.onclick=()=>{ UI.opSel=x.dataset.ol; viewOperatore(app); window.scrollTo(0,0); });
+}
+function opDettaglio(app,l,op,head,bindHead){
+  const st=stOggi(), mv=lavMov(l), cs=lavHaMov(l)?[]:(l.vasche||[]), ps=l.prodotti||[], d=lavDiff(l);
+  UI.opSpunte=UI.opSpunte||{}; const spunte=UI.opSpunte[l.id]=UI.opSpunte[l.id]||new Set();
+  const contTxt=c=>{ const s=st[c]||{}; return `<li><b>${esc(vlab(c))}</b> <span class="muted">${esc(locNome(locDi(c)))}</span><br>${s.vino?esc(vName(s.vino))+' · '+hL(s.L):'vuota'}</li>`; };
+  app.innerHTML=`<div class="opv">${head}
+    <button type="button" class="btn sm ghost" id="op-back">← I miei lavori</button>
+    <h2 style="margin:8px 0 4px">${esc(lavTitolo(l))}</h2>
+    <div class="row" style="gap:6px">${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}<span class="chip">${esc(l.tipo)}</span><span class="chip">${l.data?fd(l.data)+(l.ora?' · '+esc(l.ora):''):'senza data'}</span><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span></div>
+    ${d?`<div class="box warn small" style="color:var(--ink)"><b>Attenzione:</b> nei contenitori la situazione è cambiata da quando il lavoro è stato programmato. Senti il responsabile prima di procedere.<ul style="margin:4px 0 0;padding-left:18px">${d.righe.map(r=>`<li>${esc(r.txt)}</li>`).join('')}</ul></div>`:''}
+    ${l.istruzioni?`<h3 class="op-h">Istruzioni</h3><div class="box" style="background:var(--surface-2);white-space:pre-wrap">${esc(l.istruzioni)}</div>`:''}
+    ${mv.length?`<h3 class="op-h">Movimenti</h3><ol class="op-list">${mv.map(m=>`<li><b>${esc(vlab(m.da))}</b> → ${m.a==='?'?'<b>da concordare</b>':'<b>'+esc(vlab(m.a))+'</b>'}<br><span class="small">${movQtaTxt(m)}${(st[m.da]||{}).vino?' · '+esc(vName(st[m.da].vino))+' (oggi '+hL(st[m.da].L)+')':''}</span></li>`).join('')}</ol>${movNote(mv).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
+    ${cs.length?`<h3 class="op-h">Contenitori ${cs.length>1?'<span class="muted small">'+cs.length+'</span>':''}</h3>${cs.length>8?`<p class="small">${esc(elencoV(cs))}</p><details><summary class="small">elenco completo</summary><ul class="op-list">${cs.map(contTxt).join('')}</ul></details>`:`<ul class="op-list">${cs.map(contTxt).join('')}</ul>`}`:''}
+    ${ps.length?`<h3 class="op-h">Prodotti ${l.stato==='dafare'?'<span class="muted small">spunta ogni prodotto quando l\'hai aggiunto</span>':''}</h3><ul class="op-list${l.stato==='dafare'?' op-chk':''}">${ps.map((p,i)=>`<li>${l.stato==='dafare'?`<label class="op-ck"><input type="checkbox" data-pk="${i}" ${spunte.has(i)?'checked':''} aria-label="Aggiunto ${esc(p.prodotto)}"><span>`:''}<b>${esc(p.prodotto)}</b> · ${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):''}<br><span class="small">${p.qtaTot?'totale <b>'+esc(p.qtaTot)+'</b>':qtaTeorica(p.dose,p.udm,p.volL,p.prodotto)?'circa <b>'+esc(qtaTeorica(p.dose,p.udm,p.volL,p.prodotto))+'</b>':''}${p.volL&&!/ in tutto$/.test(p.udm||'')?' su '+hL(p.volL):''} · ${esc(elencoV(prodSu(l,p)))}${mv.length?(p.quando==='dopo'?' (negli arrivi, dopo)':' (prima del trasferimento)'):''}</span>${prodRipart(l,p)?`<br><span class="small">${esc(prodRipart(l,p))}</span>`:''}${p.note?`<br><span class="small muted">${esc(p.note)}</span>`:''}${l.stato==='dafare'?'</span></label>':''}</li>`).join('')}</ul>`:''}
+    ${l.stato==='dafare'?`<div class="op-act"><button type="button" class="btn" id="op-no">Non fatto</button><button type="button" class="btn pri" id="op-ok">Fatto</button></div>`
+      :`<div class="box small">${l.stato==='eseguito'?'Hai segnato questo lavoro come <b>fatto</b>: ora lo controlla il responsabile.':l.stato==='noneseguito'?'Hai segnato questo lavoro come <b>non fatto</b>: il responsabile deciderà come procedere.':esc(LSTATI[l.stato])}</div>`}</div>`;
+  bindHead(); $('#op-back',app).onclick=()=>{ UI.opSel=null; viewOperatore(app); };
+  const back=()=>{ UI.opSel=null; };
+  $$('[data-pk]',app).forEach(x=>x.onchange=()=>{ const i=+x.dataset.pk; x.checked?spunte.add(i):spunte.delete(i); const ok=$('#op-ok',app); if(ok) ok.classList.toggle('dim',spunte.size<ps.length); });
+  const ok=$('#op-ok',app); if(ok){ if(spunte.size<ps.length) ok.classList.add('dim');
+    ok.onclick=()=>{ const manca=ps.map((p,i)=>i).filter(i=>!spunte.has(i)); const sp=ps.map((p,i)=>spunte.has(i));
+      if(!manca.length) return dichiaraEsec(l,'eseguito',{op,prima:back,spunte:sp});
+      modal('Prodotti non spuntati',`<p>Non hai spuntato:</p><ul>${manca.map(i=>`<li><b>${esc(ps[i].prodotto)}</b></li>`).join('')}</ul><p>Spunta ogni prodotto che hai aggiunto. Se non l'hai aggiunto, dillo: il responsabile lo vedrà.</p>
+        <div class="foot"><button class="btn" data-close>Torna a spuntare</button><button class="btn pri" id="np-no">Non l'ho aggiunto</button></div>`,(b2,close2)=>{
+        $('#np-no',b2).onclick=()=>{ close2(); const prodX=ps.map((p,i)=>spunte.has(i)?'':'non aggiunto'); dichiaraEsec(l,'eseguito',{op,prima:back,spunte:sp,diverso:true,prodX,diff:'Prodotti non aggiunti: '+manca.map(i=>ps[i].prodotto).join(', ')}); }; }); }; }
+  const no=$('#op-no',app); if(no) no.onclick=()=>dichiaraEsec(l,'noneseguito',{op,prima:back});
+}
 
 function formFineLav(c){
   const ims=R.st[c].imps||[]; if(!ims.length) return; const one=ims.length===1;
@@ -2638,7 +2940,7 @@ function formLavorazione(p={},corrId){
      <div class="row" style="margin-top:6px"><button type="button" class="btn sm ghost" id="perd-add" title="Per filtrazioni o altre lavorazioni in cui il vino resta nella vasca ma se ne perde una parte">+ perdita o calo</button></div>
    </fieldset>
    <fieldset><legend>Prodotti aggiunti</legend>
-     <p class="hint">Dose e unità come le scrivi oggi. «In vasca» serve quando il prodotto va solo in una delle vasche (es. un travaso con più destinazioni): se lo lasci su «tutte», vale per tutte le vasche trattate. Il volume trattato si propone da solo; la quantità usata davvero è facoltativa. Per la SO₂ la quantità teorica è di SO₂ pura: il titolo del prodotto è da definire.</p>
+     <p class="hint">Dose e unità come le scrivi oggi. «In vasca» serve quando il prodotto va solo in una delle vasche (es. un travaso con più destinazioni): se lo lasci su «tutte», vale per tutte le vasche trattate. Il volume trattato si propone da solo; la quantità usata davvero è facoltativa. La dose è sempre del prodotto scelto; per i prodotti con un titolo (es. metabisolfito) è indicata anche la SO₂ pura che si aggiunge.</p>
      <div id="aggs" style="display:grid;gap:10px"></div>
      <div><button type="button" class="btn sm" id="addA">+ Aggiungi prodotto</button></div>
    </fieldset>
@@ -2837,8 +3139,11 @@ function formLavorazione(p={},corrId){
     function upd(){
       aggVasche(); if($('#perd',b)){ perdVasche(); perdInfo(); }
       const av=autoVol();
+      const so2St=stNow(), so2Tr=readTratte(), so2Tt=trattate(), so2D=$('#l-data',b).value||today();
       $$('#aggs .line',b).forEach(d=>{const v=toL($('.a-v',d).value,'hL'); const vs=$('.a-vs',d).value; const avr=vs?Math.max(0,autoVol(vs)):av; const L=v||avr; $('.a-v',d).placeholder=avr?'auto '+nf(avr/100,2):'auto';
-        const q=qtaTeorica(num($('.a-d',d).value),$('.a-u',d).value,L,$('.a-p',d).value); $('.a-c',d).textContent=q?'→ '+q+' teorici':''; });
+        const q=qtaTeorica(num($('.a-d',d).value),$('.a-u',d).value,L,$('.a-p',d).value); $('.a-c',d).textContent=q?'→ '+q+' teorici':'';
+        { const pn=$('.a-p',d).value, ds=num($('.a-d',d).value), u=$('.a-u',d).value; const cs=vs?[vs]:so2Tt;
+          so2Box(d,isSO2Prod(pn)&&ds!=null?so2Valuta(cs.map(c=>({c,vino:vinoRicevente(c,so2St,so2Tr,so2Tr.length>0),add:so2MgL(pn,ds,u,L)})),so2D):null); } });
       { const st0=stNow(); const used={};
         const dNow=$('#l-data',b).value||today();
         readBlocks().forEach(bk=>{ const pr=$('.t-prog',bk.d); const vs=[bk.da,...bk.dests.map(x=>x.a)].filter(Boolean);
@@ -4079,7 +4384,7 @@ function formProdotto(x,done){ const nuovo=!x; x=x||{udm:'g/hL'}; const usato=!n
     <label class="f">Unità proposta<select id="pr-u">${UDM.map(u=>`<option ${x.udm===u?'selected':''}>${u}</option>`).join('')}</select></label>
     <label class="f">Dose abituale (facoltativa)<input id="pr-d" inputmode="decimal" value="${x.dose!=null?nfIn(x.dose,3):''}"></label>
     <label class="f">Dose massima (facoltativa)<input id="pr-m" inputmode="decimal" value="${x.doseMax!=null?nfIn(x.doseMax,3):''}"><span class="hint">Nella stessa unità. Oltre questa dose il modulo chiede conferma.</span></label>
-    <div class="f wide"><b class="small">Titolo (facoltativo)</b><span class="hint">Se compili, la dose nei moduli è quella del principio attivo e il gestionale calcola quanto prodotto serve. Es. metabisolfito di potassio: 57,6 % di SO₂ → per 40 mg/L di SO₂ su 22,5 hL servono 90 g di SO₂ = 156 g di metabisolfito.</span></div>
+    <div class="f wide"><b class="small">Titolo (facoltativo)</b><span class="hint">La dose nei moduli è sempre del prodotto. Se compili il titolo, il gestionale indica in più quanto principio attivo si aggiunge. Es. metabisolfito di potassio al 57,6 % di SO₂: 10 g/hL su 25 hL = 250 g di metabisolfito = 144 g di SO₂.</span></div>
     <label class="f">Titolo (%)<input id="pr-t" inputmode="decimal" value="${x.titolo!=null?nfIn(x.titolo,2):''}" placeholder="es. 57,6"></label>
     <label class="f">Principio attivo<input id="pr-pa" value="${esc(x.principio||'')}" placeholder="es. SO₂"></label>
     <label class="f">Il prodotto si dosa in<select id="pr-mi"><option value="g" ${x.misura!=='mL'?'selected':''}>grammi (polvere, titolo in peso)</option><option value="mL" ${x.misura==='mL'?'selected':''}>millilitri (soluzione, titolo peso/volume)</option></select></label>
@@ -4390,7 +4695,7 @@ function formSerie(locId){
   });
 }
 function rimuoviContenitore(code){ const v=VMAP[code];
-  const usi=S.eventi.filter(e=>usaCont(e,code)).length+(S.analisi||[]).filter(a=>a.vasca===code).length+(lavori().some(l=>(l.vasche||[]).includes(code)||l.dest===code)?1:0);
+  const usi=S.eventi.filter(e=>usaCont(e,code)).length+(S.analisi||[]).filter(a=>a.vasca===code).length+(lavori().some(l=>lavCodes(l).includes(code)||(l.vasche||[]).includes(code))?1:0);
   modal('Rimuovi dall\'anagrafica',`<p>Tolgo <b>${esc(vkind(code))} ${esc(vlab(code))}</b> (${v.stato}) da tutti gli elenchi, archivio compreso. Non potrà più essere scelto per nuove operazioni.</p>
     <p>${usi?`Compare in <b>${usi}</b> tra operazioni e analisi: <b>restano tutte intatte</b> e continuano a leggere «${esc(vkind(code))} ${esc(v.label)}» con la capacità di allora.`:'Non compare in nessuna operazione.'}</p>
     <label class="row" style="gap:6px"><input type="checkbox" id="rm-ok"> <b>Ho capito, rimuovi</b></label>
@@ -4800,7 +5105,7 @@ function fonteTxt(f){ const a=f.an&&(S.analisi||[]).find(x=>x.id===f.an);
 
 /* ===================== Contenitori: selezione multipla (Dati → Locali e contenitori) ===================== */
 UI.cSel=UI.cSel||new Set(); UI.aSel=UI.aSel||new Set();
-const usiCont = code=>S.eventi.filter(e=>usaCont(e,code)).length+(S.analisi||[]).filter(a=>a.vasca===code||anVasche(a).includes(code)).length+(lavori().some(l=>(l.vasche||[]).includes(code)||l.dest===code)?1:0)+(fermLog().some(m=>m.vasca===code)?1:0);
+const usiCont = code=>S.eventi.filter(e=>usaCont(e,code)).length+(S.analisi||[]).filter(a=>a.vasca===code||anVasche(a).includes(code)).length+(lavori().some(l=>lavCodes(l).includes(code)||(l.vasche||[]).includes(code))?1:0)+(fermLog().some(m=>m.vasca===code)?1:0);
 function bloccoContSt(code,data,stD){ const out=[]; const st=stD[code]||{};
   if(st.L>1e-6) out.push(`contiene ${hL(st.L)}${st.vino?' di '+esc(vName(st.vino)):''}`);
   const sn=R.st[code]||{}; if(data<=today()&&(sn.imps||[]).length) out.push('lavori aperti');
@@ -4879,7 +5184,7 @@ function rimuoviSel(codes,rerender){ if(!codes.length) return;
 function postoSegni(code,s){ s=s||R.st[code]||{}; const o=[];
   if(s.imp){ const sc=(s.imps||[s.imp]).some(im=>impScaduta(im)); o.push(`<span title="${sc?'Lavorazione da chiudere':'In lavorazione'}">${badgeLeg(sc?'var(--danger)':'var(--warn)',sc?'alert':'hour')}</span>`); }
   if(s.ferm) o.push(`<span title="In fermentazione">${badgeLeg('#7B5EA7','ferm')}</span>`); else if(s.vinif) o.push(`<span title="In vinificazione">${badgeLeg('#A9A0BC','ferm')}</span>`);
-  if(programmate(code).length) o.push(`<span title="Lavoro programmato">${badgeLeg('var(--c2)','cal')}</span>`);
+  { const pg=programmate(code); if(pg.length) o.push(pg.some(l=>l.stato!=='eseguito')?`<span title="Lavoro programmato">${badgeLeg('var(--c2)','cal')}</span>`:`<span title="Lavoro fatto, da convalidare">${badgeLeg('var(--warn)','cal')}</span>`); }
   return (o.length?`<span class="fsg">${o.join('')}</span>`:'')+(s.pronto&&s.vino?'<i class="fpr" title="Vino pronto"></i>':''); }
 const postoCls = (code,s)=>{ s=s||R.st[code]||{}; const v=VMAP[code]; return (v&&s.L>v.cap*100+1e-6?' over':'')+(s.man?' inman':''); };
 
@@ -4990,6 +5295,42 @@ function sceltaContenitori(o){ /* o: {titolo, st, esclusi:Set, unita, aggiungi([
 function oltreNominale(arrivi,st){ /* arrivi: {code: litri in arrivo (netti)} → [{code,L0,L1,cap}] */
   return Object.entries(arrivi).filter(([c,dL])=>VMAP[c]&&dL>1e-6).map(([c,dL])=>{ const L0=Math.max(0,(st[c]||{}).L||0); return {code:c,L0,L1:L0+dL,cap:VMAP[c].cap*100}; }).filter(x=>x.L1>x.cap+1e-6); }
 const oltreTxt = x=>`<b>${esc(vlab(x.code))}</b>: ${x.L0>1e-6?`contiene ${hL(x.L0)}, `:''}con questa operazione arriva a <b>${hL(x.L1)}</b> su ${hL(x.cap)} nominali (${hL(x.L1-x.cap)} oltre).`;
+
+/* ===================== Solforosa totale: stima dopo un'aggiunta e confronto con il limite (avviso confermabile) ===================== */
+const isSO2Prod = n=>{ const s=String(n||'').trim(); if(/^(so₂|so2|anidride solforosa)$/i.test(s)) return true; const p=prodOf(s); return !!(p&&p.principio&&/so₂|so2|solforos/i.test(p.principio)); };
+/* mg/L di SO₂ pura aggiunti: la dose è del prodotto, il titolo dice quanta SO₂ contiene */
+function so2MgL(prod,dose,udm,L){ if(dose==null||!isSO2Prod(prod)) return null; const p=prodOf(prod); const pura=/^(so₂|so2|anidride solforosa)$/i.test(String(prod).trim());
+  const t=p&&p.titolo>0?p.titolo/100:pura?1:null; if(t==null) return null;
+  const F={'mg/L':1,'g/hL':10,'mL/hL':10,'kg/10hL':1000,'kg/hL':10000,'g/L':1000,'mL/L':1000}; let mg;
+  if(F[udm]!=null) mg=dose*F[udm]; else { const m=/^(g|kg|mL|L) in tutto$/.exec(udm||''); if(!m||!L) return null; mg=dose*({g:1,kg:1000,mL:1,L:1000}[m[1]])*1000/L; }
+  return mg*t; }
+/* ultima solforosa totale analizzata del vino fino alla data, e il limite (da Dati: rosso / bianco-rosato, +50 se dolce) */
+function so2Rif(vid,data){ if(!vid) return null; const w=vino(vid)||{}; const as=anVino(vid).filter(a=>a.data<=(data||today())).sort((a,b)=>a.data<b.data?1:-1);
+  const get=(vv,k)=>{ const kk=Object.keys(vv||{}).find(x=>PKEY(x)===PKEY(k)); const x=kk&&vv[kk]; return x&&!x.lod&&x.v!=null?x.v:null; };
+  let T=null,dT=null,zuc=null; for(const a of as){ if(T==null){ const v=get(a.valori,'Solforosa totale'); if(v!=null){ T=v>0&&v<1?v*1000:v; dT=a.data; } } if(zuc==null){ zuc=get(a.valori,'Zuccheri riduttori totali'); if(zuc==null) zuc=get(a.valori,'Glucosio + Fruttosio'); } if(T!=null&&zuc!=null) break; }
+  const l=limOf('Solforosa totale'); let mx=null, nota='';
+  if(l){ if(l.so2){ const base=w.tipo==='rosso'?(l.maxRosso!=null?l.maxRosso:l.max):l.max; if(base!=null){ const dolce=zuc!=null&&zuc>=5; mx=base+(dolce?50:0); nota=`${w.tipo==='rosso'?'vino rosso':'vino bianco o rosato'}${dolce?' con zuccheri da 5 g/L in su':' secco'}`; } } else if(l.max!=null){ mx=l.max; nota='limite in Dati'; } }
+  return {T,dT,mx,nota}; }
+/* il vino che riceve il prodotto: quello del contenitore, o (dopo un trasferimento) quello che arriva, se è uno solo */
+function vinoRicevente(c,st,tratte,dopo){ const own=st[c]&&st[c].L>1e-6?st[c].vino:null; if(!dopo) return own;
+  const src=[...new Set((tratte||[]).filter(t=>t.a===c).map(t=>st[t.da]&&st[t.da].vino).filter(Boolean))]; const all=[...new Set([...src,...(own?[own]:[])])]; return all.length===1?all[0]:null; }
+/* items: [{c, vino, add}] → righe di avviso */
+function so2Valuta(items,data){ const over=[], info=[];
+  items.forEach(({c,vino:v,add})=>{ if(add==null||add<=0) return; if(!v){ return; } const r=so2Rif(v,data); if(!r) return;
+    if(r.T==null){ info.push(`${vlab(c)}: solforosa totale mai analizzata per ${vName(v)}, il limite non si può verificare (aggiungi ${nf(add,0)} mg/L).`); return; }
+    const tot=r.T+add; if(r.mx!=null&&tot>r.mx+1e-6) over.push(`<b>${esc(vlab(c))}</b>: ${nf(r.T,0)} mg/L (analisi del ${fd(r.dT)}) + ${nf(add,0)} aggiunti = <b>${nf(tot,0)} mg/L</b>, oltre il limite di ${nf(r.mx,0)} (${esc(r.nota)}).`); });
+  return {over,info:[...new Set(info)]}; }
+function so2Box(d,res){ let w=$('.so2w',d); const over=res?res.over:[], info=res?res.info:[];
+  if(!over.length&&!info.length){ if(w) w.remove(); return; }
+  if(!w){ w=document.createElement('div'); w.style.cssText='grid-column:1/-1;margin:4px 0'; d.append(w); }
+  const key=over.join('|')+'#'+info.join('|'); if(w.dataset.k===key) return; w.dataset.k=key;
+  w.className='so2w small'+(over.length?' box warn':' muted'); if(over.length) w.style.color='var(--ink)'; else w.style.color='';
+  w.innerHTML=(over.length?`<b>Solforosa totale stimata oltre il limite</b> <span class="muted">(stima per eccesso: ultima analisi + SO₂ aggiunta)</span><ul style="margin:4px 0;padding-left:18px">${over.map(x=>`<li>${x}</li>`).join('')}</ul><label class="row" style="gap:6px;display:inline-flex"><input type="checkbox" class="so2ok"> <b>Ho controllato, confermo</b></label>`:'')+info.map(x=>`<div>${esc(x)}</div>`).join(''); }
+const so2NonConf = root=>$$('.so2w',root).some(w=>{ const c=$('.so2ok',w); return c&&!c.checked; });
+/* al salvataggio (Lavori e Lavorazione): serve la conferma */
+document.addEventListener('submit',e=>{ const f=e.target; if(!f||!f.querySelector||!so2NonConf(f)) return; e.preventDefault(); e.stopImmediatePropagation();
+  const m=f.querySelector('#msg')||f.querySelector('.err'); if(m) m.textContent='La solforosa totale stimata supera il limite: correggi la dose o spunta «Ho controllato, confermo».';
+  const w=$$('.so2w',f).find(x=>{ const c=$('.so2ok',x); return c&&!c.checked; }); if(w) w.scrollIntoView({block:'center',behavior:'smooth'}); },true);
 
 
 /* menu laterale: a icone sui tablet in orizzontale, con un pulsante per allargarlo */
