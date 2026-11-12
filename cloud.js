@@ -93,7 +93,9 @@
     if(location.hash!=='#operatore') history.replaceState(null,'',location.pathname+'#operatore');
     togliSchermo();
     ['app-main','app-ui2'].forEach(id=>{ const t=document.getElementById(id); if(!t) return; const s=document.createElement('script'); s.textContent=t.textContent; t.replaceWith(s); });
-    const orig=window.save; window.save=function(){ orig(); clearTimeout(opT); opT=setTimeout(()=>{ opT=null; pushOp(); },300); };
+    /* sul telefono dell'operatore non resta nessuna copia dei dati: servono solo all'avvio */
+    try{ localStorage.removeItem(LS); }catch(e){}
+    window.save=function(){ clearTimeout(opT); opT=setTimeout(()=>{ opT=null; pushOp(); },300); };
     setInterval(()=>{ if(!document.hidden) ricaricaOp(); },60000); window.addEventListener('focus',()=>ricaricaOp());
     window.addEventListener('beforeunload',e=>{ if(opT||opIn){ e.preventDefault(); e.returnValue=''; } });
   }
@@ -111,12 +113,11 @@
           catch(e){ if(e.code==='conflict'&&e.dati&&e.dati.lavoro){ const i=S.lavori.indexOf(l); S.lavori[i]=e.dati.lavoro; opSnap[l.id]=JSON.stringify(e.dati.lavoro); avviso(e.message); try{ window.route(); }catch(x){} }
             else { avviso('Non inviato: riprovo tra poco'+(navigator.onLine?'':' (senza connessione)')); setTimeout(()=>window.save(),10000); } }
         } else opSnap[l.id]=s; /* le altre modifiche restano solo su questo telefono */ }
-      try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){}
     } finally{ opIn=false; } }
   async function ricaricaOp(){ const S=getS(); if(!S||opT||opIn||document.querySelector('.ov')) return;
     if((S.lavori||[]).some(l=>l&&((opSnap[l.id]!==undefined&&opSnap[l.id]!==JSON.stringify(l)&&['eseguito','noneseguito'].includes(l.stato))||(opSnap[l.id]===undefined&&l.segnalazione)))) return;
     try{ const j=await chiamaOp({azione:'carica'}); if(opT||opIn) return; S.lavori=j.lavori||[]; S.vini=j.vini||[]; Object.assign(S,j.S||{}); opFoto(S);
-      try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} try{ window.route(); }catch(e){} }catch(e){} }
+      try{ window.route(); }catch(e){} }catch(e){} }
 
   /* ---------- amministratore: utenti e inviti ---------- */
   function pannello(html){ let d=document.getElementById('cl-utp'); if(!d){ d=document.createElement('div'); d.id='cl-utp'; document.body.appendChild(d); }
