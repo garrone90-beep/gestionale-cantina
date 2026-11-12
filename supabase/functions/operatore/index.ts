@@ -126,6 +126,7 @@ Deno.serve(async (req: Request) => {
       mov: arr(e.mov, 200)?.map((m: any) => ({ a: txt(m?.a, 40), L: typeof m?.L === "number" && isFinite(m.L) ? m.L : null })) ?? null,
       prodotti: arr(e.prodotti, 100)?.map((x: any) => txt(x, 200)) ?? null,
       spunte: arr(e.spunte, 100)?.map((x: any) => !!x) ?? null,
+      imb: e.imb && typeof e.imb === "object" ? { pz: Number.isFinite(e.imb.pz) ? Math.floor(e.imb.pz) : null, L: Number.isFinite(e.imb.L) ? e.imb.L : null } : null,
       dichiaratoIl: now,
     };
     l.stato = stato; l.modificatoIl = now;
