@@ -53,7 +53,7 @@ TESTA = ('<link rel="manifest" href="/manifest.webmanifest">'
          '<meta name="theme-color" content="#620123">'
          '<meta name="apple-mobile-web-app-capable" content="yes">'
          '<meta name="mobile-web-app-capable" content="yes">'
-         '<meta name="apple-mobile-web-app-title" content="Cantina Pratica">'
+         '<meta name="apple-mobile-web-app-title" content="Cantina">'
          '<meta name="apple-mobile-web-app-status-bar-style" content="default">')
 rep('<title>Cantina Pratica</title>', '<title>Cantina Pratica</title>' + TESTA)
 
