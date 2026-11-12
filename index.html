@@ -4329,7 +4329,7 @@ function formReferto(vidDef){
         st.textContent=`Trovati ${res.campioni.length} campioni. Controllali qui sotto.`;
         renderReview(b,res,file.name,close,vidDef);
       }catch(e){
-        const m={cancelled:'Lettura interrotta.',not_granted:'Non hai autorizzato la pagina a usare Claude.',rate_limited:'Troppe richieste o limite di utilizzo raggiunto: riprova più tardi.',invalid_json:'La risposta non era leggibile: riprova.',image_rejected:'Immagine non accettata: prova con un altro file.',refused:'Claude non ha potuto leggere questo documento.'}[e&&e.code];
+        const m={cancelled:'Lettura interrotta.',not_granted:Array.isArray(window.__UTENTI)&&e&&e.message?e.message:'Non hai autorizzato la pagina a usare Claude.',rate_limited:'Troppe richieste o limite di utilizzo raggiunto: riprova più tardi.',invalid_json:'La risposta non era leggibile: riprova.',image_rejected:'Immagine non accettata: prova con un altro file.',refused:'Claude non ha potuto leggere questo documento.'}[e&&e.code];
         st.innerHTML=`<span class="err">${esc(m||('Lettura non riuscita'+(e&&e.message?': '+e.message:'')+'.'))}</span>`;
       }finally{ go.disabled=!file; $('#rf-stop',b).hidden=true; }
     };
