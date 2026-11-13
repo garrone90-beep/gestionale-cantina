@@ -80,10 +80,10 @@ Deno.serve(async (req: Request) => {
   if (az === "carica") {
     const { data: rec, error } = await adm.from("record").select("id,data").eq("tipo", "lavoro").range(0, 9999);
     if (error) return out({ code: "db_error", message: error.message }, 500);
-    const da = new Date(Date.now() - 14 * 864e5).toISOString();
+    const da = new Date(Date.now() - 8 * 864e5).toISOString();
     const da30 = new Date(Date.now() - 30 * 864e5).toISOString();
     const lavori = (rec ?? []).map((r: any) => r.data).filter((l: any) => l && ((suo(l) &&
-      (APERTI.includes(l.stato) || (["eseguito", "noneseguito"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da))) ||
+      (APERTI.includes(l.stato) || (["eseguito", "noneseguito", "convalidato"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da))) ||
       (l.segnalazione && norm(l.segnalazione.da) === nome && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30)));
     const { data: imp } = await adm.from("impostazioni").select("chiave,valore").in("chiave", IMP);
     const ids = new Set<string>();
