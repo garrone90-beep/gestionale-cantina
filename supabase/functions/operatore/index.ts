@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
     (imp ?? []).forEach((r: any) => { S[r.chiave] = r.valore; });
     /* dei lavori già dichiarati e delle segnalazioni l'operatore riceve solo titolo e stato: niente dosi, prodotti, movimenti, istruzioni */
     const ridotto = (l: any) => ({ id: l.id, num: l.num, titolo: l.titolo || "", tipo: l.tipo, stato: l.stato, data: l.data || "", ora: l.ora || "", priorita: l.priorita,
-      assegnato: l.assegnato || "", vasche: [...new Set([...(Array.isArray(l.vasche) ? l.vasche : []), ...(Array.isArray(l.mov) ? l.mov.flatMap((m: any) => [m?.da, m?.a]) : [])].filter((c: any) => typeof c === "string" && c && c !== "?"))], mov: [], prodotti: [], istruzioni: "", _v: l._v, ridotto: true,
+      assegnato: l.assegnato || "", vasche: [...new Set([...(Array.isArray(l.vasche) ? l.vasche : []), ...(Array.isArray(l.mov) ? l.mov.flatMap((m: any) => [m?.da, m?.a]) : [])].filter((c: any) => typeof c === "string" && c && c !== "?"))], mov: [], prodotti: [], istruzioni: "", _v: 2, ridotto: true,
       creatoIl: l.creatoIl, modificatoIl: l.modificatoIl, segnalazione: l.segnalazione,
       esec: l.esec ? { dichiaratoIl: l.esec.dichiaratoIl, il: l.esec.il } : undefined, convalida: l.convalida ? { il: l.convalida.il, ev: l.convalida.ev ? true : undefined } : undefined, storia: [] });
     const lavoriOut = lavori.map((l: any) => suo(l) && APERTI.includes(l.stato) ? l : ridotto(l));
