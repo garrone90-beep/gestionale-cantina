@@ -563,6 +563,7 @@ body.op-only{padding-left:0!important;padding-bottom:0!important}
 body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 .op-top{margin:4px 0 8px}
 .chip.segn{background:#E3EEF7;color:#2D5F8A;border-color:transparent}
+.chip.rit{background:color-mix(in srgb,var(--danger) 13%,var(--surface));color:var(--danger);border-color:transparent}
 .vch-c .vch-t{display:inline-flex;flex-direction:column;line-height:1.15}
 .vch-c .vch-t small{font-size:.72rem;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vsel-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-radius:10px;margin-bottom:8px;background:var(--surface-2)}
@@ -2501,7 +2502,7 @@ function viewOperatore(app){
   const sez=[['In ritardo',todo.filter(l=>l.data&&l.data<today())],['Oggi',todo.filter(l=>l.data===today())],['Prossimi giorni',todo.filter(l=>l.data&&l.data>today())],['Senza data',todo.filter(l=>!l.data)]];
   const sett=addDays(today(),-7)+'T';
   const segn=mine.filter(l=>['eseguito','noneseguito','convalidato'].includes(l.stato)&&(l.esec&&l.esec.dichiaratoIl||'')>=sett).sort((a,b)=>(b.esec.dichiaratoIl||'')<(a.esec.dichiaratoIl||'')?-1:1);
-  const card=l=>{ const cs=lavCodes(l); return `<button type="button" class="opcard" data-ol="${l.id}"><div class="spread"><b>${esc(lavTitolo(l))}</b>${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}</div>
+  const card=l=>{ const cs=lavCodes(l); return `<button type="button" class="opcard" data-ol="${l.id}"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="row" style="gap:4px;flex-wrap:wrap;justify-content:flex-end">${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}${l.stato==='dafare'?(l.data&&l.data<today()?'<span class="chip rit">In ritardo · da fare</span>':'<span class="chip segn">Da fare</span>'):''}</span></div>
     <div class="small muted">${l.data?giornoNome(l.data)+' '+fd(l.data)+(l.ora?' · '+esc(l.ora):''):'senza data'} · ${esc(l.tipo)}</div>
     ${cs.length?`<div class="small">${esc(elencoV(cs))}</div>`:''}${l.stato!=='dafare'?`<div><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Segnato fatto':'Segnato non fatto'}</span></div>`:''}</button>`; };
   const io=x=>String(x||'').trim().toLowerCase()===String(op).trim().toLowerCase();
