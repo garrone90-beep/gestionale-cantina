@@ -54,6 +54,24 @@ Deno.serve(async (req: Request) => {
     return out({ ok: true, inviato, gia: !inviato });
   }
 
+  /* ---------- amministratore: elimina definitivamente un utente (profilo e accesso) ---------- */
+  if (az === "elimina") {
+    if (prof.ruolo !== "admin") return out({ code: "not_granted", message: "Solo un amministratore può eliminare utenti" }, 403);
+    const id = String(body.id ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return out({ code: "bad_request", message: "Utente non valido" }, 400);
+    if (id === u.user.id) return out({ code: "bad_request", message: "Non puoi eliminare te stesso" }, 400);
+    const { data: t } = await adm.from("profili").select("id,ruolo,attivo").eq("id", id).maybeSingle();
+    if (t?.ruolo === "admin") {
+      const { count } = await adm.from("profili").select("id", { count: "exact", head: true }).eq("ruolo", "admin").eq("attivo", true).neq("id", id);
+      if (!count) return out({ code: "bad_request", message: "È l'ultimo amministratore attivo: non si può eliminare" }, 400);
+    }
+    const { error: de } = await adm.from("profili").delete().eq("id", id);
+    if (de) return out({ code: "db_error", message: "Non eliminato: " + de.message }, 500);
+    const { error: ae } = await adm.auth.admin.deleteUser(id);
+    if (ae && !/not.?found/i.test(ae.message)) return out({ code: "auth_error", message: "Profilo tolto, ma l'accesso non è stato eliminato: " + ae.message }, 500);
+    return out({ ok: true });
+  }
+
   /* ---------- da qui solo operatori ---------- */
   if (prof.ruolo !== "operatore") return out({ code: "not_granted", message: "Funzione riservata agli operatori" }, 403);
   const nome = norm(prof.nome);
@@ -69,7 +87,7 @@ Deno.serve(async (req: Request) => {
       (l.segnalazione && norm(l.segnalazione.da) === nome && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30)));
     const { data: imp } = await adm.from("impostazioni").select("chiave,valore").in("chiave", IMP);
     const ids = new Set<string>();
-    lavori.forEach((l: any) => [l.rif?.vasche, l.attuale?.vasche].forEach((o: any) => Object.values(o ?? {}).forEach((x: any) => { if (x?.vino) ids.add(String(x.vino)); })));
+    lavori.filter((l: any) => suo(l) && APERTI.includes(l.stato)).forEach((l: any) => [l.rif?.vasche, l.attuale?.vasche].forEach((o: any) => Object.values(o ?? {}).forEach((x: any) => { if (x?.vino) ids.add(String(x.vino)); })));
     let vini: any[] = [];
     if (ids.size) {
       const { data: vr } = await adm.from("record").select("data").eq("tipo", "vino").in("id", [...ids]);
@@ -77,7 +95,13 @@ Deno.serve(async (req: Request) => {
     }
     const S: Record<string, unknown> = {};
     (imp ?? []).forEach((r: any) => { S[r.chiave] = r.valore; });
-    return out({ nome: prof.nome, S, lavori, vini });
+    /* dei lavori già dichiarati e delle segnalazioni l'operatore riceve solo titolo e stato: niente dosi, prodotti, movimenti, istruzioni */
+    const ridotto = (l: any) => ({ id: l.id, num: l.num, titolo: l.titolo || "", tipo: l.tipo, stato: l.stato, data: l.data || "", ora: l.ora || "", priorita: l.priorita,
+      assegnato: l.assegnato || "", vasche: [...new Set([...(Array.isArray(l.vasche) ? l.vasche : []), ...(Array.isArray(l.mov) ? l.mov.flatMap((m: any) => [m?.da, m?.a]) : [])].filter((c: any) => typeof c === "string" && c && c !== "?"))], mov: [], prodotti: [], istruzioni: "", _v: l._v, ridotto: true,
+      creatoIl: l.creatoIl, modificatoIl: l.modificatoIl, segnalazione: l.segnalazione,
+      esec: l.esec ? { dichiaratoIl: l.esec.dichiaratoIl, il: l.esec.il } : undefined, convalida: l.convalida ? { il: l.convalida.il, ev: l.convalida.ev ? true : undefined } : undefined, storia: [] });
+    const lavoriOut = lavori.map((l: any) => suo(l) && APERTI.includes(l.stato) ? l : ridotto(l));
+    return out({ nome: prof.nome, S, lavori: lavoriOut, vini });
   }
 
 

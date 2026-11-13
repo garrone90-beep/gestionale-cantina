@@ -162,6 +162,9 @@ label.f{display:flex;flex-direction:column;gap:3px;font-size:.8rem;font-weight:6
 label.f.wide{grid-column:1/-1}
 input,select,textarea{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;font-size:.92rem;min-width:0;width:100%}
 input[type=checkbox],input[type=radio]{width:auto}
+/* iPhone: i campi data/ora hanno una larghezza propria e sbordano nella colonna accanto */
+input[type=date],input[type=time],input[type=datetime-local],input[type=month]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;min-width:0;max-width:100%;min-height:2.4em}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;margin:0}
 textarea{min-height:64px;resize:vertical}
 fieldset{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
 legend{font-family:var(--f-display);font-weight:600;padding:0 6px}
@@ -424,7 +427,19 @@ fieldset{border-radius:12px}
 
 svg.map{max-height:72vh}
 
-.map-wrap.editing svg.map{touch-action:none;outline:2px dashed var(--warn);outline-offset:-2px;border-radius:12px}
+/* telefono: pianta intera nello schermo, zoom con due dita / doppio tocco / pulsanti */
+.mz{display:none}
+@media (max-width:760px),(pointer:coarse) and (max-width:1024px){
+  .map-wrap{position:relative;overflow:hidden;display:flex;flex-direction:column}
+  svg.map{min-width:0!important;touch-action:pan-x pan-y}
+  svg.map.zoomed{touch-action:none}
+  .mz{display:flex;order:-1;gap:6px;justify-content:flex-end;margin:0 0 6px}
+  .mz button{min-width:40px;height:36px;border-radius:10px;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 92%,transparent);font-size:1.25rem;font-weight:700;color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.12);display:grid;place-items:center;padding:0}
+  .mz button.tutta{font-size:.8rem;font-weight:600;padding:0 12px;min-width:0}
+  .mz button:disabled{opacity:.4}
+}
+.map-wrap.editing .tank,.map-wrap.editing .tgrp,.map-wrap.editing [data-pv],.map-wrap.editing [data-pm],.map-wrap.editing svg.map.cattura{touch-action:none}
+.map-wrap.editing svg.map{outline:2px dashed var(--warn);outline-offset:-2px;border-radius:12px}
 .map-wrap.editing .tank{cursor:grab}
 .map-wrap.editing .tank.dragging{cursor:grabbing;opacity:.85;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
 .map-wrap.editing .tank.dragging,.map-wrap.editing .tgrp.dragging{transition:none!important}
@@ -1426,10 +1441,51 @@ function vascaPanel(code){
     ${evs.length?`<ul class="small" style="padding-left:18px;margin:6px 0 0">${evs.map(e=>`<li>${fd(e.data)} · ${esc(evTitle(e))}</li>`).join('')}</ul>`:'<p class="muted small">Nessuna operazione registrata.</p>'}
   </div>`;
 }
+/* ===== zoom della pianta sul telefono: vale solo finché l'app resta aperta (UI.mapZ, per locale) ===== */
+function vbBase(svg){ const s=svg&&svg.dataset.vb0; if(s){ const [x,y,width,height]=s.split(' ').map(Number); return {x,y,width,height}; } return svg.viewBox.baseVal; }
+const mapTel = ()=>matchMedia('(max-width:760px),(pointer:coarse) and (max-width:1024px)').matches;
+function mapZoomBind(app,DEP){ const svg=$('svg.map',app); if(!svg) return; UI.mapZ=UI.mapZ||{};
+  if(!svg.dataset.vb0) svg.dataset.vb0=svg.getAttribute('viewBox');
+  const B=vbBase(svg), KMAX=8;
+  const Z=()=>UI.mapZ[DEP]||{k:1,cx:B.x+B.width/2,cy:B.y+B.height/2};
+  const apply=z=>{ const k=Math.min(KMAX,Math.max(1,z.k)); const w=B.width/k, h=B.height/k;
+    const x=Math.min(Math.max(z.cx-w/2,B.x),B.x+B.width-w), y=Math.min(Math.max(z.cy-h/2,B.y),B.y+B.height-h);
+    const nz={k,cx:x+w/2,cy:y+h/2}; if(k<=1.001) delete UI.mapZ[DEP]; else UI.mapZ[DEP]=nz;
+    svg.setAttribute('viewBox',k<=1.001?svg.dataset.vb0:`${x} ${y} ${w} ${h}`); svg.classList.toggle('zoomed',k>1.001);
+    const bo=$('[data-mz="out"]',app), ba=$('[data-mz="all"]',app), bi=$('[data-mz="in"]',app); if(bo) bo.disabled=k<=1.001; if(ba) ba.disabled=k<=1.001; if(bi) bi.disabled=k>=KMAX-0.01; return nz; };
+  apply(Z());
+  $$('[data-mz]',app).forEach(b=>b.onclick=e=>{ e.stopPropagation(); const z=Z(), m=b.dataset.mz; apply(m==='all'?{...z,k:1}:{...z,k:z.k*(m==='in'?1.6:1/1.6)}); });
+  if(!mapTel()) return;
+  /* punto dello schermo → coordinate della pianta; frazione della larghezza visibile */
+  const svgPt=(cx,cy)=>{ const q=new DOMPoint(cx,cy).matrixTransform(svg.getScreenCTM().inverse()); return {x:q.x,y:q.y}; };
+  const presa=t=>svg.classList.contains('cattura')||UI.mapEdit&&t&&t.closest&&t.closest('.tank,.tgrp,[data-pv],[data-pm]');
+  let G=null, zitto=0, ultimoTap=null;
+  svg.addEventListener('click',e=>{ if(Date.now()<zitto){ e.stopPropagation(); e.preventDefault(); } },true);
+  svg.addEventListener('touchstart',e=>{ const T=e.touches;
+    if(T.length===2){ e.preventDefault(); const a=T[0],b=T[1]; const r=svg.getBoundingClientRect(); const mx=(a.clientX+b.clientX)/2, my=(a.clientY+b.clientY)/2;
+      G={tipo:'pinch',d0:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)||1,z0:Z(),p0:svgPt(mx,my),r}; zitto=Date.now()+500; return; }
+    if(T.length===1&&!presa(e.target)){ const t=T[0]; G={tipo:Z().k>1.001?'pan':'tap',x0:t.clientX,y0:t.clientY,z0:Z(),r:svg.getBoundingClientRect(),mosso:false}; } else G=null; },{passive:false});
+  svg.addEventListener('touchmove',e=>{ if(!G) return; const T=e.touches;
+    if(G.tipo==='pinch'&&T.length===2){ e.preventDefault(); const a=T[0],b=T[1]; const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); const k=Math.min(KMAX,Math.max(1,G.z0.k*d/G.d0));
+      const mx=(a.clientX+b.clientX)/2, my=(a.clientY+b.clientY)/2; const w=B.width/k, h=B.height/k; const fx=(mx-G.r.left)/G.r.width, fy=(my-G.r.top)/G.r.height;
+      apply({k,cx:G.p0.x-fx*w+w/2,cy:G.p0.y-fy*h+h/2}); zitto=Date.now()+500; return; }
+    if(G.tipo==='pan'&&T.length===1){ const t=T[0]; const dx=t.clientX-G.x0, dy=t.clientY-G.y0; if(!G.mosso&&Math.abs(dx)+Math.abs(dy)<6) return; G.mosso=true; e.preventDefault();
+      const s=(B.width/G.z0.k)/G.r.width; apply({...G.z0,cx:G.z0.cx-dx*s,cy:G.z0.cy-dy*s}); zitto=Date.now()+400; return; }
+    if(G.tipo==='tap'&&T.length===1){ const t=T[0]; if(Math.abs(t.clientX-G.x0)+Math.abs(t.clientY-G.y0)>10) G=null; } },{passive:false});
+  svg.addEventListener('touchend',e=>{ if(!G){ return; } const g=G; if(e.touches.length) return; G=null;
+    if(g.tipo==='pinch'||g.mosso) return;
+    /* doppio tocco sullo spazio vuoto: ingrandisce lì, oppure torna a vedere tutto */
+    const t=e.changedTouches[0]; if(!t||e.target.closest&&e.target.closest('.tank,.tgrp,.badge')) { ultimoTap=null; return; }
+    const ora=Date.now(); if(ultimoTap&&ora-ultimoTap.t<320&&Math.abs(t.clientX-ultimoTap.x)+Math.abs(t.clientY-ultimoTap.y)<30){ ultimoTap=null; e.preventDefault(); zitto=ora+400;
+      const z=Z(); if(z.k>1.001) apply({...z,k:1}); else { const p=svgPt(t.clientX,t.clientY); apply({k:2.5,cx:p.x,cy:p.y}); } return; }
+    ultimoTap={t:ora,x:t.clientX,y:t.clientY}; },{passive:false});
+}
 function viewVasche(app){
   applyLayout(); UI.mapUndo=UI.mapUndo||[];
   if(!DEPOSITI.some(d=>d.id===UI.dep)) UI.dep=(DEPOSITI[0]||{}).id; const DEP=UI.dep, depN=locNome(DEP), VS=VASCHE.filter(v=>v.dep===DEP&&v.stato==='attivo');
   const occ = VS.filter(v=>R.st[v.code].vino); const cont=contNome(DEP);
+  /* la pianta resta dov'era (scorrimento orizzontale su telefono) quando si ridisegna nello stesso locale */
+  const mw0=UI._mwDep===DEP?$('.map-wrap',app):null, scr0=mw0?mw0.scrollLeft:0, top0=mw0?mw0.getBoundingClientRect().top:null; UI._mwDep=DEP;
   app.innerHTML = `
   <div class="work ${UI.sel&&VMAP[UI.sel]?'hassel':'nosel'}">
     <div class="panel">
@@ -1442,7 +1498,7 @@ function viewVasche(app){
       <div class="spread"><span></span><span class="muted small">${occ.length} ${cont} occupate su ${VS.length} · ${totVinoFecce(occ.map(v=>v.code)).txt}</span></div>
       ${vistaFileOk(DEP)&&!UI.mapEdit?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">Vista:</span><div class="seg" role="group" aria-label="Vista"><button data-vista="pianta" aria-pressed="${!vistaFile(DEP)}">Pianta</button><button data-vista="file" aria-pressed="${vistaFile(DEP)}">Per file</button></div></div>`:''}
       ${grpTipiDi(DEP).length&&!vistaFile(DEP)?`<div class="row small" style="gap:6px;margin:4px 0"><span class="muted">${esc(grpTipiDi(DEP).map(t=>t==='tonneau'?'Tonneaux':t.charAt(0).toUpperCase()+(PLUR[t]||t).slice(1)).join(' e '))}:</span><div class="seg" role="group" aria-label="Barrique sulla pianta"><button data-grpm="1" aria-pressed="${grpAttivo(DEP)}">Raggruppate</button><button data-grpm="0" aria-pressed="${!grpAttivo(DEP)}">Una per una</button></div></div>`:''}
-      ${vistaFile(DEP)&&!UI.mapEdit?`<div id="vfile">${fileHTML(DEP)}</div>`:`<div class="map-wrap${UI.mapEdit?' editing':''}">${mapSVG(DEP)}</div>`}
+      ${vistaFile(DEP)&&!UI.mapEdit?`<div id="vfile">${fileHTML(DEP)}</div>`:`<div class="map-wrap${UI.mapEdit?' editing':''}">${mapSVG(DEP)}<div class="mz" role="group" aria-label="Ingrandimento pianta"><button type="button" data-mz="in" aria-label="Ingrandisci">+</button><button type="button" data-mz="out" aria-label="Rimpicciolisci">−</button><button type="button" class="tutta" data-mz="all" aria-label="Mostra tutta la pianta">Tutta</button></div></div>`}
       <div class="legend"><span><i class="dot t-bianco"></i>Bianco</span><span><i class="dot t-rosato"></i>Rosato</span><span><i class="dot t-rosso"></i>Rosso</span><span><i class="dot" style="background:transparent;box-shadow:inset 0 0 0 2.5px var(--ok)"></i>Vino pronto da imbottigliare (bordo verde)</span><span><i class="leg-ring" style="border:2.5px solid var(--accent)"></i>Selezionata</span><span><i class="leg-ring" style="border:2px dashed var(--danger)"></i>Oltre la nominale</span><span>${badgeLeg('var(--c2)','cal')}Lavoro programmato</span><span>${badgeLeg('var(--warn)','cal')}Lavoro fatto, da convalidare</span><span>${badgeLeg('#3E7CB1','flag')}Segnalazione da un operatore</span><span><i class="dot" style="background:color-mix(in srgb,var(--man) 18%,var(--surface));border:1px solid var(--man)"></i>In manutenzione</span><span>${badgeLeg('var(--warn)','hour')}In lavorazione</span><span>${badgeLeg('#7B5EA7','ferm')}In fermentazione</span><span>${badgeLeg('#A9A0BC','ferm')}In vinificazione (non ancora in fermentazione)</span><span>${badgeLeg('var(--danger)','alert')}Lavorazione da chiudere</span><span>Planimetria non in scala</span></div>
     </div>
     <div id="side">${vascaPanel(UI.sel)}</div>
@@ -1461,6 +1517,8 @@ function viewVasche(app){
       return rows.join('')||'<tr><td colspan="6" class="empty">Nessuna vasca occupata.</td></tr>'; })()}
     </tbody></table></div>
   </div>`;
+  mapZoomBind(app,DEP);
+  { const mw=$('.map-wrap',app); if(mw&&scr0) mw.scrollLeft=scr0; if(mw&&top0!=null){ const d=mw.getBoundingClientRect().top-top0; if(Math.abs(d)>1) window.scrollBy(0,d); } }
   const pick = c=>{UI.sel=c; if(VMAP[c]) UI.dep=VMAP[c].dep; viewVasche(app);};
   if($('#occ-den',app)) $('#occ-den',app).onclick=()=>{ const y=!denMostra(); try{ localStorage.setItem('gcg-occden',y?'1':'0'); }catch(e){} UI.occDen=y; viewVasche(app); };
   $$('[data-dep]',app).forEach(b=>b.onclick=()=>{ if(UI.mapEdit&&b.dataset.dep!==UI.dep){ UI.mapEdit=false; UI.mapUndo=[]; UI.mapSelE=[]; UI.moveBg=false; toast('Disposizione salvata'); } UI.dep=b.dataset.dep; if(UI.sel&&VMAP[UI.sel]&&VMAP[UI.sel].dep!==UI.dep) UI.sel=null; viewVasche(app); });
@@ -1573,7 +1631,7 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
     if('sf' in last&&l){ if(last.sf) l.sfondo=last.sf; else delete l.sfondo; } if('muri' in last&&l) l.nascondiMuri=last.muri; if('per' in last&&l){ if(last.per) l.perimetro=last.per; else delete l.perimetro; } redraw(); };
   const rs=$('#mp-reset',app); if(rs) rs.onclick=()=>modal('Ripristina disposizione',`<p>Le ${cont} di ${esc(locNome(DEP))} tornano nella posizione e dimensione originali. Puoi annullare con «↶ Annulla».</p><div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Ripristina</button></div>`,(b,close)=>{ $('#ok',b).onclick=()=>{ const it=VASCHE.filter(v=>v.dep===DEP&&(S.layout||{})[v.code]).map(v=>({code:v.code,prev:prevOf(v.code)})); it.forEach(x=>setLay(x.code,null)); mapPush(it); close(); redraw(); }; });
   $('#mp-auto',app).onclick=()=>modal('Disposizione automatica',`<p>Dispongo tutte le ${cont} di ${esc(locNome(DEP))} in una griglia ordinata per codice${VASCHE.some(v=>v.dep===DEP&&v.rec.gruppo)?' (una riga per fila)':''}, senza sovrapposizioni.${l&&l.pianta?' La pianta disegnata non verrà più rispettata: puoi nasconderla.':''} Puoi annullare con «↶ Annulla».</p><div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Disponi</button></div>`,(b,close)=>{ $('#ok',b).onclick=()=>{
-      const vs=VASCHE.filter(v=>v.dep===DEP&&v.stato==='attivo'); const sv=$('svg.map',app); const vb=sv?sv.viewBox.baseVal:{x:40,y:40}; const it=vs.map(v=>({code:v.code,prev:prevOf(v.code)}));
+      const vs=VASCHE.filter(v=>v.dep===DEP&&v.stato==='attivo'); const sv=$('svg.map',app); const vb=sv?vbBase(sv):{x:40,y:40}; const it=vs.map(v=>({code:v.code,prev:prevOf(v.code)}));
       gridPos(vs,Math.round(vb.x)+20,Math.round(vb.y)+20).forEach(([v,x,y])=>{ const o=prevOf(v.code)||{}; setLay(v.code,{x,y,...(o.r?{r:o.r}:{})}); });
       Object.keys(S.layout||{}).filter(k=>k.startsWith('grp:'+DEP+':')).forEach(k=>{ it.push({code:k,prev:{...S.layout[k]}}); setLay(k,null); }); mapPush(it); close(); redraw(); }; });
   // selection tools
@@ -1597,7 +1655,7 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
     mapPush(it); redraw(); });
   // sfondo
   const bg=$('#mp-bg',app); if(bg) bg.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; toast('Preparo la planimetria…');
-    try{ const {img,w,h}=await planimetriaDa(f); const sv=$('svg.map',app); const vb=sv.viewBox.baseVal; const prev=l.sfondo?{...l.sfondo}:null;
+    try{ const {img,w,h}=await planimetriaDa(f); const sv=$('svg.map',app); const vb=vbBase(sv); const prev=l.sfondo?{...l.sfondo}:null;
       const W=vb.width; l.sfondo={img,w0:W,w:W,ar:h/w,x:vb.x,y:vb.y,op:0.5,nome:f.name}; delete l.sfondoOff;
       try{ localStorage.setItem(LS_KEY,JSON.stringify(S)); }catch(err){ if(err&&(err.name==='QuotaExceededError'||err.code===22||err.code===1014)){ if(prev) l.sfondo=prev; else delete l.sfondo; return toast('Immagine troppo grande per la memoria del browser: prova con un file più leggero'); } }
       UI.mapUndo.push({items:[],sf:prev}); redraw();
@@ -1646,7 +1704,7 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
     go('#mp-pt',()=>{ UI.mapUndo.push(perPrev()); delete l.perimetro; redraw(); toast('Perimetro tolto: torna il rettangolo automatico (con ↶ Annulla lo rimetti)'); });
     const po=$('#mp-po',app); if(po) po.onchange=e=>{ UI.perimOrto=e.target.checked; };
     const P=UI.perim&&UI.perim.dep===DEP?UI.perim:null;
-    if(P&&P.modo==='disegna'){ const vbw=svg.viewBox.baseVal.width; svg.style.cursor='crosshair';
+    if(P&&P.modo==='disegna'){ const vbw=svg.viewBox.baseVal.width; svg.style.cursor='crosshair'; svg.classList.add('cattura');
       svg.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); let {x,y}=pt(e); const pts=P.pts;
         if(pts.length>=3){ const f=pts[0]; if(Math.hypot(x-f[0],y-f[1])<vbw/45){ $('#mp-pc',app).click(); return; } }
         if(pts.length&&UI.perimOrto!==false){ const q=pts[pts.length-1], dx=x-q[0], dy=y-q[1]; if(Math.abs(dy)<Math.abs(dx)*0.14) y=q[1]; else if(Math.abs(dx)<Math.abs(dy)*0.14) x=q[0];
@@ -1661,7 +1719,7 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
           const up=()=>{ c.removeEventListener('pointermove',mv); c.removeEventListener('pointerup',up); if(mosso){ l.perimetro[i]=l.perimetro[i].map(v=>Math.round(v*10)/10); UI.mapUndo.push(prev); redraw(); } };
           c.addEventListener('pointermove',mv); c.addEventListener('pointerup',up); }); });
       return; } }
-  if(UI.moveBg&&l.sfondo){ svg.style.cursor='move'; svg.addEventListener('pointerdown',e=>{ e.preventDefault(); const p0=pt(e), s0={...l.sfondo}; const im=$('image.sfondo',app); svg.setPointerCapture(e.pointerId);
+  if(UI.moveBg&&l.sfondo){ svg.style.cursor='move'; svg.classList.add('cattura'); svg.addEventListener('pointerdown',e=>{ e.preventDefault(); const p0=pt(e), s0={...l.sfondo}; const im=$('image.sfondo',app); svg.setPointerCapture(e.pointerId);
       const mv=ev=>{ const p=pt(ev); im.setAttribute('x',s0.x+p.x-p0.x); im.setAttribute('y',s0.y+p.y-p0.y); };
       const up=ev=>{ svg.removeEventListener('pointermove',mv); svg.removeEventListener('pointerup',up); const p=pt(ev); if(Math.abs(p.x-p0.x)+Math.abs(p.y-p0.y)<0.5) return; l.sfondo.x=Math.round(s0.x+p.x-p0.x); l.sfondo.y=Math.round(s0.y+p.y-p0.y); UI.mapUndo.push({items:[],sf:s0}); redraw(); };
       svg.addEventListener('pointermove',mv); svg.addEventListener('pointerup',up); }); return; }
@@ -1689,6 +1747,8 @@ function bindMapEdit(app,DEP,cont){ const l=LOCMAP[DEP]; UI.mapSelE=(UI.mapSelE|
         const p=pt(ev); const dx=p.x-p0.x, dy=p.y-p0.y; const it=grp.map(c=>({code:c,prev:prevOf(c)}));
         grp.forEach(c=>{ const v=VMAP[c]; setLay(c,{...cur(c),x:Math.round((v.x+dx)*2)/2,y:Math.round((v.y+dy)*2)/2}); }); mapPush(it); redraw(); };
       g.addEventListener('pointermove',mv); g.addEventListener('pointerup',up); g.addEventListener('pointercancel',up); }); });
+  /* telefono: un dito su una vasca la sposta; sullo spazio vuoto fa scorrere la pagina e la pianta (come fuori dalla disposizione) */
+  $$('.tank,.tgrp,[data-pv],[data-pm]',svg).forEach(x=>x.addEventListener('touchstart',e=>{ if(e.touches.length===1) e.preventDefault(); },{passive:false}));
 }
 /* planimetria: immagine o PDF (prima pagina) → JPEG ridotto, per stare nella memoria del browser */
 /* rende la prima pagina (PDF) o l'immagine su un canvas; per i PDF restituisce anche le scritte con la loro posizione */
@@ -1820,7 +1880,7 @@ function formDisponiPiantina(DEP,app,opt={}){ const l=LOCMAP[DEP]; const vs=VASC
       draw();
       const go=$('#dp-go',b); go.textContent='Applica la disposizione'; go.onclick=()=>{ const okT=trovati.filter(t=>!t.scarta), mancanti=[...R2.mancanti,...trovati.filter(t=>t.scarta).map(t=>({code:t.code,label:t.label}))];
         const sf0=l.sfondo?{...l.sfondo}:null; let sf=l.sfondo;
-        if(f||!sf){ const sv=$('svg.map',app); const vb=sv?sv.viewBox.baseVal:{x:0,y:0,width:600}; const Wm=Math.max(500,Math.min(900,vb.width||600)); sf={img:prev.img,w0:Wm,w:Wm,ar:prev.h/prev.w,x:Math.round(vb.x||0),y:Math.round(vb.y||0),op:0.5,nome:f?f.name:''}; }
+        if(f||!sf){ const sv=$('svg.map',app); const vb=sv?vbBase(sv):{x:0,y:0,width:600}; const Wm=Math.max(500,Math.min(900,vb.width||600)); sf={img:prev.img,w0:Wm,w:Wm,ar:prev.h/prev.w,x:Math.round(vb.x||0),y:Math.round(vb.y||0),op:0.5,nome:f?f.name:''}; }
         const k=sf.w/W; const items=[]; S.layout=S.layout||{};
         okT.forEach(t=>{ items.push({code:t.code,prev:S.layout[t.code]?{...S.layout[t.code]}:null}); S.layout[t.code]={x:Math.round((sf.x+t.x*k)*2)/2,y:Math.round((sf.y+t.y*k)*2)/2,r:Math.max(6,Math.round(t.r*k*2)/2)}; });
         if(sf.rot){ const [rcx,rcy]=sfCentro(sf); okT.forEach(t=>{ const L=S.layout[t.code]; const [x,y]=ruotaPt(L.x,L.y,rcx,rcy,sf.rot); L.x=Math.round(x*2)/2; L.y=Math.round(y*2)/2; }); }
@@ -2435,7 +2495,7 @@ function viewOperatore(app){
   if(!op){ app.innerHTML=`<div class="opv">${head}<h2>Chi sei?</h2>${pers.length?`<div class="op-pers">${pers.map(p=>`<button type="button" class="btn" data-op="${esc(p)}">${esc(p)}</button>`).join('')}</div>`:'<p class="muted">Nessuna persona: assegna prima un lavoro a qualcuno.</p>'}<p class="hint">Sul sito la persona sarà quella dell'accesso.</p></div>`;
     bindHead(); $$('[data-op]',app).forEach(x=>x.onclick=()=>{ try{ localStorage.setItem('gcg-op',x.dataset.op); }catch(e){} UI.opNome=x.dataset.op; viewOperatore(app); });
     return; }
-  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&String(x.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase()); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
+  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&x.stato==='dafare'&&String(x.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase()); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
   const mine=lavori().filter(l=>String(l.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase());
   const todo=mine.filter(l=>l.stato==='dafare').sort(lavSort);
   const sez=[['In ritardo',todo.filter(l=>l.data&&l.data<today())],['Oggi',todo.filter(l=>l.data===today())],['Prossimi giorni',todo.filter(l=>l.data&&l.data>today())],['Senza data',todo.filter(l=>!l.data)]];
@@ -2449,7 +2509,7 @@ function viewOperatore(app){
   const segStato=l=>l.stato==='segnalato'?['In attesa del responsabile','segn']:l.stato==='annullato'?['Scartata','']:l.stato==='convalidato'?[l.convalida&&l.convalida.ev?'Fatta e registrata':'Chiusa','ok']:l.stato==='eseguito'?['Fatta, da convalidare','warn']:l.stato==='noneseguito'?['Non fatta','scad']:['Programmata'+(l.data?' per il '+fd(l.data):'')+(l.assegnato?' · '+l.assegnato:''),'prog'];
   app.innerHTML=`<div class="opv">${head}<div class="spread"><h2>I miei lavori</h2><button type="button" class="btn pri" id="op-seg">+ Segnala</button></div>
     ${todo.length?sez.filter(([,xs])=>xs.length).map(([t,xs])=>`<h3 class="op-h">${t} <span class="muted small">${xs.length}</span></h3>${xs.map(card).join('')}`).join(''):'<p class="muted">Nessun lavoro da fare. 👍</p>'}
-    ${segn.length?`<h3 class="op-h">Lavori segnati da te negli ultimi 7 giorni</h3>${segn.map(card).join('')}`:''}
+    ${segn.length?`<h3 class="op-h">Lavori segnati da te negli ultimi 7 giorni</h3>${segn.map(l=>`<div class="opcard" style="cursor:default"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Fatto':'Non fatto'}</span></div><div class="small muted">${l.esec&&l.esec.dichiaratoIl?new Date(l.esec.dichiaratoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):''}</div></div>`).join('')}`:''}
     <h3 class="op-h">Le mie segnalazioni <span class="muted small">ultimi 30 giorni</span></h3>
     ${mieSegn.length?mieSegn.map(l=>{ const [t,c]=segStato(l); return `<div class="opcard" style="cursor:default"><div class="spread"><b>${esc((l.segnalazione.testo||'').split('\n')[0].slice(0,80))}</b>${l.segnalazione.urgente?'<span class="chip scad">Urgente</span>':''}</div><div class="small muted">${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${lavCodes(l).length?' · '+esc(elencoV(lavCodes(l))):''}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}</div><div><span class="chip ${c}">${esc(t)}</span></div></div>`; }).join(''):'<p class="muted small">Nessuna. Con «+ Segnala» avvisi il responsabile di qualcosa da fare (es. pulire il pavimento, lavare la vasca 5, colmare).</p>'}</div>`;
   bindHead(); $$('[data-ol]',app).forEach(x=>x.onclick=()=>{ UI.opSel=x.dataset.ol; viewOperatore(app); window.scrollTo(0,0); });
