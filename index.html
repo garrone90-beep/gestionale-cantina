@@ -2464,18 +2464,22 @@ function apriRegistrazione(l){
   const tratte=mv.map((m,i)=>{ const x=(ex.mov||[])[i]||{}; const a=x.a||(m.a==='?'?'':m.a); const L=x.L||movQtaL(m,st,mv); return {da:m.da,a,L:L||null}; });
   const trattati=mv.length?[...new Set(tratte.map(t=>t.a).filter(isCode))]:lavCodes(l);
   /* un prodotto su tutti i contenitori trattati: una riga; su una parte: una riga per contenitore */
-  const agg=[]; (l.prodotti||[]).forEach((p,i)=>{ const su=prodSu(l,p); const reale=(ex.prodotti||[])[i]||'';
+  /* i prodotti che l'operatore ha dichiarato «non aggiunto» non entrano nella registrazione: compaiono solo come avviso */
+  const nonAgg=(l.prodotti||[]).filter((p,i)=>/^non aggiunt/i.test((ex.prodotti||[])[i]||'')||(ex.spunte&&ex.spunte[i]===false)).map(p=>p.prodotto);
+  const avvisoNonAgg=()=>{ if(!nonAgg.length) return; setTimeout(()=>{ const a=document.querySelector('#aggs')||document.querySelector('.lprod')&&document.querySelector('.lprod').parentNode; if(a&&!document.querySelector('#cv-nonagg')) a.insertAdjacentHTML('beforebegin',`<div class="box warn small" id="cv-nonagg" style="color:var(--ink);margin:6px 0">${esc(ex.da||'L\'operatore')} <b>non ha aggiunto</b>: ${esc(nonAgg.join(', '))}. ${nonAgg.length>1?'Non sono':'Non è'} tra i prodotti qui sotto. Se al suo posto è stato messo altro, aggiungilo come riga nuova.</div>`); },0); };
+  const agg=[]; (l.prodotti||[]).forEach((p,i)=>{ const su=prodSu(l,p); const reale=(ex.prodotti||[])[i]||''; if(nonAgg.includes(p.prodotto)&&(/^non aggiunt/i.test(reale)||(ex.spunte&&ex.spunte[i]===false))) return;
     const tutti=mv.length?(p.quando==='dopo'&&trattati.every(c=>su.includes(c))):trattati.every(c=>su.includes(c));
     if(tutti||!su.length) agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:'',volL:null,volManual:false,reale});
     else su.forEach((c,k)=>agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:mv.length&&p.quando!=='dopo'?'':c,volL:null,volManual:false,reale:k?'':reale})); });
   const notaPrima=mv.length&&(l.prodotti||[]).some(p=>p.quando!=='dopo')?' Prodotti previsti prima del trasferimento: '+(l.prodotti||[]).filter(p=>p.quando!=='dopo').map(p=>p.prodotto+' su '+elencoV(prodSu(l,p))).join('; ')+'.':'';
   UI.pendLav={id:l.id,nEv:S.eventi.length,nAn:S.analisi.length};
+  avvisoNonAgg();
   if(mv.length){ const nome=T.reg==='trav'?(l.tipo==='Colmatura'?'Travaso + Colmatura':'Travaso'):l.tipo;
     const fase=T.voce&&lavList('Vinificazione').includes(l.tipo)&&!lavList('Affinamento').includes(l.tipo)?'Vinificazione':undefined;
     formLavorazione({lav:nome,...(T.voce?{lavori:[l.tipo]}:{}),...(fase?{fase}:{}),tratte,aggiunte:agg,note:note+notaPrima,data:today()}); }
   else if(T.reg==='lav'&&T.voce){ const fase=lavList('Vinificazione').includes(l.tipo)&&!lavList('Affinamento').includes(l.tipo)?'Vinificazione':'Affinamento'; formLavorazione({lavori:[l.tipo],fase,vasche:l.vasche,aggiunte:agg,note,data:today()}); }
   else if(T.reg==='lav'){ const lavN={'Chiarifica':'Chiarifica','Filtrazione':'Filtrazione','Rimontaggio / vinificazione':''}[l.tipo]; formLavorazione({lav:lavN||'',vasche:l.vasche,aggiunte:agg,note,data:today()}); }
-  else if(T.reg==='man') formManutenzione(l.vasche,{man:l.tipo==='Mantenimento botti'?MAN_TIPI[0]:'Pulizia',prodotti:(l.prodotti||[]).map((p,i)=>({...p,reale:(ex.prodotti||[])[i]||''})),note});
+  else if(T.reg==='man') formManutenzione(l.vasche,{man:l.tipo==='Mantenimento botti'?MAN_TIPI[0]:'Pulizia',prodotti:(l.prodotti||[]).map((p,i)=>({...p,reale:(ex.prodotti||[])[i]||''})).filter((p,i)=>!(/^non aggiunt/i.test(p.reale)||(ex.spunte&&ex.spunte[i]===false))),note});
   else if(T.reg==='imb'){ const i=l.imb, x=ex.imb||{};
     if(i&&i.vasca){ const e=imbStima(i,st); const pz=x.pz||(i.q==='pz'?i.pz:null); const L=x.L||(x.pz?x.pz*(i.formato||0.75):null)||(i.q==='pz'?null:e.L);
       formImbottigliamento({vasca:i.vasca,L:L||null,litriManuali:!!L,bottiglie:pz||undefined,bottiglieManuali:!!pz,formato:i.formato,conf:imbConf(i),lotto:i.lotto||'',data:today(),note}); }
@@ -4630,6 +4634,8 @@ function viewRegistro(app){
 
 /* ===================== Vista: dati ===================== */
 /* ===================== Prodotti nei moduli: dose abituale, dose massima (avviso confermabile) ===================== */
+document.addEventListener('change',e=>{ const t=e.target; if(!t.matches||!t.matches('.a-p,.p-n')) return; const line=t.closest('.line,.lprod'); if(!line) return;
+  const r=$('.a-r,.p-r',line); if(r&&r.value&&t.value.trim()!==t.defaultValue.trim()){ r.value=''; r.defaultValue=''; } },true);
 (function(){ const parts=line=>{ const p=$('.a-p,.p-n',line), d=$('.a-d,.p-d',line), u=$('.a-u,.p-u',line); return p&&d&&u?{p,d,u}:null; };
   const check=line=>{ const x=parts(line); if(!x) return; let w=$('.dmax',line); const pr=sopraMax(x.p.value,num(x.d.value),x.u.value);
     { let nv=$('.dnv',line); const nome=x.p.value.trim(), dose=num(x.d.value), c=nome?prodOf(nome):null;
