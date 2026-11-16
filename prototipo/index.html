@@ -5323,9 +5323,9 @@ function viewDati(app){
   <div class="panel"><h3>Azzera</h3><p class="hint">Scegli cosa cancellare. Le operazioni comprendono travasi, lavorazioni, entrate, misure, imbottigliamenti e registro: dopo, tutte le vasche risultano vuote. Cataloghi di parametri, prodotti ed elenco lavorazioni restano sempre.</p>
    <div class="row" style="flex-direction:column;align-items:flex-start;gap:6px;margin:6px 0">
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-op" checked disabled> <b>Operazioni e giacenze</b> (vasche vuote, registro e imbottigliamenti azzerati)</label>
-     <label class="row small" style="gap:6px"><input type="checkbox" id="z-lv" ${UI.zzFatto?'':'checked'}> <b>Lavori e segnalazioni</b> (programmati, fatti e storico)</label>
+     <label class="row small" style="gap:6px"><input type="checkbox" id="z-lv"> <b>Lavori e segnalazioni</b> (programmati, fatti e storico)</label>
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-an"> Analisi</label>
-     <label class="row small" style="gap:6px"><input type="checkbox" id="z-vi"> Schede vino (comprende anche le analisi)</label>
+     <label class="row small" style="gap:6px"><input type="checkbox" id="z-vi"> Schede vino (comprende anche analisi e lavori)</label>
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-all"> <b>Tutto</b>: anche dati azienda, locali, contenitori ed elenchi — riparte il percorso iniziale come una cantina nuova</label>
    </div>
    <div class="actions"><button class="btn danger" id="zz">Azzera</button></div></div>
@@ -5352,8 +5352,11 @@ $('#bk-dl',app).onclick=async()=>{ if(await scaricaBackup()) viewDati(app); }; l
   $('#lv-r',app).onclick=()=>confermaAzione('Ripristina elenchi proposti','Torno agli elenchi delle lavorazioni proposti dal programma: <b>le voci che hai modificato, aggiunto o tolto vengono sostituite</b>. Le operazioni già registrate non cambiano.','Ripristina',()=>{ delete S.lavorazioni; save(); viewDati(app); toast('Elenchi ripristinati'); });
   $('#fi',app).onchange=e=>{const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ $('#pj',app).value=r.result; const o=leggiBackup(r.result); if(o) confermaRipristino(o,f.name); else $('#msg',app).textContent='Il file non è un backup valido di questo programma.'; }; r.readAsText(f);};
   $('#rs',app).onclick=()=>{ const o=leggiBackup($('#pj',app).value); if(o) confermaRipristino(o,''); else $('#msg',app).textContent='Il testo non è un backup valido di questo programma.'; };
-  $('#z-vi',app).onchange=e=>{ if(e.target.checked) $('#z-an',app).checked=true; };
-  $('#z-all',app).onchange=e=>{ if(e.target.checked){ $('#z-an',app).checked=true; $('#z-vi',app).checked=true; } };
+  /* le schede vino si portano dietro analisi e lavori (che le nominano); «Tutto» spunta e blocca tutto */
+  const zSync=()=>{ const all=$('#z-all',app).checked, vi=all||$('#z-vi',app).checked;
+    if(all) $('#z-vi',app).checked=true; if(vi){ $('#z-an',app).checked=true; $('#z-lv',app).checked=true; }
+    $('#z-vi',app).disabled=all; $('#z-an',app).disabled=vi; $('#z-lv',app).disabled=vi; };
+  ['#z-vi','#z-all'].forEach(q=>$(q,app).addEventListener('change',zSync));
   $('#az-ok',app).onclick=()=>{ const n=$('#az-n',app).value.trim(), r=$('#az-r',app).value.trim(); if(!n||!r) return toast('Scrivi nome e ragione sociale'); const old=S.azienda&&S.azienda.ragione;
     S.azienda={...(S.azienda||{}),nome:n,ragione:r,sigla:$('#az-s',app).value.trim().toUpperCase()}; if(old&&old!==r&&S.notaNostro==null) S.notaNostro=old; refresh(); toast('Dati azienda salvati'); };
   catPanel($('#ce-p',app));
