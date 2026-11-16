@@ -1,4 +1,5 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}details.ce-sez{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}details.ce-sez>summary{cursor:pointer;padding:2px 0}details.ce-sez[open]>summary{margin-bottom:8px}
+</style></head><body>
 <title>Cantina Pratica</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5228,18 +5229,18 @@ function formContenitore(c,locId){
 /* Dati → Cosa entra e categorie: voci rinominabili, aggiungibili, nascondibili; si eliminano solo se mai usate (le voci di base si nascondono) */
 const catUsata = n=>!!n&&(S.vini.some(v=>sameTxt(v.categoria,n))||S.eventi.some(e=>(e.tipo==='uva'&&sameTxt(e.categoria,n))||sameTxt(e.daCat,n)));
 const teUsata = id=>S.eventi.some(e=>e.voce===id);
-function catPanel(box){ const D={te:teList().map(x=>({...x,_old:x.id})),cat:catList().map(x=>({...x,_old:x.nome}))};
+function catPanel(box){ const D={open:{},te:teList().map(x=>({...x,_old:x.id})),cat:catList().map(x=>({...x,_old:x.nome}))};
   const opt=(o,cur)=>Object.entries(o).map(([k,t])=>`<option value="${k}" ${k===cur?'selected':''}>${esc(t)}</option>`).join('');
   const leggi=()=>{ $$('tr[data-te]',box).forEach(r=>{ const x=D.te[+r.dataset.te]; x.nome=$('.ce-n',r).value; const c=$('.ce-c',r); if(c&&!c.disabled) x.comp=c.value; x.nascosta=$('.ce-h',r).checked; });
     $$('tr[data-ca]',box).forEach(r=>{ const x=D.cat[+r.dataset.ca]; x.nome=$('.ce-n',r).value; const c=$('.ce-c',r); if(c&&!c.disabled) x.comp=c.value; const k=$('.ce-k',r); if(k&&!k.disabled) x.colore=k.value; const z=$('.ce-z',r); if(z) x.cert=z.value; x.nascosta=$('.ce-h',r).checked; }); };
   const draw=()=>{ const dens=D.cat.filter(x=>x.comp==='den'&&x.nome.trim()).map(x=>x.nome.trim());
     box.innerHTML=`<h3>Cosa entra e categorie</h3><p class="hint">Gli elenchi proposti nell'entrata in vasca («Cosa entra») e nella scheda del vino («Categoria»). Puoi rinominare, aggiungere e nascondere le voci. Le voci aggiunte da te si eliminano solo se non sono mai state usate; quelle di base si possono solo nascondere. Rinominando una categoria, i vini che la usano si aggiornano.</p>
-    <h4 style="margin:12px 0 6px">Cosa entra</h4>
+    <details class="ce-sez" data-sez="te" ${D.open.te?'open':''}><summary><b>Cosa entra</b> <span class="muted small">· ${D.te.filter(x=>!x.nascosta).map(x=>esc(x.nome||'…')).join(', ')}</span></summary>
     <div class="tbl-wrap"><table><thead><tr><th>Voce</th><th>Si comporta come</th><th>Nascosta</th><th></th></tr></thead><tbody>${D.te.map((x,i)=>{ const usata=!x.base&&teUsata(x.id);
       return `<tr data-te="${i}"><td><input class="ce-n" value="${esc(x.nome)}" aria-label="Nome della voce"></td><td>${x.base?`<span class="muted small">${esc(TE_COMP[x.comp])} (di base)</span>`:`<select class="ce-c" ${usata?'disabled title="Già usata: non si può cambiare"':''}>${opt(TE_COMP,x.comp)}</select>`}</td>
         <td><input type="checkbox" class="ce-h" ${x.nascosta?'checked':''} aria-label="Nascondi"></td><td>${x.base?'':usata?'<span class="muted small">usata</span>':`<button type="button" class="btn sm ghost" data-tex="${i}">Elimina</button>`}</td></tr>`; }).join('')}</tbody></table></div>
-    <button type="button" class="btn sm" id="ce-tadd" style="margin-top:6px">+ Aggiungi voce</button>
-    <h4 style="margin:16px 0 6px">Categorie</h4>
+    <button type="button" class="btn sm" id="ce-tadd" style="margin-top:6px">+ Aggiungi voce</button></details>
+    <details class="ce-sez" data-sez="cat" ${D.open.cat?'open':''}><summary><b>Categorie</b> <span class="muted small">· ${D.cat.filter(x=>!x.nascosta).map(x=>esc(x.nome||'…')).join(', ')}</span></summary>
     <div class="tbl-wrap"><table><thead><tr><th>Categoria</th><th>Tipo</th><th>Colore</th><th>Certificabile in</th><th>Nascosta</th><th></th></tr></thead><tbody>${D.cat.map((x,i)=>{ const usata=!x.base&&catUsata(x._old||'');
       return `<tr data-ca="${i}"><td><input class="ce-n" value="${esc(x.nome)}" aria-label="Nome della categoria"></td>
         <td>${x.base?`<span class="muted small">${esc(CAT_COMP[x.comp])}</span>`:`<select class="ce-c" ${usata?'disabled title="Già usata: non si può cambiare"':''}>${opt(CAT_COMP,x.comp)}</select>`}</td>
@@ -5247,8 +5248,9 @@ function catPanel(box){ const D={te:teList().map(x=>({...x,_old:x.id})),cat:catL
         <td>${x.comp==='atto'?`<select class="ce-z">${(dens.length?dens:['DOP']).map(d=>`<option ${sameTxt(x.cert||dens[0],d)?'selected':''}>${esc(d)}</option>`).join('')}</select><div class="muted small" style="margin-top:4px">Manca? Aggiungi la categoria con tipo «con denominazione»</div>`:'<span class="muted small">—</span>'}</td>
         <td><input type="checkbox" class="ce-h" ${x.nascosta?'checked':''} aria-label="Nascondi"></td><td>${x.base?'':usata?'<span class="muted small">usata</span>':`<button type="button" class="btn sm ghost" data-cax="${i}">Elimina</button>`}</td></tr>`; }).join('')}</tbody></table></div>
     <button type="button" class="btn sm" id="ce-cadd" style="margin-top:6px">+ Aggiungi categoria</button>
-    <p class="hint" style="margin-top:8px">Esempi: «DOC» e «DOCG» con tipo «con denominazione»; «Atto a DOCG» con tipo «atto a», certificabile in DOCG; «IGT» con denominazione. La categoria «Varietale» chiede la varietà e il vino prende il nome da quella (es. «Barbera 2025»).</p>
+    <p class="hint" style="margin-top:8px">Esempi: «DOC» e «DOCG» con tipo «con denominazione»; «Atto a DOCG» con tipo «atto a», certificabile in DOCG; «IGT» con denominazione. La categoria «Varietale» chiede la varietà e il vino prende il nome da quella (es. «Barbera 2025»).</p></details>
     <div id="ce-msg" class="err"></div><div class="actions"><button type="button" class="btn pri" id="ce-s">Salva cosa entra e categorie</button></div>`;
+    $$('.ce-sez',box).forEach(x=>x.addEventListener('toggle',()=>{ D.open[x.dataset.sez]=x.open; }));
     $('#ce-tadd',box).onclick=()=>{ leggi(); D.te.push({id:'te'+uid(),nome:'',comp:'vino'}); draw(); const r=$$('tr[data-te] .ce-n',box).pop(); if(r) r.focus(); };
     $('#ce-cadd',box).onclick=()=>{ leggi(); D.cat.push({id:'c'+uid(),nome:'',comp:'den',colore:''}); draw(); const r=$$('tr[data-ca] .ce-n',box).pop(); if(r) r.focus(); };
     $$('[data-tex]',box).forEach(x=>x.onclick=()=>{ leggi(); D.te.splice(+x.dataset.tex,1); draw(); });
