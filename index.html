@@ -2553,10 +2553,11 @@ function lavCheckPend(){ const p=UI.pendLav; if(!p) return; const l=lavori().fin
 function viewOperatore(app){
   let op=null; try{ op=localStorage.getItem('gcg-op'); }catch(e){} if(OPM()) op=OPM().nome;
   const pers=utentiAss().map(u=>u.nome);
-  const head=OPM()?`<div class="spread op-top"><span class="small muted">Cantina Pratica</span><span class="small">👤 <b>${esc(op)}</b> · <a href="#" id="op-esci">Esci</a></span></div>`
+  const head=OPM()?`<div class="spread op-top"><span class="small muted">Cantina Pratica</span><span class="small">👤 <b>${esc(op)}</b> · <a href="#" id="op-esci">Esci</a></span></div>${OPM().notif&&OPM().notif.txt()?`<div class="small" style="text-align:right;margin:-4px 0 8px"><a href="#" id="op-not">${esc(OPM().notif.txt())}</a></div>`:''}`
     :`<div class="box small op-banner"><b>Vista operatore</b> — è la schermata che l'operatore vedrà sul suo telefono${op?' (ora: <b>'+esc(op)+'</b>)':''}. ${op?'<button type="button" class="btn sm ghost" id="op-chi">Cambia persona</button>':''} <a class="btn sm" href="#lavori">Torna ai lavori</a></div>`;
   const bindHead=()=>{ const c=$('#op-chi',app); if(c) c.onclick=()=>{ try{ localStorage.removeItem('gcg-op'); }catch(e){} UI.opSel=null; viewOperatore(app); };
-    const x=$('#op-esci',app); if(x) x.onclick=e=>{ e.preventDefault(); if(OPM().esci) OPM().esci(); }; };
+    const x=$('#op-esci',app); if(x) x.onclick=e=>{ e.preventDefault(); if(OPM().esci) OPM().esci(); };
+    const nt=$('#op-not',app); if(nt) nt.onclick=e=>{ e.preventDefault(); OPM().notif.click(); }; };
   if(!op){ app.innerHTML=`<div class="opv">${head}<h2>Chi sei?</h2>${pers.length?`<div class="op-pers">${pers.map(p=>`<button type="button" class="btn" data-op="${esc(p)}">${esc(p)}</button>`).join('')}</div>`:'<p class="muted">Nessuna persona: assegna prima un lavoro a qualcuno.</p>'}<p class="hint">Sul sito la persona sarà quella dell'accesso.</p></div>`;
     bindHead(); $$('[data-op]',app).forEach(x=>x.onclick=()=>{ try{ localStorage.setItem('gcg-op',x.dataset.op); }catch(e){} UI.opNome=x.dataset.op; viewOperatore(app); });
     return; }

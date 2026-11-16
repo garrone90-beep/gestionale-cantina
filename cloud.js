@@ -70,7 +70,7 @@
   function eseguiProgramma(){
     ['app-main','app-ui2'].forEach(id=>{ const t=document.getElementById(id); if(!t) return; const s=document.createElement('script'); s.textContent=t.textContent; t.replaceWith(s); });
     const orig=window.save; window.save=function(){ orig(); programma(); };
-    barra(); setInterval(()=>{ if(!document.hidden) pull(); },45000); setInterval(()=>{ if(!document.hidden) caricaUtenti(); },300000); window.addEventListener('focus',()=>pull());
+    barra(); notStato().then(s=>{ if(s==='attive') notRiallinea(); }); setInterval(()=>{ if(!document.hidden) pull(); },45000); setInterval(()=>{ if(!document.hidden) caricaUtenti(); },300000); window.addEventListener('focus',()=>pull());
     window.addEventListener('beforeunload',e=>{ if(timer||inCorso){ e.preventDefault(); e.returnValue=''; } });
     // le correzioni automatiche fatte all'apertura vanno salvate
     setTimeout(()=>programma(),1500);
@@ -80,14 +80,50 @@
   async function chiamaOp(body){ const {data:{session}}=await sb.auth.getSession(); if(!session){ const e=new Error('Sessione scaduta: rientra'); e.code='not_granted'; throw e; }
     const r=await fetch(SB_URL+'/functions/v1/operatore',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token,apikey:SB_KEY},body:JSON.stringify(body)});
     const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.message||('Errore '+r.status)); e.code=j.code; e.dati=j; throw e; } return j; }
+  /* ---------- notifiche sul telefono (Web Push): si attivano con un tocco, una volta per dispositivo ---------- */
+  const VAPID_PUB='BDS65fMHcg31rzFNr3bWZdt-vpflJNeSPe5sa-qEiUGKG_AURJcszuXUT4-FHrRZO15TRSgtzkDxQ9lulhi_Dco';
+  const NOT={stato:'?'};
+  const ub64=s=>{ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); };
+  const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  async function chiamaNot(body){ const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error('Sessione scaduta: rientra');
+    const r=await fetch(SB_URL+'/functions/v1/notifiche',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token,apikey:SB_KEY},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.message||('Errore '+r.status)); return j; }
+  async function subAttuale(){ try{ const reg=await navigator.serviceWorker.getRegistration('/'); return reg?await reg.pushManager.getSubscription():null; }catch(e){ return null; } }
+  async function notStato(){
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)) NOT.stato=isIOS()&&!standalone()?'ios':'no';
+    else if(Notification.permission==='denied') NOT.stato='negato';
+    else NOT.stato=(await subAttuale())&&Notification.permission==='granted'?'attive':'spente';
+    try{ disegna(); }catch(e){} try{ if(window.__OP&&window.refresh) window.refresh(); }catch(e){}
+    return NOT.stato; }
+  /* chi è collegato ora riceve le notifiche di questo dispositivo (se erano già attive) */
+  async function notRiallinea(){ const s=await subAttuale(); if(s&&Notification.permission==='granted') try{ await chiamaNot({azione:'iscrivi',sub:s.toJSON(),ua:navigator.userAgent.slice(0,200)}); }catch(e){} }
+  async function notAttiva(){
+    if(NOT.stato==='ios'){ alert('Su iPhone le notifiche arrivano solo all\'app aggiunta alla schermata Home:\n1. in Safari tocca Condividi → «Aggiungi alla schermata Home»;\n2. apri l\'app dall\'icona «Cantina»;\n3. tocca di nuovo «Attiva notifiche».'); return; }
+    if(NOT.stato==='no'){ alert('Questo browser non supporta le notifiche. Su Android usa Chrome; su iPhone aggiungi l\'app alla schermata Home.'); return; }
+    if(NOT.stato==='negato'){ alert('Le notifiche per questo sito sono bloccate. Riattivale dalle impostazioni del browser (o dell\'app) alla voce Notifiche, poi riprova.'); return; }
+    try{
+      const perm=await Notification.requestPermission(); if(perm!=='granted'){ await notStato(); return; }
+      const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'}); await navigator.serviceWorker.ready;
+      let s=await reg.pushManager.getSubscription(); if(!s) s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:ub64(VAPID_PUB)});
+      await chiamaNot({azione:'iscrivi',sub:s.toJSON(),ua:navigator.userAgent.slice(0,200)});
+      await chiamaNot({azione:'prova'}).catch(()=>{});
+      avviso('Notifiche attive su questo dispositivo');
+    }catch(e){ console.error(e); alert('Non sono riuscito ad attivare le notifiche: '+(e.message||e)); }
+    await notStato(); }
+  async function notSpegni(silenzioso){ const s=await subAttuale(); if(s){ try{ await chiamaNot({azione:'disiscrivi',endpoint:s.endpoint}); }catch(e){} try{ await s.unsubscribe(); }catch(e){} } if(!silenzioso){ avviso('Notifiche disattivate su questo dispositivo'); await notStato(); } }
+  const notTxt=()=>({attive:'🔔 Notifiche attive',spente:'🔕 Attiva notifiche',negato:'🔕 Notifiche bloccate',ios:'🔕 Attiva notifiche'}[NOT.stato]||'');
+  const notClick=()=>{ if(NOT.stato==='attive'){ if(confirm('Disattivare le notifiche su questo dispositivo?')) notSpegni(); } else notAttiva(); };
+  window.__NOT={txt:notTxt,click:notClick};
   let opSnap={}, opT=null, opIn=false;
   const opFoto=S=>{ opSnap={}; (S.lavori||[]).forEach(l=>{ if(l&&l.id!=null) opSnap[l.id]=JSON.stringify(l); }); };
   const avviso=(t)=>{ try{ window.toast(t); }catch(e){} };
-  async function esci(){ if(opT||opIn){ alert('Attendi: sto inviando la tua segnalazione.'); return; } await sb.auth.signOut(); try{ localStorage.removeItem(LS); }catch(x){} location.hash=''; location.reload(); }
+  async function esci(){ if(opT||opIn){ alert('Attendi: sto inviando la tua segnalazione.'); return; } await notSpegni(true); await sb.auth.signOut(); try{ localStorage.removeItem(LS); }catch(x){} location.hash=''; location.reload(); }
   async function avviaOperatore(prof){
     let j; try{ j=await chiamaOp({azione:'carica'}); }
     catch(e){ console.error(e); return errore('Non riesco a leggere i tuoi lavori'+(navigator.onLine?'':' (sei senza connessione)')+'. Riprova tra poco.',true); }
-    window.__OP={nome:j.nome||prof.nome,esci};
+    window.__OP={nome:j.nome||prof.nome,esci,notif:{txt:notTxt,click:notClick}};
+    notStato().then(s=>{ if(s==='attive') notRiallinea(); });
     const S0=Object.assign({},j.S||{},{vini:j.vini||[],lavori:j.lavori||[],eventi:[],analisi:[]});
     try{ localStorage.setItem(LS,JSON.stringify(S0)); }catch(e){} opFoto(S0);
     if(location.hash!=='#operatore') history.replaceState(null,'',location.pathname+'#operatore');
@@ -209,9 +245,10 @@
     n.parentNode.insertBefore(d,n.nextSibling); disegna(); }
   function stato(t,c){ statoTxt=t; statoCls=c; disegna(); }
   function disegna(){ const d=document.getElementById('cl-bar'); if(!d) return; const col={ok:'#5BB974',warn:'#E0A030',err:'#E5484D'}[statoCls]||'#999';
-    d.innerHTML=`<div><span style="color:${col}">●</span> ${esc(statoTxt||'Collegato')}</div><div>${esc(utente&&utente.email||'')}${ruolo==='admin'?' · amministratore · <a href="#" id="cl-ut" style="color:inherit;text-decoration:underline">Utenti</a>':''} · <a href="#" id="cl-esci" style="color:inherit;text-decoration:underline">Esci</a></div>`;
+    d.innerHTML=`<div><span style="color:${col}">●</span> ${esc(statoTxt||'Collegato')}</div><div>${esc(utente&&utente.email||'')}${ruolo==='admin'?' · amministratore · <a href="#" id="cl-ut" style="color:inherit;text-decoration:underline">Utenti</a>':''} · <a href="#" id="cl-esci" style="color:inherit;text-decoration:underline">Esci</a></div>${notTxt()&&NOT.stato!=='no'?`<div style="margin-top:4px"><a href="#" id="cl-not" style="color:inherit;text-decoration:underline">${esc(notTxt())}</a></div>`:''}`;
+    { const x=d.querySelector('#cl-not'); if(x) x.onclick=e=>{ e.preventDefault(); notClick(); }; }
     { const u=d.querySelector('#cl-ut'); if(u) u.onclick=e=>{ e.preventDefault(); utenti(); }; }
-    d.querySelector('#cl-esci').onclick=async e=>{ e.preventDefault(); if(timer||inCorso){ alert('Attendi il salvataggio delle ultime modifiche.'); return; } await sb.auth.signOut(); try{ localStorage.removeItem(LS); }catch(x){} location.reload(); }; }
+    d.querySelector('#cl-esci').onclick=async e=>{ e.preventDefault(); if(timer||inCorso){ alert('Attendi il salvataggio delle ultime modifiche.'); return; } await notSpegni(true); await sb.auth.signOut(); try{ localStorage.removeItem(LS); }catch(x){} location.reload(); }; }
 
   /* ---------- lettura documenti con la funzione «leggi» ---------- */
   const b64=blob=>new Promise((ok,ko)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(',')[1]); r.onerror=ko; r.readAsDataURL(blob); });

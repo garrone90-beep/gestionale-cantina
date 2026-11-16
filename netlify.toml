@@ -21,6 +21,12 @@
     Cache-Control = "no-cache"
 
 [[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
   for = "/cloud.js"
   [headers.values]
     Cache-Control = "no-cache"
