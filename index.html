@@ -699,7 +699,7 @@ function migraConti(){ if(!S||!S.eventi) return; const cl=contiList(), names=cl.
     if(S.provenienze) S.provenienze=S.provenienze.filter(x=>!names.includes(x.toLowerCase())&&x.toLowerCase()!==NOSTRO.toLowerCase()); S.contiOk=true; }
   S.eventi.forEach(e=>{ if(e.tipo!=='carico'||e.conto!==undefined) return; const pv=(e.provenienza||'').trim().toLowerCase(), i=names.indexOf(pv);
     if(i>=0){ e.conto=cl[i].nome; e.provenienza=''; } else { e.conto=''; if(pv===NOSTRO.toLowerCase()) e.provenienza=''; } }); }
-const origTxt = n=>{ const e=n&&S.eventi.find(x=>x.id===n.ev); if(!e||e.tipo!=='carico'){ const pv=provOf(n||{}); return /^giacenza di apertura$|^entrata$/i.test(pv)?'':pv; }
+const origTxt = n=>{ if(n&&n.unico) return 'vino unico dal '+fd(n.data); const e=n&&S.eventi.find(x=>x.id===n.ev); if(!e||e.tipo!=='carico'){ const pv=provOf(n||{}); return /^giacenza di apertura$|^entrata$/i.test(pv)?'':pv; }
   return [e.provenienza&&e.provenienza!=='Giacenza di apertura'?'provenienza: '+e.provenienza:'',e.conto?'conto lavorazione '+e.conto:''].filter(Boolean).join(' · '); };
 const provList = ()=>((S&&S.provenienze)||PROV_DEFAULT);
 const denList = ()=>((S&&S.denominazioni)||DEN_DEFAULT);
@@ -1001,6 +1001,11 @@ function replay(events, stop){
         pushAp(ev.nuovoVino,{data:ev.data,ev:ev.id,da:ev.vino,L,tipo:'origine',vasca:c});
         s.vino=ev.nuovoVino; s.node=mkNode({data:ev.data,ev:ev.id,lav:'Certificazione DOP',vasca:c,vino:ev.nuovoVino,Ltot:L,parents:[{n:srcN,L,kind:'arrivo'}]});
         touches.push({i:curI,ev:ev.id,vasca:c,kind:'out',a:c,L,destNode:s.node}); });
+    } else if(ev.tipo==='unifica'){
+      /* «vino unico»: da qui il vino della vasca conta come un'unica partita; le origini restano raggiungibili da «Da dove viene» */
+      addVin(ev.id,ev.vino);
+      (ev.vasche||[]).forEach(c=>{ const s=st[c]; if(!s||!s.node||s.vino!==ev.vino||!(s.L>0)) return; const prev=s.node;
+        s.node=mkNode({leaf:true,unico:true,data:ev.data,ev:ev.id,vasca:c,vino:s.vino,Ltot:s.L,descr:'vino unico dal '+fd(ev.data),orig:prev,grp:'u:'+ev.id,conto:ev.conto!=null?ev.conto:null,prov:ev.prov||null}); });
     } else if(ev.tipo==='fineMan'){
       if(st[ev.vasca]) st[ev.vasca].man=null;
     } else if(ev.tipo==='fineLav'){
@@ -1264,7 +1269,8 @@ function viewGen(app,code){
   if(f){ const P=R.nodes[f.p], C=R.nodes[f.c];
     G=genData(f.p, C.i, 'op', {i:C.i,a:C.vasca}); G.focusC=C; Lnow=f.L;
     const prev=UI.genStack.length>1?UI.genStack[UI.genStack.length-2]:null;
-    head=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span>${P.leaf?`Questa porzione è <b>entrata in cantina direttamente nella ${esc(vnome(C.vasca))}</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> il ${fd(P.data)}. Prima di questa entrata non ha passaggi registrati.`:`Storia operativa della <b>porzione aggiunta</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> dalla vasca ${esc(vlab(P.vasca))}, entrati in ${esc(vnome(C.vasca))} il ${fd(C.data)}. Mostra la partita ${esc(vName(P.vino))} fino a quel momento.`}</span>
+    if(C.unico&&C.orig===f.p) head=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span><b>Da dove viene:</b> com'era composto <b>${esc(vName(C.vino))}</b> in ${esc(vnome(C.vasca))} prima di diventare vino unico il ${fd(C.data)}.</span><span class="row"><button class="btn sm" id="unfocus">← ${prev?'Indietro':'Torna a '+esc(vnome(code))}</button>${prev?`<button class="btn sm ghost" id="unfocus-all">${esc(Vnome(code))}</button>`:''}</span></div>`;
+    else head=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span>${P.leaf?`Questa porzione è <b>entrata in cantina direttamente nella ${esc(vnome(C.vasca))}</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> il ${fd(P.data)}. Prima di questa entrata non ha passaggi registrati.`:`Storia operativa della <b>porzione aggiunta</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> dalla vasca ${esc(vlab(P.vasca))}, entrati in ${esc(vnome(C.vasca))} il ${fd(C.data)}. Mostra la partita ${esc(vName(P.vino))} fino a quel momento.`}</span>
       <span class="row"><button class="btn sm" id="unfocus">← ${prev?'Indietro':'Torna a '+esc(vnome(code))}</button>${prev?`<button class="btn sm ghost" id="unfocus-all">${esc(Vnome(code))}</button>`:''}</span></div>`;
   } else { G=genData(s.node, Infinity, mode); Lnow=s.L; }
   const list=[...G.steps].reverse();
@@ -1273,7 +1279,9 @@ function viewGen(app,code){
     <div class="row">${f?'':`<div class="seg" role="group" aria-label="Livello"><button aria-pressed="${mode==='op'}" data-gm="op">Operativa</button><button aria-pressed="${mode==='full'}" data-gm="full">Tracciabilità completa</button></div>`}
     <label class="f" style="max-width:210px">Altra vasca<select id="gsel">${VASCHE.filter(v=>R.st[v.code].vino).map(v=>`<option value="${esc(v.code)}" ${v.code===code?'selected':''}>${esc(vlab(v.code))+capTxt(v.code)}</option>`).join('')}</select></label></div></div></div>
   ${head}
-  <div class="panel"><h3>${f?'Composizione della porzione aggiunta':'Composizione attuale'} · ${hL(Lnow)}</h3>
+  ${!f&&R.nodes[s.node].unico&&R.nodes[s.node].orig?`<div class="box" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span>Dal ${fd(R.nodes[s.node].data)} questo è un <b>vino unico</b>: la composizione non mostra più le partite di prima.</span><button class="btn sm" data-focus="${R.nodes[s.node].orig}>${s.node}" data-l="${R.nodes[s.node].Ltot}">Da dove viene</button></div>`:''}
+  ${G.mode==='op'?(()=>{ const u=G.lin.filter(n=>n.unico&&n.orig&&n.id!==s.node); return u.length&&!f?`<p class="small muted">Contiene vino reso «vino unico»: ${u.map(n=>`<button class="btn sm ghost" data-focus="${n.orig}>${n.id}" data-l="${n.Ltot}">da dove viene ${esc(vName(n.vino))} (${esc(vlab(n.vasca))}, ${fd(n.data)})</button>`).join(' ')}</p>`:''; })():''}
+  <div class="panel"><h3>${f?(R.nodes[f.c].unico&&R.nodes[f.c].orig===f.p?'Composizione prima del vino unico':'Composizione della porzione aggiunta'):'Composizione attuale'} · ${hL(Lnow)}</h3>
     <p class="hint">${G.mode==='op'?'Vista operativa: la partita seguita, più gli ingressi da altre partite. Le uscite tolgono vino in proporzione da tutta la vasca.':'Tracciabilità completa: risale fino alle entrate in cantina di ogni componente.'}</p>${compRows(G,Lnow,true)}</div>
   ${!f?stimaHTML(code).replace('id="st-save"','id="st-save" hidden'):''}
   ${analisiPercorso(G,code,f)}
@@ -3104,6 +3112,7 @@ function evTitle(e){
   if(e.tipo==='pigiatura') return `${e.lav||'Pigiadiraspatura'} · ${(e.dest||[]).map(d=>vlab(d.vasca)).join(', ')} · ${hL((e.dest||[]).reduce((a,d)=>a+(d.L||0),0))}`;
   if(e.tipo==='fermentazione') return `${e.azione==='fine'?'Fine':'Inizio'} fermentazione · ${elencoV(e.vasche)}`;
   if(e.tipo==='certificazione') return `Certificazione DOP${(e.vasche||[]).length?' · '+elencoV(e.vasche):''}`;
+  if(e.tipo==='unifica') return `Vino unico · ${esc(vName(e.vino))}${(e.vasche||[]).length?' · '+elencoV(e.vasche):''}`;
   if(e.tipo==='fineMan') return `Fine manutenzione · ${e.man||''} · ${vlab(e.vasca)}`;
   if(e.tipo==='imbottigliamento') return `Imbottigliamento · ${vlab(e.vasca)} · ${hL(e.L)}${e.lotto?' · lotto '+e.lotto:''}${e.formato?' · '+fmtTxt(e):''}`;
   if(e.tipo==='misura') return `Misura · ${vlab(e.vasca)} · ${hL(e.L)}`;
@@ -3145,6 +3154,7 @@ function evBody(e){
   if((e.tratte||[]).length>6){ const det=out.splice(o0); const tot=e.tratte.reduce((a,t)=>a+(t.L||0),0); const sv=e.tratte.filter(t=>t.svuota).length;
     out.push(`<li>${e.tratte.length} movimenti · ${hL(tot)} arrivati in tutto${sv?` · ${sv} contenitor${sv>1?'i':'e'} svuotat${sv>1?'i':'o'}`:''}</li><li style="list-style:none"><details><summary class="small" style="cursor:pointer">Dettaglio dei movimenti</summary><ul>${det.join('')}</ul></details></li>`); }
   if(e.tipo==='manutenzione'){ out.push(`<li>${e.vasche.map(c=>esc(vlab(c))).join(', ')}${e.giorni?` · per ${e.giorni} giorni, fino al ${fd(addDays(e.data,e.giorni))}`:''}</li>`); if((e.prodotti||[]).length) out.push(`<li>${e.prodotti.map(p=>`<b>${esc(p.prodotto)}</b> ${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):''}${p.volL&&p.dose!=null?` <span class="muted">(${qtaTeorica(p.dose,p.udm,p.volL)} su ${hL(p.volL)})</span>`:''}${p.reale?' · usata '+esc(p.reale):''}`).join(' · ')}</li>`); }
+  else if(e.tipo==='unifica'){ out.push(`<li>Da qui <b>${esc(vName(e.vino))}</b> risulta composto al 100% da sé stesso${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}. Le partite di origine restano in «Da dove viene» nella genealogia.</li>`); if(e.contoPrima) out.push(`<li>Prima: ${esc(e.contoPrima)} → dopo: <b>${esc(e.conto===''?NOSTRO+' (vino nostro)':e.conto)}</b></li>`); }
   else if(e.tipo==='certificazione'){ out.push(`<li>${e.inPlace?`<b>${esc(vName(e.vino))}</b> certificato: la scheda passa da «Atto a DOP» a DOP`:`Da <b>${vNameSub(e.vino)}</b> a <b>${vNameSub(e.nuovoVino)}</b>`}${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}</li>`); if(e.idoneita) out.push(`<li>Codice idoneità: <b>${esc(e.idoneita)}</b></li>`); }
   else if(e.vasche&&e.vasche.length) out.push(`<li>${e.vasche.length>6?'Contenitori trattati':'Vasche trattate'}: ${esc(elencoV(e.vasche))}</li>`);
   (e.perdite||[]).forEach((p,k)=>{ const L=((RA.diffCalc||{})[e.id+'_p'+k]||{}).calc; out.push(`<li>${esc(vlab(p.vasca))}: ${esc(DIFF[p.tipo]||p.tipo)} <b>${hL(L!=null?L:(p.L||0))}</b>${p.volDopo!=null?` <span class="muted">(volume dopo l'operazione ${hL(p.volDopo)})</span>`:''}${p.tipo==='recupero'&&p.feccDest?' in '+esc(vlab(p.feccDest)):''}${p.tipo==='verificare'?(verTxt('ver:'+e.id+'_p'+k)||' · <span class="chip warn">da verificare</span> <span class="muted">(Inventario → Differenze aperte)</span>'):''}</li>`); });
@@ -3172,7 +3182,7 @@ function evRow0(e,opts={}){
   return `<div class="ev" ${st?'style="opacity:.6"':''}>
     <div class="d">${fd(e.data)}<small>${esc(e.fase||'')}</small></div>
     <div class="what"><b>${esc(evTitle(e))}</b><div class="row">${badges.join('')}</div>${evBody(e)}${e.note?`<div class="nt">${esc(e.note)}</div>`:''}${e.motivoCorr?`<div class="nt">Motivo correzione: ${esc(e.motivoCorr)}</div>`:''}</div>
-    <div class="ops">${!st&&!opts.noOps?`${!e.storico&&e.tipo!=='stato'&&e.tipo!=='fineLav'&&e.tipo!=='fineMan'&&e.tipo!=='certificazione'&&e.tipo!=='fermentazione'?`<button class="btn sm" data-corr="${e.id}">Correggi</button>`:''}<button class="btn sm danger" data-ann="${e.id}">Annulla</button>`:''}</div>
+    <div class="ops">${!st&&!opts.noOps?`${!e.storico&&e.tipo!=='stato'&&e.tipo!=='fineLav'&&e.tipo!=='fineMan'&&e.tipo!=='certificazione'&&e.tipo!=='fermentazione'&&e.tipo!=='unifica'?`<button class="btn sm" data-corr="${e.id}">Correggi</button>`:''}<button class="btn sm danger" data-ann="${e.id}">Annulla</button>`:''}</div>
   </div>`;
 }
 function bindEvOps(root){
@@ -3662,7 +3672,8 @@ function formLavorazione(p={},corrId){
           <label><input type="radio" name="r${c.idx}" value="${c.vinoIn}"> ${esc((tmpVini.find(x=>x.id===c.vinoIn)||{}).nome||vName(c.vinoIn))}</label>
           <label><input type="radio" name="r${c.idx}" value="__new"> un nuovo vino</label>
           <div class="fg rs-new" hidden style="margin-top:6px">${vinoPicker('rs'+c.idx,null)}</div></fieldset>`).join('')}
-          <p class="small" style="margin:8px 0 0">La provenienza viene conservata in ogni caso. Le analisi precedenti non passano al vino risultante.</p></div>`:'');
+          <p class="small" style="margin:8px 0 0">La provenienza viene conservata in ogni caso. Le analisi precedenti non passano al vino risultante.</p>
+          ${corrId?'':`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:400"><input type="checkbox" id="cf-uni" style="margin-top:3px"> <span><b>Rendi vino unico</b> dove si uniscono: da qui la composizione mostrerà solo il vino risultante (100%), senza le partite di prima. Le origini restano in «Da dove viene» nella genealogia.${(()=>{ const cs=new Set(); cf.forEach(c=>{ contoVasca(c.dest).forEach(([x])=>cs.add(x)); (ev.tratte||[]).filter(t=>t.a===c.dest&&t.da).forEach(t=>contoVasca(t.da).forEach(([x])=>cs.add(x))); }); return cs.size>1?`<br><span style="color:var(--warn)"><b>Attenzione:</b> si uniscono vini di conti diversi (${[...cs].map(x=>esc(x===NOSTRO?'vino nostro':x)).join(', ')}): il vino unico risulterà ${cs.has(NOSTRO)?'<b>vino nostro</b>':'del conto prevalente'}. Se non è giusto, non spuntare e usa poi «Rendi vino unico» dalla pagina del vino, dove scegli tu.</span>`:''; })()}</span></label>`}</div>`:'');
         $$('#conf fieldset[data-ci]',b).forEach(fs=>{ const box=$('.rs-new',fs); if(!box) return; const px='rs'+fs.dataset.ci; pickerBind(fs,px);
           const cc=sim.conflitti[ev.id].find(c=>c.idx===+fs.dataset.ci); const vin=vino(cc&&cc.vinoDest)||{}; if(vin.annata) annSet(fs,px,vin.annata);
           $$('input[type=radio]',fs).forEach(x=>x.onchange=()=>{ box.hidden=$('input:checked',fs).value!=='__new'; }); });
@@ -3671,7 +3682,16 @@ function formLavorazione(p={},corrId){
       tmpVini.forEach(v=>{ if(!vino(v.id)) S.vini.push(v); });
       // nuovi prodotti nel catalogo
       aggiunte.forEach(a=>{ if(!S.prodotti.some(x=>x.nome.toLowerCase()===a.prodotto.toLowerCase())) S.prodotti.push({nome:a.prodotto,udm:a.udm,daUso:true}); });
-      storeEvent(ev,corrId); close(); refresh(); toast(corrId?'Correzione salvata':'Lavorazione salvata');
+      const uni=!corrId&&$('#cf-uni',b)&&$('#cf-uni',b).checked, uDest=uni?[...new Set([...(sim.conflitti[ev.id]||[]).map(c=>c.dest),...(ev.tratte||[]).filter(t=>t.risultante&&t.a).map(t=>t.a)])]:[];
+      storeEvent(ev,corrId); close(); refresh();
+      if(uDest.length){ const perV={}; uDest.forEach(c=>{ const s=R.st[c]; if(s&&s.vino&&s.node) (perV[s.vino]=perV[s.vino]||[]).push(c); });
+        Object.entries(perV).forEach(([vid,vv],k)=>{ const g={}; vv.forEach(c=>contoVasca(c).forEach(([ct,f])=>{ g[ct]=(g[ct]||0)+f*R.st[c].L; })); const cs=Object.entries(g).sort((a,b2)=>b2[1]-a[1]);
+          const ct=cs.length>1?(cs.some(([x])=>x===NOSTRO)?NOSTRO:cs[0][0]):(cs[0]?cs[0][0]:NOSTRO);
+          const pv={}; vv.forEach(c=>provVasca(c).forEach(([p])=>{ if(p!=='Provenienza non indicata') pv[p]=1; })); const pvs=Object.keys(pv);
+          S.eventi.push({id:uid(),tipo:'unifica',data:ev.data,ord:ev.ord+0.5+k*0.01,fase:ev.fase||'Affinamento',vino:vid,vasche:vv,conto:ct===NOSTRO?'':ct,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
+            contoPrima:cs.length>1?cs.map(([x,L])=>(x===NOSTRO?'vino nostro':x)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()}); });
+        save(); refresh(); }
+      toast(corrId?'Correzione salvata':uDest.length?'Lavorazione salvata · vino unico':'Lavorazione salvata');
     };
   });
 }
@@ -3947,7 +3967,7 @@ function contoVasca(code){ const s=R.st[code]; if(!s||!s.node) return []; const 
 const noteConto = ct=>ct===NOSTRO?(S.notaNostro!=null?S.notaNostro:NOSTRO):ct===CONTO_ND?'':((contiList().find(x=>x.nome===ct)||{}).nota??('Conto lavorazione '+ct));
 function setNotaConto(ct,t){ if(ct===NOSTRO) S.notaNostro=t; else if(ct!==CONTO_ND){ const cl=contiList(); S.conti=cl.some(x=>x.nome===ct)?cl.map(x=>x.nome===ct?{...x,nota:t}:x):[...cl,{nome:ct,nota:t}]; } }
 function provVasca(code){ const s=R.st[code]; if(!s||!s.node) return []; const c=comp(s.node), g={};
-  for(const k in c){ const n=R.nodes[k]; const e=n&&S.eventi.find(x=>x.id===n.ev); const pv=(e&&e.tipo==='carico'&&e.provenienza)||'Provenienza non indicata'; g[pv]=(g[pv]||0)+c[k]; }
+  for(const k in c){ const n=R.nodes[k]; const e=n&&S.eventi.find(x=>x.id===n.ev); const pv=(n&&n.unico&&n.prov)||(e&&e.tipo==='carico'&&e.provenienza)||'Provenienza non indicata'; g[pv]=(g[pv]||0)+c[k]; }
   return Object.entries(g).sort((a,b)=>b[1]-a[1]); }
 const noteProv = pv=>((S.notaProv||{})[pv]!=null?S.notaProv[pv]:(NOTE_PROV_DEF[pv]!=null?NOTE_PROV_DEF[pv]:(pv==='Provenienza non indicata'?'':'Conto lavorazione '+pv)));
 function formCartello(code){
@@ -4158,6 +4178,34 @@ function viewVini(app){
   $('#nimp',app).onclick=()=>formReferto('');
   $('#vz',app).onchange=e=>{ UI.showZero=e.target.checked; try{localStorage.setItem('gcg-showzero',UI.showZero?'1':'');}catch(x){} viewVini(app); };
 }
+/* ===================== Rendi vino unico ===================== */
+function formUnifica(vid,pre){ const w=vino(vid); if(!w) return;
+  const vs=vascheDelVino(vid).filter(c=>R.st[c].node);
+  const info=c=>{ const n=R.nodes[R.st[c].node]; const G=genData(R.st[c].node); const parti=Object.keys(G.compo).filter(k=>G.compo[k]>1e-9).length; return {n,parti,conti:contoVasca(c),prov:provVasca(c)}; };
+  const sel0=pre&&pre.length?pre:vs;
+  modal('Rendi vino unico · '+vName(vid),`<form id="fu" novalidate>
+    <p style="margin:0 0 8px">Da questa data <b>${esc(vName(vid))}</b> risulterà composto al <b>100% da sé stesso</b>: la composizione non elencherà più le partite di prima. Le registrazioni restano tutte, e le partite di origine si vedono con «Da dove viene» nella genealogia. Si annulla dal Registro.</p>
+    <div class="fg"><label class="f">Data<input type="date" id="u-d" value="${today()}" max="${today()}"></label></div>
+    <fieldset class="lvf"><legend>Vasche</legend>${vs.map(c=>{ const x=info(c); return `<label class="row" style="gap:8px;margin:4px 0"><input type="checkbox" class="u-v" value="${esc(c)}" ${sel0.includes(c)?'checked':''}> <b>${esc(vlab(c))}</b> · ${hL(R.st[c].L)} <span class="muted small">${x.n&&x.n.leaf?'già un\'unica partita':x.parti+' parti'}${x.conti.length>1?' · '+x.conti.map(([ct,f])=>esc(ct===NOSTRO?'vino nostro':ct)+' '+nf(f*100,0)+'%').join(', '):''}</span></label>`; }).join('')}</fieldset>
+    <div id="u-cw"></div>
+    <div id="msg" class="err"></div><div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Rendi vino unico</button></div></form>`,(b,close)=>{
+    const sel=()=>$$('.u-v',b).filter(x=>x.checked).map(x=>x.value);
+    const conti=()=>{ const g={}; sel().forEach(c=>contoVasca(c).forEach(([ct,f])=>{ g[ct]=(g[ct]||0)+f*R.st[c].L; })); return Object.entries(g).sort((a,b2)=>b2[1]-a[1]); };
+    const upd=()=>{ const cs=conti(); const cw=$('#u-cw',b);
+      if(cs.length>1){ const def=cs.some(([ct])=>ct===NOSTRO)?NOSTRO:cs[0][0];
+        cw.innerHTML=`<div class="box warn" style="color:var(--ink)"><b>Attenzione: vino di conti diversi.</b> ${cs.map(([ct,L])=>esc(ct===NOSTRO?'vino nostro':'conto '+ct)+' '+hL(L)).join(' · ')}. Diventando vino unico avrà un solo proprietario.
+          <label class="f" style="margin-top:6px;max-width:320px">Di chi è il vino unico<select id="u-ct">${cs.map(([ct])=>`<option value="${esc(ct===NOSTRO?'':ct)}" ${ct===def?'selected':''}>${esc(ct===NOSTRO?'Vino nostro':ct)}</option>`).join('')}</select></label></div>`; }
+      else cw.innerHTML=''; };
+    $$('.u-v',b).forEach(x=>x.onchange=upd); upd();
+    $('#fu',b).onsubmit=e=>{ e.preventDefault(); const m=$('#msg',b); const vv=sel(), data=$('#u-d',b).value||today();
+      if(!vv.length){ m.textContent='Scegli almeno una vasca.'; return; }
+      const cs=conti(); const ctSel=$('#u-ct',b); const conto=ctSel?ctSel.value:(cs[0]?(cs[0][0]===NOSTRO?'':cs[0][0]):'');
+      const pv={}; vv.forEach(c=>provVasca(c).forEach(([p,f])=>{ pv[p]=(pv[p]||0)+f; })); const pvs=Object.keys(pv).filter(p=>p!=='Provenienza non indicata');
+      const ev={id:uid(),tipo:'unifica',data,ord:Date.now(),fase:'Affinamento',vino:vid,vasche:vv,conto,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
+        contoPrima:cs.length>1?cs.map(([ct,L])=>(ct===NOSTRO?'vino nostro':ct)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()};
+      S.eventi.push(ev); save(); close(); refresh(); toast(vName(vid)+' è ora un vino unico'); };
+  });
+}
 function formVino(p={},opt={}){ const cert=!!(opt.cert&&p.id&&p.categoria==='Atto a DOP');
   modal(cert?'Certificazione DOP · '+vName(p.id):p.id?'Modifica vino':'Nuovo vino',`<form id="fv" novalidate><div class="fg">
     ${cert?certBlock(p,opt.cert):''}<div ${cert?'hidden':'style="display:contents"'}>${vinoPicker('v',p.id?p:null)}
@@ -4222,7 +4270,7 @@ function viewVino(app,id){
       <div class="row"><span class="big num" style="font-family:var(--f-display);font-size:1.6rem;font-weight:600">${hL(t.L)}${v.fecce&&t.L>0?` <span class="muted" style="font-size:1rem">≈ ${nf(t.L*KG_L,0)} kg</span>`:''}</span>
       <span class="row" style="gap:4px">${t.vs.map(c=>`<span class="chip ${R.st[c].pronto?'pronto':''}">${esc(vlab(c))} · ${hL(R.st[c].L)}${R.st[c].pronto?' · pronto':''}</span>`).join('')}</span></div></div>
     ${!t.L&&!tAll.L&&!Object.values(RA.evVini||{}).some(x=>x.has(id))?`<div class="box ok small" style="margin-top:10px">Vino nuovo, senza giacenza: per metterlo in cantina usa <b>Entrata vino</b> dal pannello di una vasca, oppure una pigiatura in Vendemmia.</div>`:''}
-    <div class="actions"><button class="btn pri" id="a-lav">Nuova lavorazione</button><button class="btn" id="a-an">Nuova analisi</button><button class="btn" id="a-imp">Importa referto</button>${v.categoria==='Atto a DOP'&&t.vs.length?'<button class="btn" id="a-cert">Certifica DOP</button>':''}<button class="btn" id="a-ed">Modifica scheda</button></div>
+    <div class="actions"><button class="btn pri" id="a-lav">Nuova lavorazione</button><button class="btn" id="a-an">Nuova analisi</button><button class="btn" id="a-imp">Importa referto</button>${v.categoria==='Atto a DOP'&&t.vs.length?'<button class="btn" id="a-cert">Certifica DOP</button>':''}${t.vs.some(c=>{ const n=R.nodes[R.st[c].node]; return n&&!n.leaf; })?'<button class="btn" id="a-uni">Rendi vino unico</button>':''}<button class="btn" id="a-ed">Modifica scheda</button></div>
   </div>
   <div class="panel">
     <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${UI.vinoTab===k}" data-tab="${k}">${l}</button>`).join('')}</div>
@@ -4266,6 +4314,7 @@ function viewVino(app,id){
   $('#a-an',app).onclick=()=>formAnalisi(id);
   $('#a-imp',app).onclick=()=>formReferto(id);
   $('#a-ed',app).onclick=()=>formVino(v);
+  { const x=$('#a-uni',app); if(x){ const VS=UI.vinoSel&&UI.vinoSel.id===id?UI.vinoSel.cs.filter(c=>t.vs.includes(c)):[]; if(VS.length) x.textContent=`Rendi vino unico (${VS.length} vasch${VS.length===1?'a':'e'})`; x.onclick=()=>formUnifica(id,VS); } }
   { const x=$('#a-cert',app); if(x){ const VS=UI.vinoSel&&UI.vinoSel.id===id?UI.vinoSel.cs.filter(c=>t.vs.includes(c)):[]; if(VS.length) x.textContent=`Certifica DOP (${VS.length} vasch${VS.length===1?'a':'e'})`; x.onclick=()=>formVino(v,{cert:VS}); } }
   vfBarBind(app,live=>{ if(live) return; viewVino(app,id); });
   { const q=$('#vf-q',app); q.oninput=e=>{ UI.vf.q=e.target.value; vfStore(); }; q.onchange=()=>viewVino(app,id); q.onkeydown=e=>{ if(e.key==='Enter') viewVino(app,id); }; }
