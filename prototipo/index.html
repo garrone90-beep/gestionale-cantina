@@ -3714,7 +3714,7 @@ function formCarico(p={},corrId){
    </div>
    <fieldset class="lvf"><legend>Vasche e quantità</legend>
     <div id="c-rows"></div>
-    <div class="row">${corrId?'':'<button type="button" class="btn sm" id="c-add">+ Aggiungi vasca</button><button type="button" class="btn sm ghost" id="c-multi" title="Barrique, botti o vasche: sceglile per locale, tipo e fila">Più contenitori insieme…</button>'}<label class="f" style="max-width:110px">Unità${unitSel('c-u')}</label>
+    <div class="row"><button type="button" class="btn sm" id="c-add">+ Aggiungi vasca</button><button type="button" class="btn sm ghost" id="c-multi" title="Barrique, botti o vasche: sceglile per locale, tipo e fila">Più contenitori insieme…</button><label class="f" style="max-width:110px">Unità${unitSel('c-u')}</label>
      <label class="f" style="max-width:160px">Volume<select id="c-s"><option value="stimato">stimato</option><option value="misurato" ${p.stima==='misurato'?'selected':''}>misurato</option></select></label>
      <span class="muted small" id="c-tot"></span></div>
     <p class="hint" style="margin:0">Lo stesso vino può entrare in più vasche: per il programma resta un'unica partita, divisa nelle vasche.</p>
@@ -3766,7 +3766,7 @@ function formCarico(p={},corrId){
       if(new Set(rows.map(r=>r.vasca)).size<rows.length){m.textContent='La stessa vasca è scritta due volte: unisci le quantità in una riga.';return;}
       if(fv&&pickerErr(fv)){m.textContent='Vino: '+pickerErr(fv)+'.';return;}
       const rv=fv?pickerResolve(fv):{id:fecceScheda().id,nuovo:null}; let vid=rv.id, nv=rv.nuovo;
-      const data=$('#c-data',b).value||today(); const base=Date.now(); const grp=rows.length>1?'g'+uid():null;
+      const data=$('#c-data',b).value||today(); const base=Date.now(); const o0=corrId?S.eventi.find(x=>x.id===corrId):null; const grp=rows.length>1?((o0&&o0.gruppo)||'g'+uid()):null;
       const evs=rows.map((r,i)=>{ const ev={id:uid(),tipo:'carico',data,ord:base+i,fase:'Affinamento',vasca:r.vasca,vino:vid,L:r.L,stima:$('#c-s',b).value,provenienza:$('#c-p',b).value.trim(),conto:$('#c-ct',b).value,prodotto:(isF()?'':$('#c-tp',b).value)||undefined,apertura:!!(corrId&&p.apertura),note:$('#c-note',b).value.trim(),creatoIl:new Date().toISOString()};
         if(grp) ev.gruppo=grp; return ev; });
       if(corrId){const o=S.eventi.find(x=>x.id===corrId); if(o.data===data) evs[0].ord=o.ord; if(o.gruppo) evs[0].gruppo=o.gruppo;}
