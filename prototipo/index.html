@@ -5244,7 +5244,7 @@ function catPanel(box){ const D={te:teList().map(x=>({...x,_old:x.id})),cat:catL
       return `<tr data-ca="${i}"><td><input class="ce-n" value="${esc(x.nome)}" aria-label="Nome della categoria"></td>
         <td>${x.base?`<span class="muted small">${esc(CAT_COMP[x.comp])}</span>`:`<select class="ce-c" ${usata?'disabled title="Già usata: non si può cambiare"':''}>${opt(CAT_COMP,x.comp)}</select>`}</td>
         <td>${x.comp==='gen'?(x.base?`<span class="muted small">${esc(x.colore)}</span>`:`<select class="ce-k" ${usata?'disabled':''}><option value="">da scegliere sul vino</option>${COLORI.map(c=>`<option ${x.colore===c?'selected':''}>${c}</option>`).join('')}</select>`):'<span class="muted small">da scegliere sul vino</span>'}</td>
-        <td>${x.comp==='atto'?`<select class="ce-z">${(dens.length?dens:['DOP']).map(d=>`<option ${sameTxt(x.cert||dens[0],d)?'selected':''}>${esc(d)}</option>`).join('')}</select>`:'<span class="muted small">—</span>'}</td>
+        <td>${x.comp==='atto'?`<select class="ce-z">${(dens.length?dens:['DOP']).map(d=>`<option ${sameTxt(x.cert||dens[0],d)?'selected':''}>${esc(d)}</option>`).join('')}</select><div class="muted small" style="margin-top:4px">Manca? Aggiungi la categoria con tipo «con denominazione»</div>`:'<span class="muted small">—</span>'}</td>
         <td><input type="checkbox" class="ce-h" ${x.nascosta?'checked':''} aria-label="Nascondi"></td><td>${x.base?'':usata?'<span class="muted small">usata</span>':`<button type="button" class="btn sm ghost" data-cax="${i}">Elimina</button>`}</td></tr>`; }).join('')}</tbody></table></div>
     <button type="button" class="btn sm" id="ce-cadd" style="margin-top:6px">+ Aggiungi categoria</button>
     <p class="hint" style="margin-top:8px">Esempi: «DOC» e «DOCG» con tipo «con denominazione»; «Atto a DOCG» con tipo «atto a», certificabile in DOCG; «IGT» con denominazione. La categoria «Varietale» chiede la varietà e il vino prende il nome da quella (es. «Barbera 2025»).</p>
@@ -5254,6 +5254,10 @@ function catPanel(box){ const D={te:teList().map(x=>({...x,_old:x.id})),cat:catL
     $$('[data-tex]',box).forEach(x=>x.onclick=()=>{ leggi(); D.te.splice(+x.dataset.tex,1); draw(); });
     $$('[data-cax]',box).forEach(x=>x.onclick=()=>{ leggi(); D.cat.splice(+x.dataset.cax,1); draw(); });
     $$('.ce-c',box).forEach(x=>x.onchange=()=>{ leggi(); draw(); });
+    /* le categorie «con denominazione» scritte ora compaiono subito in «Certificabile in» */
+    $$('tr[data-ca] .ce-n',box).forEach(x=>x.addEventListener('input',()=>{ leggi(); const ds=D.cat.filter(c=>c.comp==='den'&&c.nome.trim()).map(c=>c.nome.trim());
+      $$('tr[data-ca]',box).forEach(r=>{ const z=$('.ce-z',r); if(!z) return; const c=D.cat[+r.dataset.ca], cur=z.value;
+        z.innerHTML=(ds.length?ds:['DOP']).map(d=>`<option ${sameTxt(cur,d)||(!ds.some(y=>sameTxt(y,cur))&&sameTxt(c.cert,d))?'selected':''}>${esc(d)}</option>`).join(''); }); }));
     $('#ce-s',box).onclick=()=>{ leggi(); const m=$('#ce-msg',box); m.textContent='';
       for(const L of [D.te,D.cat]){ L.forEach(x=>x.nome=x.nome.trim().replace(/\s+/g,' ')); if(L.some(x=>!x.nome)) return m.textContent='Ogni voce deve avere un nome (togli le righe vuote con «Elimina»).';
         const nn=L.map(x=>x.nome.toLowerCase()); if(new Set(nn).size<nn.length) return m.textContent='Ci sono due voci con lo stesso nome: '+nn.find((x,i)=>nn.indexOf(x)!==i)+'.'; }
