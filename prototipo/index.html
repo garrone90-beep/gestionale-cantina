@@ -1948,9 +1948,10 @@ const LTIPI = {
 };
 /* tipologie dei lavori: quelle fisse più le voci dell'elenco lavorazioni di Dati */
 const lavVociDati = ()=>[...new Set([...lavList('Vinificazione'),...lavList('Affinamento')])].filter(v=>v&&!LTIPI[v]&&!/^travaso$/i.test(v));
-const lavTipiNomi = ()=>[...Object.keys(LTIPI).filter(k=>k!=='Operazione generica'),...lavVociDati(),'Operazione generica'];
+const alfa = a=>[...a].sort((x,y)=>x.localeCompare(y,'it',{sensitivity:'base'}));
+const lavTipiNomi = ()=>[...alfa(Object.keys(LTIPI).filter(k=>k!=='Operazione generica')),...alfa(lavVociDati()),'Operazione generica'];
 const LT = t=>LTIPI[t]||(lavVociDati().includes(t)?{vas:'Vasche',vol:true,prod:true,reg:'lav',voce:true}:{vas:'Vasche (facoltative)',opt:true,reg:null});
-const lavTipiOpts = sel=>{ const fix=Object.keys(LTIPI).filter(k=>k!=='Operazione generica'), dat=lavVociDati(); const o=t=>`<option ${sel===t?'selected':''}>${esc(t)}</option>`;
+const lavTipiOpts = sel=>{ const fix=alfa(Object.keys(LTIPI).filter(k=>k!=='Operazione generica')), dat=alfa(lavVociDati()); const o=t=>`<option ${sel===t?'selected':''}>${esc(t)}</option>`;
   return `<optgroup label="Lavori">${fix.map(o).join('')}</optgroup>${dat.length?`<optgroup label="Dall'elenco lavorazioni (Dati)">${dat.map(o).join('')}</optgroup>`:''}<optgroup label="Altro">${o('Operazione generica')}${sel&&!fix.includes(sel)&&!dat.includes(sel)&&sel!=='Operazione generica'?o(sel):''}</optgroup>`; };
 /* Stati: un lavoro è fatto o non fatto. «In corso» non c'è più (i vecchi tornano «Da fare»). */
 const LSTATI = {segnalato:'Segnalato',bozza:'Bozza',dafare:'Da fare',incorso:'Da fare',eseguito:'Fatto · da convalidare',convalidato:'Convalidato',noneseguito:'Non fatto',annullato:'Annullato'};
