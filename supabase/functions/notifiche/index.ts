@@ -66,7 +66,11 @@ Deno.serve(async (req: Request) => {
     const opUrl = (id: string) => P.find((p) => p.id === id)?.ruolo === "operatore" ? "/#operatore" : "/#lavori";
     const inviati: string[] = [];
     const a = async (ids: string[], title: string, corpo: string) => {
-      for (const id of ids) { await manda([id], { title, body: corpo, url: opUrl(id), tag: "lav-" + n.id }); inviati.push(title); }
+      /* agli operatori nessuna anteprima: solo il titolo dell'avviso (es. «Nuovo lavoro per te») */
+      for (const id of ids) {
+        const op = P.find((p) => p.id === id)?.ruolo === "operatore";
+        await manda([id], { title, body: op ? "Apri l'app per vedere i dettagli" : corpo, url: opUrl(id), tag: "lav-" + n.id }); inviati.push(title);
+      }
     };
     if (APERTI.includes(n.stato) && n.assegnato && (!o || !APERTI.includes(o.stato) || norm(o.assegnato) !== norm(n.assegnato))) {
       await a(assegnato(n), (n.priorita === "alta" ? "Urgente · " : "") + "Nuovo lavoro per te", `${titolo(n)} · ${quando(n)}`);
