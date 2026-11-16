@@ -45,10 +45,10 @@ rep("$('#rf-demo',b).onclick=", "if($('#rf-demo',b)) $('#rf-demo',b).onclick=")
 rep('<p>In questo prototipo tutto resta nel browser che stai usando: non viene caricato nessun dato su server o cloud. Se cancelli i dati del browser o cambi dispositivo, li perdi: per questo conviene fare spesso una copia di backup.</p>',
     '<p>I dati sono salvati online (database della cantina) e sono gli stessi da ogni computer, tablet o telefono dopo l\'accesso. Ogni modifica si salva da sola: lo stato è indicato in basso nel menu. Il backup resta utile come copia di sicurezza.</p>')
 
-# titolo della pagina
-s = re.sub(r'<title>[^<]*</title>', '<title>Cantina Pratica</title>', s, count=1)
-if '<title>' not in s:
-    s = s.replace('<meta charset=utf8>', '<meta charset=utf8><title>Cantina Pratica</title>', 1)
+# titolo della pagina: sempre dentro <head> (Chrome su Android legge il manifest solo da lì)
+s = re.sub(r'<title>[^<]*</title>', '', s, count=1)
+assert '<meta charset=utf8>' in s
+s = s.replace('<meta charset=utf8>', '<meta charset=utf8><title>Cantina Pratica</title>', 1)
 
 # icona e apertura a schermo intero quando il sito si aggiunge alla schermata Home (uguale per tutte le cantine)
 TESTA = ('<link rel="manifest" href="/manifest.webmanifest">'
