@@ -16,6 +16,8 @@ const txt = (s: unknown, n = 2000) => String(s ?? "").slice(0, n);
 const IMP = ["azienda", "locali", "recipienti", "prodotti", "prodBase", "v", "pulizia1", "lavorazioni", "parametri", "oinosImportato",
   "fecceUnificate", "profilo", "denominazioni", "varieta", "ultimoBackup", "contiOk", "routine", "scalaFerm", "verifiche"];
 const APERTI = ["dafare", "incorso"];
+/* arrivo vino: all'operatore non arriva mai da chi viene il vino */
+const pulito = (l: any) => l && l.arr ? { ...l, arr: { fornitore: "", partite: (Array.isArray(l.arr.partite) ? l.arr.partite : []).map((p: any) => ({ ...p, da: "" })) } } : l;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -102,7 +104,7 @@ Deno.serve(async (req: Request) => {
       assegnato: l.assegnato || "", vasche: [...new Set([...(Array.isArray(l.vasche) ? l.vasche : []), ...(Array.isArray(l.mov) ? l.mov.flatMap((m: any) => [m?.da, m?.a]) : [])].filter((c: any) => typeof c === "string" && c && c !== "?"))], mov: [], prodotti: [], istruzioni: "", _v: 2, ridotto: true,
       creatoIl: l.creatoIl, modificatoIl: l.modificatoIl, segnalazione: l.segnalazione,
       esec: l.esec ? { dichiaratoIl: l.esec.dichiaratoIl, il: l.esec.il } : undefined, convalida: l.convalida ? { il: l.convalida.il, ev: l.convalida.ev ? true : undefined } : undefined, storia: [] });
-    const lavoriOut = lavori.map((l: any) => suo(l) && APERTI.includes(l.stato) ? l : ridotto(l));
+    const lavoriOut = lavori.map((l: any) => suo(l) && APERTI.includes(l.stato) ? pulito(l) : ridotto(l));
     return out({ nome: prof.nome, S, lavori: lavoriOut, vini });
   }
 
@@ -140,7 +142,7 @@ Deno.serve(async (req: Request) => {
     if (error) return out({ code: "db_error", message: error.message }, 500);
     const l: any = r?.data;
     if (!l || !suo(l)) return out({ code: "not_found", message: "Lavoro non trovato o non assegnato a te" }, 404);
-    if (!APERTI.includes(l.stato)) return out({ code: "conflict", message: "Il lavoro è già stato segnalato o modificato dal responsabile", lavoro: l }, 409);
+    if (!APERTI.includes(l.stato)) return out({ code: "conflict", message: "Il lavoro è già stato segnalato o modificato dal responsabile", lavoro: pulito(l) }, 409);
     const e = body.esec ?? {};
     const now = new Date().toISOString();
     const arr = (a: unknown, n: number) => Array.isArray(a) ? a.slice(0, n) : null;
@@ -159,7 +161,7 @@ Deno.serve(async (req: Request) => {
     (l.storia = Array.isArray(l.storia) ? l.storia : []).push({ il: now, stato, nota: txt(body.nota, 300) || (stato === "eseguito" ? "Fatto" : "Non fatto") + " — dichiarato da " + prof.nome });
     const { error: ue } = await adm.from("record").update({ data: l }).eq("tipo", "lavoro").eq("id", id);
     if (ue) return out({ code: "db_error", message: ue.message }, 500);
-    return out({ ok: true, lavoro: l });
+    return out({ ok: true, lavoro: pulito(l) });
   }
   return out({ code: "bad_request", message: "Azione sconosciuta" }, 400);
 });

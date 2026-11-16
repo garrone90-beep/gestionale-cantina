@@ -2000,8 +2000,9 @@ function ptQtaL(m,mv){ const p=ptDi(m.da); if(!p) return null; if(m.q==='hL') re
 function arrTxt(l){ const a=l.arr; if(!a) return ''; const mv=l.mov||[];
   return (a.partite||[]).map(p=>{ const ds=mv.filter(m=>m.da==='P:'+p.id); return {p,ds:ds.map(m=>({a:m.a,q:m.q,L:ptQtaL(m,mv)}))}; }); }
 function arrHTML(l,op){ const xs=arrTxt(l); if(!xs.length) return '';
-  return `${l.arr.fornitore?`<p class="small" style="margin:0 0 4px">Da: <b>${esc(l.arr.fornitore)}</b></p>`:''}<ul class="op-list" style="list-style:none;padding-left:0">${xs.map(({p,ds})=>`<li style="margin-bottom:8px"><b>${esc(ptNome(p))}</b> — ${p.L?hL(p.L):'<span class="muted">quantità da definire</span>'}
-    ${p.da&&p.da!==l.arr.fornitore?`<span class="small muted"> · da ${esc(p.da)}</span>`:''}
+  /* all'operatore non si mostra mai da chi arriva il vino */
+  return `${!op&&l.arr.fornitore?`<p class="small" style="margin:0 0 4px">Da: <b>${esc(l.arr.fornitore)}</b></p>`:''}<ul class="op-list" style="list-style:none;padding-left:0">${xs.map(({p,ds})=>`<li style="margin-bottom:8px"><b>${esc(ptNome(p))}</b> — ${p.L?hL(p.L):'<span class="muted">quantità da definire</span>'}
+    ${!op&&p.da&&p.da!==l.arr.fornitore?`<span class="small muted"> · da ${esc(p.da)}</span>`:''}
     <ul style="margin:2px 0 0;padding-left:18px">${ds.length?ds.map(d=>`<li>→ ${d.a==='?'?'<b>vasca da concordare</b>':'<b>'+esc(vlab(d.a))+'</b>'}: ${d.q==='tutto'?(ds.length>1?'il resto':'tutto')+(d.L?' ('+hL(d.L)+')':''):d.L?hL(d.L):'<span class="muted">da definire</span>'}</li>`).join(''):'<li class="muted">nessuna vasca indicata</li>'}</ul></li>`).join('')}</ul>`; }
 function movQtaL(m,st,mv){ if(/^P:/.test(m.da||'')) return ptQtaL(m,mv||[]); if(m.q==='hL') return m.L||null; if(m.q==='tutto'){ const n=mv.filter(x=>x.da===m.da).length; return n===1?((st[m.da]||{}).L||null):null; } return null; }
 function prodVolRif(l,p,st){ const cs=prodSu(l,p), mv=lavMov(l);
