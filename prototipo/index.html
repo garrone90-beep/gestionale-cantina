@@ -2001,6 +2001,7 @@ function arrTxt(l){ const a=l.arr; if(!a) return ''; const mv=l.mov||[];
   return (a.partite||[]).map(p=>{ const ds=mv.filter(m=>m.da==='P:'+p.id); return {p,ds:ds.map(m=>({a:m.a,q:m.q,L:ptQtaL(m,mv)}))}; }); }
 function arrHTML(l,op){ const xs=arrTxt(l); if(!xs.length) return '';
   return `${l.arr.fornitore?`<p class="small" style="margin:0 0 4px">Da: <b>${esc(l.arr.fornitore)}</b></p>`:''}<ul class="op-list" style="list-style:none;padding-left:0">${xs.map(({p,ds})=>`<li style="margin-bottom:8px"><b>${esc(ptNome(p))}</b> — ${p.L?hL(p.L):'<span class="muted">quantità da definire</span>'}
+    ${p.da&&p.da!==l.arr.fornitore?`<span class="small muted"> · da ${esc(p.da)}</span>`:''}
     <ul style="margin:2px 0 0;padding-left:18px">${ds.length?ds.map(d=>`<li>→ ${d.a==='?'?'<b>vasca da concordare</b>':'<b>'+esc(vlab(d.a))+'</b>'}: ${d.q==='tutto'?(ds.length>1?'il resto':'tutto')+(d.L?' ('+hL(d.L)+')':''):d.L?hL(d.L):'<span class="muted">da definire</span>'}</li>`).join(''):'<li class="muted">nessuna vasca indicata</li>'}</ul></li>`).join('')}</ul>`; }
 function movQtaL(m,st,mv){ if(/^P:/.test(m.da||'')) return ptQtaL(m,mv||[]); if(m.q==='hL') return m.L||null; if(m.q==='tutto'){ const n=mv.filter(x=>x.da===m.da).length; return n===1?((st[m.da]||{}).L||null):null; } return null; }
 function prodVolRif(l,p,st){ const cs=prodSu(l,p), mv=lavMov(l);
@@ -2253,13 +2254,17 @@ function formLavoro(ed,preset){
         <label class="f">Vino ${String.fromCharCode(65+i)}<select class="pt-v"><option value="">— vino nuovo: scrivi il nome —</option>${viniOrd.map(v=>`<option value="${esc(v.id)}" ${p.vino===v.id?'selected':''}>${esc(vName(v.id))}</option>`).join('')}</select></label>
         <label class="f">Nome del vino<input class="pt-d" value="${esc(p.desc||'')}" placeholder="${p.vino?'già tra i Vini':'es. Piemonte DOC Barbera 2025'}" ${p.vino?'disabled':''}></label>
         <label class="f">hL<input class="pt-L" inputmode="decimal" value="${p.L?nfIn(p.L/100,3):''}"></label>
-        <button type="button" class="btn sm ghost pt-x" ${pt.length<2?'disabled':''}>Togli</button></div>`).join('');
+        <button type="button" class="btn sm ghost pt-x" ${pt.length<2?'disabled':''}>Togli</button>
+        ${i>0?`<label class="f pt-dw" style="grid-column:1/-1;max-width:420px">Da chi arriva (vino ${String.fromCharCode(65+i)})<input class="pt-da" list="w-afl" value="${esc(p.da||$('#w-afor',b).value)}" placeholder="come sopra"></label>`:''}</div>`).join('');
       $$('.ptrow',b).forEach(r=>{ const p=pt[+r.dataset.i];
         $('.pt-v',r).onchange=e=>{ p.vino=e.target.value; if(p.vino) p.desc=''; renderPt(); renderRows(); upd(); };
         $('.pt-d',r).oninput=e=>{ p.desc=e.target.value; ptReg(); daLab(); upd(); };
         $('.pt-L',r).oninput=e=>{ p.L=toL(e.target.value,'hL'); ptReg(); daLab(); upd(); };
+        { const d=$('.pt-da',r); if(d) d.oninput=e=>{ p.da=e.target.value; }; }
         $('.pt-x',r).onclick=()=>{ const id='P:'+p.id; pt.splice(+r.dataset.i,1); mv=mv.filter(m=>m.da!==id); renderPt(); renderRows(); upd(); }; }); };
-    $('#w-apadd',b).onclick=()=>{ pt.push({id:uid(),vino:'',desc:'',L:null}); renderPt(); daLab(true); upd(); };
+    $('#w-apadd',b).onclick=()=>{ pt.push({id:uid(),vino:'',desc:'',L:null,da:$('#w-afor',b).value}); renderPt(); daLab(true); upd(); };
+    /* se cambia il fornitore principale, le partite che avevano lo stesso lo seguono */
+    { let fv=$('#w-afor',b).value; $('#w-afor',b).addEventListener('input',e=>{ const nv=e.target.value; pt.forEach((p,i)=>{ if(i>0&&(!p.da||p.da===fv)){ p.da=nv; const x=$(`.ptrow[data-i="${i}"] .pt-da`,b); if(x) x.value=nv; } }); fv=nv; }); }
     /* aggiorna i nomi delle partite nelle righe senza ridisegnarle (non perde quello che si sta scrivendo) */
     const daLab=nuove=>{ $$('.m-da',b).forEach(s=>{ const v=s.value; if(nuove) s.innerHTML=daOpt(v); else [...s.options].forEach(o=>{ const i=pt.findIndex(p=>'P:'+p.id===o.value); if(i>=0) o.textContent=String.fromCharCode(65+i)+' · '+ptNome(pt[i]); }); }); };
     const daOpt=sel=>isArr()?`<option value="">—</option>`+pt.map((p,i)=>`<option value="P:${esc(p.id)}" ${sel==='P:'+p.id?'selected':''}>${String.fromCharCode(65+i)} · ${esc(ptNome(p))}</option>`).join(''):vOpt(sel);
@@ -2388,7 +2393,7 @@ function formLavoro(ed,preset){
         else if(!isUtente(ass)) amb.push(`«${ass}» non è tra gli utenti: nessuno lo vede sul telefono.`); }
       const go=()=>{
         const now=new Date().toISOString();
-        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:ass,assegnatoEsterno:assEst,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map(p=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
+        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:ass,assegnatoEsterno:assEst,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
         if(ed){ const x=lavori().find(z=>z.id===ed.id); const prima=x.assegnato||'';
           if((x.stato==='bozza'||x.stato==='segnalato')&&!bz){ const sg=x.stato==='segnalato'; Object.assign(x,o); lavLog(x,'dafare',sg?'Programmato dalla segnalazione':'Programmato'); }
           else if(x.stato==='segnalato'&&bz){ Object.assign(x,o); lavLog(x,'bozza','Segnalazione trasformata in bozza'); }
@@ -2537,7 +2542,7 @@ function apriRegistrazione(l){
   avvisoNonAgg();
   if(T.reg==='arr'&&l.arr){ const ps=(l.arr.partite||[]).filter(p=>tratte.some((t,i)=>mv[i].da==='P:'+p.id));
     const apri=k=>{ const p=ps[k]; if(!p) return; const rows=mv.map((m,i)=>({m,t:tratte[i]})).filter(x=>x.m.da==='P:'+p.id).map(x=>({vasca:isCode(x.t.a)?x.t.a:'',L:x.t.L||movQtaL(x.m,st,mv)}));
-      formCarico({vasca:rows[0]?rows[0].vasca:'',L:rows[0]?rows[0].L:null,righe:rows,vino:p.vino&&vino(p.vino)?p.vino:'',nuovoNome:p.vino?'':p.desc,provenienza:l.arr.fornitore||'',data:today(),
+      formCarico({vasca:rows[0]?rows[0].vasca:'',L:rows[0]?rows[0].L:null,righe:rows,vino:p.vino&&vino(p.vino)?p.vino:'',nuovoNome:p.vino?'':p.desc,provenienza:p.da||l.arr.fornitore||'',data:today(),
         note:`${note}${ps.length>1?` · partita ${k+1} di ${ps.length}`:''}`,titoloExtra:ps.length>1?`Arrivo vino · partita ${k+1} di ${ps.length}: ${ptNome(p)}`:'Arrivo vino: '+ptNome(p),poi:k+1<ps.length?()=>apri(k+1):null}); };
     if(!ps.length){ UI.pendLav=null; toast('Nessuna partita con una vasca di destinazione'); return; }
     apri(0); return; }
