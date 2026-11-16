@@ -2324,6 +2324,8 @@ function formLavoro(ed,preset){
       $('#w-mf',b).hidden=!im; $('#w-cf',b).hidden=im||isImb(); $('#w-arr',b).hidden=!isArr(); $('#w-rsrc',b).hidden=isArr();
       $('#w-mflab',b).textContent=isArr()?'Destinazioni: in quali vasche va ogni partita':'Movimenti previsti'; if(isArr()) ptReg(); $('#w-imb',b).hidden=!isImb(); if(isImb()) updImb(); $('#w-vlab',b).textContent=t.vas&&!/^Da vasca|^Vasca da cui/.test(t.vas)?t.vas.replace(/^Vasche/,'Contenitori').replace('(facoltative)','(facoltativi)'):'Contenitori';
       if(im&&isArr()&&mv.some(m=>m.da&&!/^P:/.test(m.da))){ mv=[]; }
+      /* arrivo vino: ogni riga senza partita (o con una partita tolta) prende la partita A */
+      if(im&&isArr()&&pt[0]&&mv.some(m=>!pt.some(p=>'P:'+p.id===m.da))){ mv.forEach(m=>{ if(!pt.some(p=>'P:'+p.id===m.da)){ m.da='P:'+pt[0].id; if(m.q==='dadef') m.q='tutto'; } }); renderRows(); }
       if(im&&!mv.length){ mv=isArr()?[{da:pt[0]?'P:'+pt[0].id:'',a:'',q:'tutto',L:null}]:vs.length?vs.map(c=>({da:c,a:'',q:mode==='si'?'dadef':'tutto',L:null})):[{da:'',a:'',q:'dadef',L:null}]; renderRows(); }
       $('#w-tit',b).placeholder='proposto: '+(lavTitolo({...L,titolo:''})||tipo());
       const va=vs.reduce((s,c)=>s+((st[c]||{}).L||0),0);
