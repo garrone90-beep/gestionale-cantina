@@ -88,6 +88,8 @@ Deno.serve(async (req: Request) => {
     const { data: imp } = await adm.from("impostazioni").select("chiave,valore").in("chiave", IMP);
     const ids = new Set<string>();
     lavori.filter((l: any) => suo(l) && APERTI.includes(l.stato)).forEach((l: any) => [l.rif?.vasche, l.attuale?.vasche].forEach((o: any) => Object.values(o ?? {}).forEach((x: any) => { if (x?.vino) ids.add(String(x.vino)); })));
+    /* arrivo vino: i vini già esistenti delle partite in arrivo */
+    lavori.filter((l: any) => suo(l) && APERTI.includes(l.stato)).forEach((l: any) => (l.arr?.partite ?? []).forEach((p: any) => { if (p?.vino) ids.add(String(p.vino)); }));
     let vini: any[] = [];
     if (ids.size) {
       const { data: vr } = await adm.from("record").select("data").eq("tipo", "vino").in("id", [...ids]);
