@@ -5240,6 +5240,7 @@ function viewDati(app){
   <div class="panel"><h3>Azzera</h3><p class="hint">Scegli cosa cancellare. Le operazioni comprendono travasi, lavorazioni, entrate, misure, imbottigliamenti e registro: dopo, tutte le vasche risultano vuote. Cataloghi di parametri, prodotti ed elenco lavorazioni restano sempre.</p>
    <div class="row" style="flex-direction:column;align-items:flex-start;gap:6px;margin:6px 0">
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-op" checked disabled> <b>Operazioni e giacenze</b> (vasche vuote, registro e imbottigliamenti azzerati)</label>
+     <label class="row small" style="gap:6px"><input type="checkbox" id="z-lv" checked> <b>Lavori e segnalazioni</b> (programmati, fatti e storico)</label>
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-an"> Analisi</label>
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-vi"> Schede vino (comprende anche le analisi)</label>
      <label class="row small" style="gap:6px"><input type="checkbox" id="z-all"> <b>Tutto</b>: anche dati azienda, locali, contenitori ed elenchi — riparte il percorso iniziale come una cantina nuova</label>
@@ -5273,12 +5274,12 @@ $('#bk-dl',app).onclick=async()=>{ if(await scaricaBackup()) viewDati(app); }; l
   $('#az-ok',app).onclick=()=>{ const n=$('#az-n',app).value.trim(), r=$('#az-r',app).value.trim(); if(!n||!r) return toast('Scrivi nome e ragione sociale'); const old=S.azienda&&S.azienda.ragione;
     S.azienda={...(S.azienda||{}),nome:n,ragione:r,sigla:$('#az-s',app).value.trim().toUpperCase()}; if(old&&old!==r&&S.notaNostro==null) S.notaNostro=old; refresh(); toast('Dati azienda salvati'); };
   $('#va-s',app).onclick=()=>{ S.varieta=lines($('#va-t',app).value); save(); toast('Varietà salvate'); };
-  $('#zz',app).onclick=()=>{ const an=$('#z-an',app).checked, vi=$('#z-vi',app).checked;
+  $('#zz',app).onclick=()=>{ const an=$('#z-an',app).checked, vi=$('#z-vi',app).checked, lv=$('#z-lv',app).checked;
     if($('#z-all',app).checked) return modal('Ricomincia da zero',`<p>Cancello <b>tutto</b>: operazioni, analisi, vini, dati azienda, locali, contenitori ed elenchi. Riparte il percorso iniziale come per una cantina nuova. Se vuoi tenere i dati attuali, copia prima il backup.</p><label class="row" style="gap:6px"><input type="checkbox" id="z-ok"> <b>Ho capito, cancella tutto</b></label><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri danger" id="ok" disabled>Cancella tutto</button></div>`,(b,close)=>{
       $('#z-ok',b).onchange=e=>{ $('#ok',b).disabled=!e.target.checked; }; $('#ok',b).onclick=()=>{ S=vuoto(); UI.sel=null; UI.asOf=null; UI.dep=null; close(); location.hash='vasche'; refresh(); }; });
-    const what=['tutte le operazioni ('+attivi(S.eventi).length+')'].concat(an?['le analisi ('+S.analisi.length+')']:[]).concat(vi?['le schede vino ('+S.vini.length+')']:[]);
+    const what=['tutte le operazioni ('+attivi(S.eventi).length+')'].concat(lv?['i lavori e le segnalazioni ('+(S.lavori||[]).length+')']:[]).concat(an?['le analisi ('+S.analisi.length+')']:[]).concat(vi?['le schede vino ('+S.vini.length+')']:[]);
     modal('Azzera',`<p>Verranno cancellate ${what.join(', ')}. Tutte le vasche risulteranno vuote.${vi?'':' Le schede vino restano, pronte per nuove entrate.'} Se vuoi tenere i dati attuali, copia prima il backup.</p><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">Azzera</button></div>`,(b,close)=>{
-      $('#ok',b).onclick=()=>{ S.eventi=[]; if(an||vi){S.analisi=[]; S.oinosImportato=false;} if(vi) S.vini=[]; UI.sel=null; UI.asOf=null; close(); refresh(); toast('Dati azzerati'); }; }); };
+      $('#ok',b).onclick=()=>{ S.eventi=[]; if(lv) S.lavori=[]; if(an||vi){S.analisi=[]; S.oinosImportato=false;} if(vi) S.vini=[]; UI.sel=null; UI.asOf=null; close(); refresh(); toast('Dati azzerati'); }; }); };
   if($('#rz',app)) $('#rz',app).onclick=()=>modal('Carica dati di esempio',`<p>Tutti i dati attuali verranno sostituiti con quelli di esempio. Se vuoi tenerli, copia prima il backup.</p><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri danger" id="ok">Ripristina esempio</button></div>`,(b,close)=>{$('#ok',b).onclick=()=>{S=seed();S.esempio=true;UI.sel=null;close();refresh();toast('Dati di esempio ripristinati');};});
 }
 
