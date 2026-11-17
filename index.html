@@ -3949,6 +3949,12 @@ function viewLotto(app,id){
 
 
 /* ===================== Form: misura ===================== */
+/* differenze di quantità prodotte da una ricostruzione (vasca che va sotto zero, arrivi oltre il teorico di una vasca svuotata) */
+function probQta(X){ const o=[], evOf=id=>S.eventi.find(e=>e.id===id);
+  Object.entries(X.ecc||{}).forEach(([k,x])=>{ const e=evOf(k.slice(0,k.lastIndexOf('_'))); if(e) o.push({k:'ecc:'+k,e,vasca:x.vasca,L:x.L}); });
+  Object.entries(X.diffCalc||{}).forEach(([k,dc])=>{ const j=k.lastIndexOf('_'), i=k.slice(j+1); if(!/^\d+$/.test(i)||!(dc.calc<-1e-6)) return; const e=evOf(k.slice(0,j)), t=e&&(e.tratte||[])[+i];
+    if(t&&t.svuota) o.push({k:'arr:'+k,e,vasca:t.da,a:t.a,L:-dc.calc,arr:true}); });
+  return o; }
 function formMisura(p={},corrId){
   modal(corrId?'Correggi misura':'Misura volume',`
   <form id="fm" novalidate><div class="fg">
@@ -3964,13 +3970,14 @@ function formMisura(p={},corrId){
      <label><input type="radio" name="sc" value="segnala" ${p.scelta==='segnala'?'checked':''}> <b>Segnala soltanto</b> · il teorico resta, la differenza rimane aperta da verificare</label>
    </fieldset>
    <label class="f wide">Note<textarea id="m-note">${esc(p.note||'')}</textarea></label>
-   <div id="msg" class="err"></div>
+   <div id="m-avv"></div><div id="msg" class="err"></div>
    <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Salva</button></div></form>`,(b,close)=>{
     const ord0=Date.now();
     const cmp=()=>{const v=$('#m-v',b).value; if(!v){$('#cmp',b).textContent='Scegli una vasca per vedere il volume teorico.';return;}
       const st=stateAt($('#m-data',b).value||today(),ord0,corrId)[v]; const L=toL($('#m-L',b).value,$('#m-u',b).value);
       $('#cmp',b).innerHTML=`Teorico alla data: <b>${hL(st.L)}</b>${st.vino?' · '+esc(vName(st.vino)):''}${L!=null?` · misurato <b>${hL(L)}</b> · differenza <b>${L-st.L>0?'+':''}${hL(L-st.L)}</b>`:''}`;};
-    b.oninput=cmp; b.onchange=cmp; cmp();
+    let avvOk=false; const sbl=()=>{ if(avvOk){ avvOk=false; $('#m-avv',b).innerHTML=''; $('#fm button.pri',b).textContent='Salva'; } };
+    b.oninput=()=>{cmp(); sbl();}; b.onchange=()=>{cmp(); sbl();}; cmp();
     $('#fm',b).onsubmit=e=>{e.preventDefault();
       const vasca=$('#m-v',b).value,L=toL($('#m-L',b).value,$('#m-u',b).value);
       if(!vasca||L==null){$('#msg',b).textContent='Scegli la vasca e inserisci il volume misurato.';return;}
@@ -3978,6 +3985,12 @@ function formMisura(p={},corrId){
       const teo=(stateAt(data,ord0,corrId)[vasca]||{}).L; const sc=teo!=null&&Math.abs(L-teo)<0.5?'accetta':$('input[name=sc]:checked',b).value; /* misura uguale al teorico: nessuna differenza da tenere aperta */
       const ev={id:uid(),tipo:'misura',data,ord:Date.now(),fase:'Affinamento',vasca,L,strumento:$('#m-s',b).value.trim(),scelta:sc,note:$('#m-note',b).value.trim(),creatoIl:new Date().toISOString()};
       if(corrId){const o=S.eventi.find(x=>x.id===corrId); if(o.data===data) ev.ord=o.ord;}
+      /* misura accettata nel passato: controllo che i movimenti successivi non facciano uscire più vino di quello presente */
+      if(sc==='accetta'&&!avvOk){ const nuovi=probQta(replay([...S.eventi.filter(x=>x.id!==corrId),ev])), prima=Object.fromEntries(probQta(RA).map(x=>[x.k,x.L]));
+        const pb=nuovi.filter(x=>x.L-(prima[x.k]||0)>0.5);
+        if(pb.length){ avvOk=true; $('#fm button.pri',b).textContent='Salva comunque';
+          $('#m-avv',b).innerHTML=`<div class="box warn" style="margin:8px 0"><b>Questa misura crea un problema su movimenti fatti dopo.</b><ul style="margin:6px 0">${pb.map(x=>`<li>${esc(evTitle(x.e))} del ${fd(x.e.data)}: ${x.arr?`nella ${esc(vnome(x.a))} risulterebbero arrivati ${hL(x.L)} più del teorico della ${esc(vnome(x.vasca))}`:`dalla ${esc(vnome(x.vasca))} uscirebbero ${hL(x.L)} più di quanto c'è (la vasca verrebbe considerata vuota)`}.</li>`).join('')}</ul>Controlla data e volume. Se confermi, la differenza finisce in Inventario → Differenze aperte.</div>`;
+          $('#m-avv',b).scrollIntoView({block:'nearest'}); return; } }
       storeEvent(ev,corrId); close(); refresh(); toast('Misura salvata');};
   });
 }
