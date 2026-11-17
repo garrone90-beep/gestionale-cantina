@@ -2099,8 +2099,23 @@ function utentiAss(){ if(Array.isArray(window.__UTENTI)) return window.__UTENTI.
   return S.utentiProva.filter(u=>u&&u.nome); }
 const isUtente = n=>!!n&&utentiAss().some(u=>u.nome.trim().toLowerCase()===String(n).trim().toLowerCase());
 /* per i filtri: gli utenti più i nomi ancora presenti nei lavori */
-const persone = ()=>[...new Set([...utentiAss().map(u=>u.nome),...lavori().map(l=>l.assegnato).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'it'));
-const assLab = l=>!l.assegnato?'':l.assegnatoEsterno?`${l.assegnato} (senza accesso)`:isUtente(l.assegnato)?l.assegnato:`${l.assegnato} ⚠`;
+/* assegnazione a più persone: l.assegnati = utenti (vedono il lavoro sul telefono), l.esterno = persona senza accesso.
+   I lavori vecchi hanno solo l.assegnato (+ assegnatoEsterno): letti come prima. l.assegnato resta l'elenco leggibile di tutti. */
+const nrm = x=>String(x||'').trim().toLowerCase();
+const assNomi = l=>Array.isArray(l.assegnati)?l.assegnati.filter(Boolean):(l.assegnato&&!l.assegnatoEsterno?[l.assegnato]:[]);
+const assEst = l=>Array.isArray(l.assegnati)?(l.esterno||''):(l.assegnatoEsterno?l.assegnato||'':'');
+const assTutti = l=>[...assNomi(l),...(assEst(l)?[assEst(l)]:[])];
+const assDi = (l,op)=>assNomi(l).some(n=>nrm(n)===nrm(op));
+const persone = ()=>[...new Set([...utentiAss().map(u=>u.nome),...lavori().flatMap(assTutti)])].sort((a,b)=>a.localeCompare(b,'it'));
+const assLab = l=>[...assNomi(l).map(n=>isUtente(n)?n:n+' ⚠'),...(assEst(l)?[assEst(l)+' (senza accesso)']:[])].join(', ');
+/* scelta multipla: utenti spuntabili + «altra persona (senza accesso)» */
+function assMultiHTML(id,l){ const us=utentiAss(), cur=assNomi(l), est=assEst(l); const vecchi=cur.filter(n=>!isUtente(n));
+  return `<span class="ass-w" id="${id}" style="display:grid;gap:4px">${us.map(u=>`<label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-am="${esc(u.nome)}" ${cur.some(n=>nrm(n)===nrm(u.nome))?'checked':''}> ${esc(u.nome)}${u.ruolo?' <span class="muted">· '+esc(RUOLO_N[u.ruolo]||u.ruolo)+'</span>':''}</label>`).join('')}
+    ${vecchi.map(n=>`<label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-am="${esc(n)}" checked> ${esc(n)} <span style="color:var(--warn)">— non è un utente: nessuno lo vede sul telefono</span></label>`).join('')}
+    <label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-amx ${est?'checked':''}> Altra persona (senza accesso)</label>
+    <input data-amxn value="${esc(est)}" placeholder="nome della persona" ${est?'':'hidden'}></span>`; }
+function assMultiBind(root,id){ const w=$('#'+id,root); if(!w) return; const c=$('[data-amx]',w), x=$('[data-amxn]',w); c.addEventListener('change',()=>{ x.hidden=!c.checked; if(c.checked) x.focus(); }); }
+function assMultiVal(root,id){ const w=$('#'+id,root); if(!w) return {nomi:[],est:''}; return {nomi:$$('[data-am]',w).filter(x=>x.checked).map(x=>x.dataset.am),est:$('[data-amx]',w).checked?$('[data-amxn]',w).value.trim():''}; }
 /* menu: nessuno · utenti · altra persona (nome scritto a mano) */
 function assSelHTML(id,cur,est){ const us=utentiAss(); const vecchio=cur&&!est&&!isUtente(cur);
   return `<span class="ass-w" style="display:grid;gap:6px"><select id="${id}"><option value="">— nessuno —</option>${us.map(u=>`<option value="u:${esc(u.nome)}" ${!est&&cur&&u.nome.toLowerCase()===String(cur).toLowerCase()?'selected':''}>${esc(u.nome)}${u.ruolo?' · '+esc(RUOLO_N[u.ruolo]||u.ruolo):''}</option>`).join('')}${vecchio?`<option value="v:${esc(cur)}" selected>${esc(cur)} — non è un utente</option>`:''}<option value="x:" ${est?'selected':''}>Altra persona (senza accesso)…</option></select>
@@ -2156,16 +2171,16 @@ const ordinaCodici = cs=>[...cs].sort((a,c)=>VASCHE.findIndex(v=>v.code===a)-VAS
 
 /* ===================== Vista: Lavori ===================== */
 const LQ = {segnalati:'Segnalazioni',oggi:'Oggi',scaduti:'Scaduti',senzadata:'Senza data',nonass:'Non assegnati',bozze:'Bozze',dacon:'Da convalidare',nonfatti:'Non fatti'};
-const lqTest = (k,l)=>k==='segnalati'?l.stato==='segnalato':k==='oggi'?l.data===today()&&lavAperto(l):k==='scaduti'?lavScaduto(l):k==='senzadata'?!l.data&&lavAttivo(l):k==='nonass'?!l.assegnato&&['bozza','dafare'].includes(l.stato):k==='bozze'?l.stato==='bozza':k==='dacon'?l.stato==='eseguito':k==='nonfatti'?l.stato==='noneseguito':true;
+const lqTest = (k,l)=>k==='segnalati'?l.stato==='segnalato':k==='oggi'?l.data===today()&&lavAperto(l):k==='scaduti'?lavScaduto(l):k==='senzadata'?!l.data&&lavAttivo(l):k==='nonass'?!assTutti(l).length&&['bozza','dafare'].includes(l.stato):k==='bozze'?l.stato==='bozza':k==='dacon'?l.stato==='eseguito':k==='nonfatti'?l.stato==='noneseguito':true;
 function lavCard(l){ const d=lavDiff(l), late=lavScaduto(l), cs=ordinaCodici(lavCodes(l)), mv=lavMov(l);
   return `<button class="lcard" data-lid="${l.id}"><div class="spread" style="width:100%;gap:6px"><span class="row" style="gap:6px">${l.priorita==='alta'?'<span class="chip scad">Alta</span>':l.priorita==='bassa'?'<span class="chip">Bassa</span>':''}<b>${esc(lavTitolo(l))}</b></span><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span></div>
-    ${l.segnalazione?`<div class="small"><span class="chip segn">Segnalato da ${esc(l.segnalazione.da||'')}</span> <span class="muted">${fd((l.segnalazione.il||l.creatoIl||'').slice(0,10))}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}</span></div>`:''}<div class="small muted">${esc(l.num||'')} · ${esc(l.tipo)} · ${l.data?fd(l.data)+(l.ora?' '+esc(l.ora):''):'senza data'} · ${l.assegnato?'👤 '+esc(assLab(l)):'<i>non assegnato</i>'}</div>
+    ${l.segnalazione?`<div class="small"><span class="chip segn">Segnalato da ${esc(l.segnalazione.da||'')}</span> <span class="muted">${fd((l.segnalazione.il||l.creatoIl||'').slice(0,10))}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}</span></div>`:''}<div class="small muted">${esc(l.num||'')} · ${esc(l.tipo)} · ${l.data?fd(l.data)+(l.ora?' '+esc(l.ora):''):'senza data'} · ${assTutti(l).length?'👤 '+esc(assLab(l)):'<i>non assegnato</i>'}</div>
     ${cs.length?`<div class="small">${esc(elencoV(cs))}${lavVini(l).length?' <span class="muted">· '+lavVini(l).map(v=>esc(vName(v))).join(', ')+'</span>':''}</div>`:''}
     <div class="row small" style="gap:6px">${mv.length?`<span class="chip">${l.arr?`${(l.arr.partite||[]).length} partit${(l.arr.partite||[]).length===1?'a':'e'} · ${mv.length} vasch${mv.length===1?'a':'e'}`:`${mv.length} moviment${mv.length===1?'o':'i'}`}</span>`:''}${(l.prodotti||[]).length?`<span class="chip">${l.prodotti.length} prodott${l.prodotti.length===1?'o':'i'}</span>`:''}${d?'<span class="chip warn">Da verificare</span>':''}${late?'<span class="chip scad">Data superata</span>':''}${l.esec&&l.stato==='eseguito'?`<span class="small muted">fatto${l.esec.da?' da '+esc(l.esec.da):''}${l.esec.comePrevisto===false?' · con differenze':''}</span>`:''}</div></button>`; }
 function viewLavori(app){
   UI.lv=UI.lv||{vista:'elenco',giorno:today(),f:{}}; const V=UI.lv, F=V.f;
   const legacy=attivi(S.eventi).filter(e=>!e.storico&&e.data>today());
-  const match=l=>(!F.locale||lavCodes(l).some(c=>locDi(c)===F.locale))&&(!F.vasca||lavCodes(l).includes(F.vasca))&&(!F.vino||lavVini(l).includes(F.vino))&&(!F.tipo||l.tipo===F.tipo)&&(!F.persona||(F.persona==='-'?!l.assegnato:l.assegnato===F.persona))&&(!F.stato||l.stato===F.stato)&&(!V.q||lqTest(V.q,l));
+  const match=l=>(!F.locale||lavCodes(l).some(c=>locDi(c)===F.locale))&&(!F.vasca||lavCodes(l).includes(F.vasca))&&(!F.vino||lavVini(l).includes(F.vino))&&(!F.tipo||l.tipo===F.tipo)&&(!F.persona||(F.persona==='-'?!assTutti(l).length:assTutti(l).some(n=>nrm(n)===nrm(F.persona))))&&(!F.stato||l.stato===F.stato)&&(!V.q||lqTest(V.q,l));
   const chiusi=V.vista==='chiusi';
   const all=lavori().filter(l=>(chiusi?!lavAttivo(l):lavAttivo(l))&&match(l));
   const group=(lab,list)=>`<div class="lgroup"><h3>${lab} <span class="muted small">${list.length}</span></h3>${list.length?list.map(lavCard).join(''):'<p class="muted small">Nessun lavoro.</p>'}</div>`;
@@ -2235,7 +2250,7 @@ function formLavoro(ed,preset){
     <label class="f">Data prevista<input type="date" data-free id="w-data" value="${esc(l.data||'')}"></label>
     <label class="f">Ora<input type="time" id="w-ora" value="${esc(l.ora||'')}"></label>
     <label class="f">Priorità<select id="w-prio">${Object.entries(LPRIO).map(([k,t])=>`<option value="${k}" ${l.priorita===k?'selected':''}>${t}</option>`).join('')}</select></label>
-    <label class="f">Assegnato a${assSelHTML('w-ass',l.assegnato||'',!!l.assegnatoEsterno)}</label>
+    <div class="f">Assegnato a <span class="muted small">(anche più persone: basta che uno lo segni fatto)</span>${assMultiHTML('w-ass',l)}</div>
    </div>
    <div class="seg" id="w-trf" role="group" aria-label="Trasferimento" style="margin-top:10px"><button type="button" data-trf="0">Senza trasferimento</button><button type="button" data-trf="1">Con trasferimento tra contenitori</button></div>
    <fieldset class="lvf" id="w-arr"><legend>Vino in arrivo</legend>
@@ -2277,7 +2292,7 @@ function formLavoro(ed,preset){
    <div id="msg" class="err"></div>
    <div class="foot">${ed&&lavAttivo(ed)?`<button type="button" class="btn ghost" id="w-ann" style="margin-right:auto">${ed&&ed.stato==='segnalato'?'Scarta la segnalazione…':bozza?'Scarta la bozza…':'Annulla il lavoro…'}</button>`:''}<button type="button" class="btn" data-close>${ed?'Chiudi senza salvare':'Annulla'}</button>${nuovo||bozza?'<button type="button" class="btn" id="w-bz">Salva bozza</button>':''}<button class="btn pri" id="sv">${nuovo||bozza?'Programma lavoro':'Salva modifiche'}</button></div></form>`,(b,close)=>{
     { const wa=$('#w-ann',b); if(wa) wa.onclick=()=>{ const o=lavori().find(x=>x.id===ed.id); close(); if(o) annullaLavoro(o); }; }
-    assBind(b,'w-ass');
+    assMultiBind(b,'w-ass');
     const tipo=()=>$('#w-tipo',b).value, T=()=>LT(tipo())||{};
     const isImb=()=>tipo()==='Imbottigliamento';
     const isArr=()=>T().reg==='arr';
@@ -2415,7 +2430,7 @@ function formLavoro(ed,preset){
         const vol=p.volMan||prodVolRif(tmp,p,sr); p.volL=vol||null; p.volMan=!!p.volMan; p.qta=qtaTeorica(p.dose,p.udm,vol,p.prodotto);
         if(!p.note) delete p.note; if(!p.qtaTot) delete p.qtaTot;
         const c=S.prodotti.find(x=>x.nome.toLowerCase()===p.prodotto.toLowerCase()); if(!c) S.prodotti.push({nome:p.prodotto,udm:p.udm,classe:p.classe||'',daUso:true}); else if(p.classe&&!c.classe) c.classe=p.classe; });
-      const av=assVal(b,'w-ass'); const ass=av.nome, assEst=av.est&&!!ass;
+      const av=assMultiVal(b,'w-ass'); const assTxt=[...av.nomi,...(av.est?[av.est]:[])].join(', '), ass=assTxt;
       if(!bz&&av.est&&!ass){ m.textContent='Scrivi il nome della persona, oppure scegli un utente.'; return; }
       const amb=[]; if(!bz){
         mov.filter(r=>r.a==='?').forEach(r=>amb.push(isArr()?`Vasca da concordare per ${ptLab(r.da)}.`:`Arrivo da concordare per ${vlab(r.da)}.`));
@@ -2426,13 +2441,13 @@ function formLavoro(ed,preset){
         else if(!isUtente(ass)) amb.push(`«${ass}» non è tra gli utenti: nessuno lo vede sul telefono.`); }
       const go=()=>{
         const now=new Date().toISOString();
-        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:ass,assegnatoEsterno:assEst,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
+        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:assTxt,assegnati:av.nomi,esterno:av.est,assegnatoEsterno:false,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
         if(ed){ const x=lavori().find(z=>z.id===ed.id); const prima=x.assegnato||'';
           if((x.stato==='bozza'||x.stato==='segnalato')&&!bz){ const sg=x.stato==='segnalato'; Object.assign(x,o); lavLog(x,'dafare',sg?'Programmato dalla segnalazione':'Programmato'); }
           else if(x.stato==='segnalato'&&bz){ Object.assign(x,o); lavLog(x,'bozza','Segnalazione trasformata in bozza'); }
           else { (x.storia=x.storia||[]).push({il:now,stato:x.stato,nota:x.stato==='bozza'?'Bozza modificata':'Istruzioni modificate'}); Object.assign(x,o); }
-          if(prima!==ass) x.storia.push({il:now,stato:x.stato,nota:ass?'Assegnato a '+ass+(assEst?' (senza accesso)':''):'Tolto l\'assegnatario'}); }
-        else { const st0=bz?'bozza':'dafare'; lavori().push({id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now,storia:[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(ass?[{il:now,stato:st0,nota:'Assegnato a '+ass+(assEst?' (senza accesso)':'')}]:[])]}); }
+          if(prima!==assTxt) x.storia.push({il:now,stato:x.stato,nota:assTxt?'Assegnato a '+assLab(x):'Tolto l\'assegnatario'}); }
+        else { const st0=bz?'bozza':'dafare'; const nl={id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now}; nl.storia=[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(assTxt?[{il:now,stato:st0,nota:'Assegnato a '+assLab(nl)}]:[])]; lavori().push(nl); }
         close(); refresh(); toast(bz?'Bozza salvata':ed&&!bozza?'Lavoro aggiornato':'Lavoro programmato'); };
       if(amb.length) modal('Prima di programmare',`<p>Ci sono punti ancora aperti:</p><ul>${amb.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="hint">Puoi programmare lo stesso: chi esegue vede le indicazioni come le hai scritte (es. «da concordare»).</p>
         <div class="foot"><button class="btn" data-close>Torna alla scheda</button><button class="btn" id="a-bz">Salva come bozza</button><button class="btn pri" id="a-ok">Programma lo stesso</button></div>`,(b2,close2)=>{ $('#a-ok',b2).onclick=()=>{ close2(); go(); }; $('#a-bz',b2).onclick=()=>{ close2(); salva(true); }; });
@@ -2457,10 +2472,11 @@ function lavDettaglio(id){
   const vsTxt=cs.map(c=>{const r=rifSt(l)[c]||{}; return `<li><b>${esc(vlab(c))}</b> — ${r.vino?esc(vName(r.vino))+' · '+hL(r.L):'vuota'}</li>`;}).join('');
   modal(`${l.num||'Lavoro'} · ${lavTitolo(l)}`,`
    <div class="row" style="gap:6px"><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span><span class="chip">${esc(l.tipo)}</span>${l.priorita!=='normale'?`<span class="chip ${l.priorita==='alta'?'scad':''}">Priorità ${LPRIO[l.priorita]}</span>`:''}${lavScaduto(l)?'<span class="chip scad">Data superata</span>':''}</div>
-   ${l.segnalazione?`<div class="box small" style="background:var(--surface-2);margin-top:10px"><b>Segnalato da ${esc(l.segnalazione.da||'')}</b> il ${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}${l.segnalazione.urgente?' · <b>urgente</b>':''}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}<div style="white-space:pre-wrap;margin-top:4px">${esc(l.segnalazione.testo||'')}</div></div>`:''}
+   ${l.segnalazione?`<div class="box small" style="background:var(--surface-2);margin-top:10px"><b>Segnalato da ${esc(l.segnalazione.da||'')}</b> il ${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}${l.segnalazione.urgente?' · <b>urgente</b>':''}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}<div style="white-space:pre-wrap;margin-top:4px">${esc(l.segnalazione.testo||'')}</div>
+     <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center"><span class="muted">${(l.segnalazione.mostraA||[]).length?'Mostrata anche a <b>'+esc(l.segnalazione.mostraA.join(', '))+'</b>':'La vedete solo tu e chi l\'ha scritta'}</span><button type="button" class="btn sm" id="ld-mostra">Mostra anche a…</button></div></div>`:''}
    <dl class="kv" style="margin-top:10px">
     <dt>Quando</dt><dd>${l.data?fd(l.data)+(l.ora?' alle '+esc(l.ora):''):'<span class="muted">senza data</span>'}</dd>
-    <dt>Assegnato a</dt><dd>${l.assegnato?esc(l.assegnato)+(l.assegnatoEsterno?' <span class="muted small">(senza accesso: da avvisare a voce)</span>':isUtente(l.assegnato)?'':' <span class="small" style="color:var(--warn)">— non è tra gli utenti: nessuno lo vede sul telefono</span>'):'<span class="muted">nessuno</span>'}</dd>
+    <dt>Assegnato a</dt><dd>${assTutti(l).length?[...assNomi(l).map(n=>esc(n)+(isUtente(n)?'':' <span class="small" style="color:var(--warn)">— non è tra gli utenti: nessuno lo vede sul telefono</span>')),...(assEst(l)?[esc(assEst(l))+' <span class="muted small">(senza accesso: da avvisare a voce)</span>']:[])].join(', '):'<span class="muted">nessuno</span>'}</dd>
     ${cs.length&&!(l.imb&&l.imb.vasca)?`<dt>Contenitori</dt><dd>${cs.length>6?`<div class="small">${esc(elencoV(cs))}</div><details><summary class="small">dettaglio (alla programmazione)</summary><ul style="margin:0;padding-left:18px">${vsTxt}</ul></details>`:`<ul style="margin:0;padding-left:18px">${vsTxt}</ul><span class="small muted">alla programmazione (${fd((l.rif||{}).data||today())})</span>`}</dd>`:''}
    </dl>
    ${l.imb&&l.imb.vasca?`<h3 style="margin:10px 0 4px">Da imbottigliare</h3><p style="margin:0">${esc(imbTxt(l,rifSt(l)))}</p>${l.esec&&l.esec.imb&&(l.esec.imb.pz||l.esec.imb.L)?`<p class="small" style="margin:4px 0 0">Dichiarato: <b>${l.esec.imb.pz?nf(l.esec.imb.pz,0)+' '+imbPzN(l.imb):''}${l.esec.imb.pz&&l.esec.imb.L?' · ':''}${l.esec.imb.L?hL(l.esec.imb.L):''}</b></p>`:''}`:''}
@@ -2487,10 +2503,11 @@ function lavDettaglio(id){
     if(go('ld-rip')) go('ld-rip').onclick=()=>{ close(); lavLog(l,'dafare','Riprogrammato dopo «non fatto»'); formLavoro(l); };
     if(go('ld-dup')) go('ld-dup').onclick=()=>{ close(); const c=JSON.parse(JSON.stringify(l)); ['id','num','stato','storia','esec','convalida','rif','creatoIl','modificatoIl'].forEach(k=>delete c[k]); c.data=''; formLavoro(null,c); };
     if(go('ld-ann')) go('ld-ann').onclick=()=>{ close(); annullaLavoro(l); };
+    if(go('ld-mostra')) go('ld-mostra').onclick=()=>{ close(); segnMostra(l); };
     if(go('ld-chiudi')) go('ld-chiudi').onclick=()=>{ close(); modal('Chiudi la segnalazione',`<p>Chiudo <b>${esc(lavTitolo(l))}</b> senza programmare un lavoro (per esempio perché è già sistemato o non serve). In cantina non cambia niente.</p><label class="f">Nota (facoltativa)<input id="cs-n" placeholder="es. già pulito ieri"></label><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="cs-ok">Chiudi</button></div>`,(b2,close2)=>{
       $('#cs-ok',b2).onclick=()=>{ const n=$('#cs-n',b2).value.trim(); l.convalida={il:new Date().toISOString(),ev:null,nota:n}; lavLog(l,'convalidato','Segnalazione chiusa'+(n?': '+n:'')); close2(); refresh(); toast('Segnalazione chiusa'); }; }); };
-    if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); dichiaraEsec(l,'eseguito',{chi:l.assegnato||'',chiEst:!!l.assegnatoEsterno,poi:()=>lavDettaglio(l.id)}); };
-    if(go('ld-non')) go('ld-non').onclick=()=>{ close(); dichiaraEsec(l,'noneseguito',{chi:l.assegnato||'',chiEst:!!l.assegnatoEsterno,poi:()=>lavDettaglio(l.id)}); };
+    if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); dichiaraEsec(l,'eseguito',{chi:assNomi(l)[0]||assEst(l)||'',chiEst:!assNomi(l).length&&!!assEst(l),poi:()=>lavDettaglio(l.id)}); };
+    if(go('ld-non')) go('ld-non').onclick=()=>{ close(); dichiaraEsec(l,'noneseguito',{chi:assNomi(l)[0]||assEst(l)||'',chiEst:!assNomi(l).length&&!!assEst(l),poi:()=>lavDettaglio(l.id)}); };
     if(go('ld-conv')) go('ld-conv').onclick=()=>{ close(); formConvalida(l); };
   });
 }
@@ -2608,26 +2625,39 @@ function viewOperatore(app){
   if(!op){ app.innerHTML=`<div class="opv">${head}<h2>Chi sei?</h2>${pers.length?`<div class="op-pers">${pers.map(p=>`<button type="button" class="btn" data-op="${esc(p)}">${esc(p)}</button>`).join('')}</div>`:'<p class="muted">Nessuna persona: assegna prima un lavoro a qualcuno.</p>'}<p class="hint">Sul sito la persona sarà quella dell'accesso.</p></div>`;
     bindHead(); $$('[data-op]',app).forEach(x=>x.onclick=()=>{ try{ localStorage.setItem('gcg-op',x.dataset.op); }catch(e){} UI.opNome=x.dataset.op; viewOperatore(app); });
     return; }
-  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&x.stato==='dafare'&&String(x.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase()); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
-  const mine=lavori().filter(l=>String(l.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase());
+  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&x.stato==='dafare'&&assDi(x,op)); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
+  const mine=lavori().filter(l=>assDi(l,op));
+  const insieme=l=>{ const al=assTutti(l).filter(n=>nrm(n)!==nrm(op)); return al.length?'insieme a '+al.join(', '):''; };
   const todo=mine.filter(l=>l.stato==='dafare').sort(lavSort);
   const sez=[['In ritardo',todo.filter(l=>l.data&&l.data<today())],['Oggi',todo.filter(l=>l.data===today())],['Prossimi giorni',todo.filter(l=>l.data&&l.data>today())],['Senza data',todo.filter(l=>!l.data)]];
   const sett=addDays(today(),-7)+'T';
   const segn=mine.filter(l=>['eseguito','noneseguito','convalidato'].includes(l.stato)&&(l.esec&&l.esec.dichiaratoIl||'')>=sett).sort((a,b)=>(b.esec.dichiaratoIl||'')<(a.esec.dichiaratoIl||'')?-1:1);
   const card=l=>{ const cs=lavCodes(l); return `<button type="button" class="opcard" data-ol="${l.id}"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="row" style="gap:4px;flex-wrap:wrap;justify-content:flex-end">${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}${l.stato==='dafare'?(l.data&&l.data<today()?'<span class="chip rit">In ritardo · da fare</span>':'<span class="chip segn">Da fare</span>'):''}</span></div>
     <div class="small muted">${l.data?giornoNome(l.data)+' '+fd(l.data)+(l.ora?' · '+esc(l.ora):''):'senza data'} · ${esc(l.tipo)}</div>
-    ${cs.length?`<div class="small">${esc(elencoV(cs))}</div>`:''}${l.stato!=='dafare'?`<div><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Segnato fatto':'Segnato non fatto'}</span></div>`:''}</button>`; };
+    ${insieme(l)?`<div class="small">👥 ${esc(insieme(l))}</div>`:''}${cs.length?`<div class="small">${esc(elencoV(cs))}</div>`:''}${l.stato!=='dafare'?`<div><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Segnato fatto':'Segnato non fatto'}</span></div>`:''}</button>`; };
   const io=x=>String(x||'').trim().toLowerCase()===String(op).trim().toLowerCase();
   const mieSegn=lavori().filter(l=>l.segnalazione&&io(l.segnalazione.da)&&(l.segnalazione.il||l.creatoIl||'')>=addDays(today(),-30)).sort((a,b)=>(b.segnalazione.il||'')<(a.segnalazione.il||'')?-1:1);
-  const segStato=l=>l.stato==='segnalato'?['In attesa del responsabile','segn']:l.stato==='annullato'?['Scartata','']:l.stato==='convalidato'?[l.convalida&&l.convalida.ev?'Fatta e registrata':'Chiusa','ok']:l.stato==='eseguito'?['Fatta, da convalidare','warn']:l.stato==='noneseguito'?['Non fatta','scad']:['Programmata'+(l.data?' per il '+fd(l.data):'')+(l.assegnato?' · '+l.assegnato:''),'prog'];
+  const segAltri=lavori().filter(l=>l.segnalazione&&!io(l.segnalazione.da)&&(l.segnalazione.mostraA||[]).some(io)&&(l.stato==='segnalato'||(l.segnalazione.il||l.creatoIl||'')>=addDays(today(),-30))).sort((a,b)=>(b.segnalazione.il||'')<(a.segnalazione.il||'')?-1:1);
+  const segStato=l=>l.stato==='segnalato'?['In attesa del responsabile','segn']:l.stato==='annullato'?['Scartata','']:l.stato==='convalidato'?[l.convalida&&l.convalida.ev?'Fatta e registrata':'Chiusa','ok']:l.stato==='eseguito'?['Fatta, da convalidare','warn']:l.stato==='noneseguito'?['Non fatta','scad']:['Programmata'+(l.data?' per il '+fd(l.data):'')+(assTutti(l).length?' · '+assTutti(l).join(', '):''),'prog'];
   app.innerHTML=`<div class="opv">${head}<div class="spread"><h2>I miei lavori</h2><button type="button" class="btn pri" id="op-seg">+ Segnala</button></div>
     ${todo.length?sez.filter(([,xs])=>xs.length).map(([t,xs])=>`<h3 class="op-h">${t} <span class="muted small">${xs.length}</span></h3>${xs.map(card).join('')}`).join(''):'<p class="muted">Nessun lavoro da fare. 👍</p>'}
-    ${segn.length?`<h3 class="op-h">Lavori segnati da te negli ultimi 7 giorni</h3>${segn.map(l=>`<div class="opcard" style="cursor:default"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Fatto · da controllare':l.stato==='convalidato'?'Fatto · controllato':'Non fatto'}</span></div><div class="small muted">${l.esec&&l.esec.dichiaratoIl?new Date(l.esec.dichiaratoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):''}</div></div>`).join('')}`:''}
+    ${segn.length?`<h3 class="op-h">Lavori segnati negli ultimi 7 giorni</h3>${segn.map(l=>`<div class="opcard" style="cursor:default"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Fatto · da controllare':l.stato==='convalidato'?'Fatto · controllato':'Non fatto'}</span></div><div class="small muted">${l.esec&&l.esec.dichiaratoIl?new Date(l.esec.dichiaratoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):''}${l.esec&&l.esec.da?' · segnato da '+(nrm(l.esec.da)===nrm(op)?'te':esc(l.esec.da)):''}</div></div>`).join('')}`:''}
+    ${segAltri.length?`<h3 class="op-h">Segnalazioni mostrate a te</h3>${segAltri.map(l=>{ const [t,c]=segStato(l); return `<div class="opcard" style="cursor:default"><div class="spread"><b>${esc((l.segnalazione.testo||'').split('\n')[0].slice(0,80))}</b>${l.segnalazione.urgente?'<span class="chip scad">Urgente</span>':''}</div><div class="small muted">da ${esc(l.segnalazione.da||'')} · ${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${lavCodes(l).length?' · '+esc(elencoV(lavCodes(l))):''}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}</div>${(l.segnalazione.testo||'').includes('\n')?`<div class="small" style="white-space:pre-wrap;margin-top:4px">${esc(l.segnalazione.testo)}</div>`:''}<div><span class="chip ${c}">${esc(t)}</span></div></div>`; }).join('')}`:''}
     <h3 class="op-h">Le mie segnalazioni <span class="muted small">ultimi 30 giorni</span></h3>
     ${mieSegn.length?mieSegn.map(l=>{ const [t,c]=segStato(l); return `<div class="opcard" style="cursor:default"><div class="spread"><b>${esc((l.segnalazione.testo||'').split('\n')[0].slice(0,80))}</b>${l.segnalazione.urgente?'<span class="chip scad">Urgente</span>':''}</div><div class="small muted">${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${lavCodes(l).length?' · '+esc(elencoV(lavCodes(l))):''}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}</div><div><span class="chip ${c}">${esc(t)}</span></div></div>`; }).join(''):'<p class="muted small">Nessuna. Con «+ Segnala» avvisi il responsabile di qualcosa da fare (es. pulire il pavimento, lavare la vasca 5, colmare).</p>'}</div>`;
   bindHead(); $$('[data-ol]',app).forEach(x=>x.onclick=()=>{ UI.opSel=x.dataset.ol; viewOperatore(app); window.scrollTo(0,0); });
   $('#op-seg',app).onclick=()=>formSegnala(op);
 }
+/* «Mostra anche a…»: il responsabile sceglie quali utenti vedono una segnalazione (in sola lettura, col testo). Sul sito chi viene aggiunto riceve una notifica. */
+function segnMostra(l){ const sg=l.segnalazione, cur=sg.mostraA||[]; const us=utentiAss().filter(u=>nrm(u.nome)!==nrm(sg.da));
+  modal('Mostra la segnalazione anche a…',`<p class="small"><b>${esc((sg.testo||'').split('\n')[0].slice(0,80))}</b> · segnalata da ${esc(sg.da||'')}</p>
+   <p class="hint">Le persone spuntate la vedono nella loro app tra le segnalazioni, con il testo, ma non possono modificarla né chiuderla. Chi aggiungi ora riceve una notifica.</p>
+   <div style="display:grid;gap:6px;margin:8px 0">${us.length?us.map(u=>`<label class="row small" style="gap:6px"><input type="checkbox" data-sm="${esc(u.nome)}" ${cur.some(n=>nrm(n)===nrm(u.nome))?'checked':''}> ${esc(u.nome)}${u.ruolo?' <span class="muted">· '+esc(RUOLO_N[u.ruolo]||u.ruolo)+'</span>':''}</label>`).join(''):'<p class="muted small">Nessun altro utente.</p>'}</div>
+   <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="sm-ok">Salva</button></div>`,(b,close)=>{
+    $('#sm-ok',b).onclick=()=>{ const nv=$$('[data-sm]',b).filter(x=>x.checked).map(x=>x.dataset.sm); const agg=nv.filter(n=>!cur.some(c=>nrm(c)===nrm(n))), tolti=cur.filter(c=>!nv.some(n=>nrm(n)===nrm(c)));
+      if(!agg.length&&!tolti.length){ close(); return lavDettaglio(l.id); }
+      sg.mostraA=nv; const now=new Date().toISOString(); l.modificatoIl=now; (l.storia=l.storia||[]).push({il:now,stato:l.stato,nota:[agg.length?'Mostrata anche a '+agg.join(', '):'',tolti.length?'Non più mostrata a '+tolti.join(', '):''].filter(Boolean).join(' · ')});
+      close(); refresh(); toast(nv.length?'Segnalazione mostrata a '+nv.join(', '):'Segnalazione non più condivisa'); lavDettaglio(l.id); }; }); }
 /* ===================== Segnalazione dell'operatore: avvisa il responsabile, non cambia la cantina ===================== */
 function formSegnala(op){ let vs=[];
   const locs=DEPOSITI.filter(l=>l.stato!=='disattivo'&&l.stato!=='rimosso');
