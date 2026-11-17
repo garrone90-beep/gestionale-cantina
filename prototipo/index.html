@@ -2,6 +2,11 @@
 @media (max-width:700px){table.mis-tbl thead{display:none}table.mis-tbl,table.mis-tbl tbody{display:block}table.mis-tbl tr{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
 table.mis-tbl td{display:block;border:0;padding:0;text-align:left}table.mis-tbl td.mt-v{grid-column:1/2}table.mis-tbl td.mt-n{grid-column:2/5}table.mis-tbl td.mt-b{grid-column:1/5;margin-top:6px}table.mis-tbl td.mt-b .row{justify-content:flex-start!important}
 table.mis-tbl td[data-l]::before{content:attr(data-l);display:block;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}}
+details.am-dd{position:relative}details.am-dd>summary.am-sum{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:9px;padding:8px 32px 8px 10px;font-size:.92rem;background:var(--surface);min-height:38px;display:flex;align-items:center;position:relative;font-weight:normal}
+details.am-dd>summary::-webkit-details-marker{display:none}details.am-dd>summary.am-sum::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.am-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.am-dd .am-pan{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:6px;display:grid;gap:2px;max-height:280px;overflow:auto}
+.am-r{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:6px;cursor:pointer;font-weight:normal}.am-r:hover{background:var(--bg2,rgba(0,0,0,.04))}.am-pan [data-amxn]{margin:2px 6px 6px}
 </style></head><body>
 <title>Cantina Pratica</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -2113,11 +2118,19 @@ const persone = ()=>[...new Set([...utentiAss().map(u=>u.nome),...lavori().flatM
 const assLab = l=>[...assNomi(l).map(n=>isUtente(n)?n:n+' ⚠'),...(assEst(l)?[assEst(l)+' (senza accesso)']:[])].join(', ');
 /* scelta multipla: utenti spuntabili + «altra persona (senza accesso)» */
 function assMultiHTML(id,l){ const us=utentiAss(), cur=assNomi(l), est=assEst(l); const vecchi=cur.filter(n=>!isUtente(n));
-  return `<span class="ass-w" id="${id}" style="display:grid;gap:4px">${us.map(u=>`<label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-am="${esc(u.nome)}" ${cur.some(n=>nrm(n)===nrm(u.nome))?'checked':''}> ${esc(u.nome)}${u.ruolo?' <span class="muted">· '+esc(RUOLO_N[u.ruolo]||u.ruolo)+'</span>':''}</label>`).join('')}
-    ${vecchi.map(n=>`<label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-am="${esc(n)}" checked> ${esc(n)} <span style="color:var(--warn)">— non è un utente: nessuno lo vede sul telefono</span></label>`).join('')}
-    <label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-amx ${est?'checked':''}> Altra persona (senza accesso)</label>
-    <input data-amxn value="${esc(est)}" placeholder="nome della persona" ${est?'':'hidden'}></span>`; }
-function assMultiBind(root,id){ const w=$('#'+id,root); if(!w) return; const c=$('[data-amx]',w), x=$('[data-amxn]',w); c.addEventListener('change',()=>{ x.hidden=!c.checked; if(c.checked) x.focus(); }); }
+  const riga=(attr,ck,txt)=>`<label class="am-r"><input type="checkbox" ${attr} ${ck?'checked':''}> <span>${txt}</span></label>`;
+  return `<details class="am-dd" id="${id}"><summary class="am-sum"><span class="am-t">${esc(assTxtDi(cur,est))}</span></summary><div class="am-pan">
+    ${us.map(u=>riga(`data-am="${esc(u.nome)}"`,cur.some(n=>nrm(n)===nrm(u.nome)),esc(u.nome)+(u.ruolo?' <span class="muted">· '+esc(RUOLO_N[u.ruolo]||u.ruolo)+'</span>':''))).join('')}
+    ${vecchi.map(n=>riga(`data-am="${esc(n)}"`,true,esc(n)+' <span style="color:var(--warn)">— non è un utente</span>')).join('')}
+    ${riga('data-amx',!!est,'Altra persona (senza accesso)')}
+    <input data-amxn value="${esc(est)}" placeholder="nome della persona" ${est?'':'hidden'}></div></details>`; }
+const assTxtDi = (nomi,est)=>{ const t=[...nomi,...(est?[est+' (senza accesso)']:[])]; return t.length?t.join(', '):'Nessuno'; };
+function assMultiBind(root,id){ const w=$('#'+id,root); if(!w) return; const c=$('[data-amx]',w), x=$('[data-amxn]',w);
+  const agg=()=>{ const v=assMultiVal(root,id); $('.am-t',w).textContent=assTxtDi(v.nomi,v.est); };
+  c.addEventListener('change',()=>{ x.hidden=!c.checked; if(c.checked) x.focus(); agg(); });
+  w.addEventListener('change',agg); x.addEventListener('input',agg);
+  const fuori=e=>{ if(!w.isConnected) return document.removeEventListener('pointerdown',fuori,true); if(w.open&&!w.contains(e.target)) w.open=false; };
+  document.addEventListener('pointerdown',fuori,true); }
 function assMultiVal(root,id){ const w=$('#'+id,root); if(!w) return {nomi:[],est:''}; return {nomi:$$('[data-am]',w).filter(x=>x.checked).map(x=>x.dataset.am),est:$('[data-amx]',w).checked?$('[data-amxn]',w).value.trim():''}; }
 /* menu: nessuno · utenti · altra persona (nome scritto a mano) */
 function assSelHTML(id,cur,est){ const us=utentiAss(); const vecchio=cur&&!est&&!isUtente(cur);
@@ -2253,7 +2266,7 @@ function formLavoro(ed,preset){
     <label class="f">Data prevista<input type="date" data-free id="w-data" value="${esc(l.data||'')}"></label>
     <label class="f">Ora<input type="time" id="w-ora" value="${esc(l.ora||'')}"></label>
     <label class="f">Priorità<select id="w-prio">${Object.entries(LPRIO).map(([k,t])=>`<option value="${k}" ${l.priorita===k?'selected':''}>${t}</option>`).join('')}</select></label>
-    <div class="f">Assegnato a <span class="muted small">(anche più persone: basta che uno lo segni fatto)</span>${assMultiHTML('w-ass',l)}</div>
+    <div class="f">Assegnato a${assMultiHTML('w-ass',l)}</div>
    </div>
    <div class="seg" id="w-trf" role="group" aria-label="Trasferimento" style="margin-top:10px"><button type="button" data-trf="0">Senza trasferimento</button><button type="button" data-trf="1">Con trasferimento tra contenitori</button></div>
    <fieldset class="lvf" id="w-arr"><legend>Vino in arrivo</legend>
