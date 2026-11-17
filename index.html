@@ -795,6 +795,9 @@ function applicaCfg(cfg){ const c=JSON.parse(JSON.stringify(cfg));
 /* dati esistenti senza «azienda» = dati di Cantine Garrone di prima del passo 6 */
 function migraAzienda(){ if(!S) return; if(!S.azienda&&haDati(S)){ applicaCfg(CFG_GARRONE()); S.profilo='garrone'; } NOSTRO=(S.azienda&&S.azienda.ragione)||'Vino nostro'; }
 const azNome = ()=>(S&&S.azienda&&S.azienda.nome)||'Cantina Pratica';
+/* come si scrive il vino proprio (conto lavorazione vuoto): il nome della cantina in Dati azienda */
+const nostroLab = ()=>(S&&S.azienda&&(S.azienda.nome||S.azienda.ragione))||NOSTRO;
+const contoLab = c=>!c||c===NOSTRO?nostroLab():c;
 function applyBrand(){ const n=azNome(), sg=(S&&S.azienda&&S.azienda.sigla)||n.split(/\s+/).filter(w=>w.length>2).map(w=>w[0]).join('').slice(0,3).toUpperCase()||'GC';
   /* il nome dell'app è uguale per tutte le cantine: niente nome dell'azienda nel titolo e nel menu */
   document.title='Cantina Pratica'; const h=document.querySelector('.brand h1'); if(h) h.textContent='Cantina Pratica'; const mk=document.querySelector('.brand-mark'); if(mk&&!mk.querySelector('img')) mk.innerHTML='<img src="'+ICONA_APP+'" alt="" width="34" height="34">'; }
@@ -2101,8 +2104,23 @@ function utentiAss(){ if(Array.isArray(window.__UTENTI)) return window.__UTENTI.
   return S.utentiProva.filter(u=>u&&u.nome); }
 const isUtente = n=>!!n&&utentiAss().some(u=>u.nome.trim().toLowerCase()===String(n).trim().toLowerCase());
 /* per i filtri: gli utenti più i nomi ancora presenti nei lavori */
-const persone = ()=>[...new Set([...utentiAss().map(u=>u.nome),...lavori().map(l=>l.assegnato).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'it'));
-const assLab = l=>!l.assegnato?'':l.assegnatoEsterno?`${l.assegnato} (senza accesso)`:isUtente(l.assegnato)?l.assegnato:`${l.assegnato} ⚠`;
+/* assegnazione a più persone: l.assegnati = utenti (vedono il lavoro sul telefono), l.esterno = persona senza accesso.
+   I lavori vecchi hanno solo l.assegnato (+ assegnatoEsterno): letti come prima. l.assegnato resta l'elenco leggibile di tutti. */
+const nrm = x=>String(x||'').trim().toLowerCase();
+const assNomi = l=>Array.isArray(l.assegnati)?l.assegnati.filter(Boolean):(l.assegnato&&!l.assegnatoEsterno?[l.assegnato]:[]);
+const assEst = l=>Array.isArray(l.assegnati)?(l.esterno||''):(l.assegnatoEsterno?l.assegnato||'':'');
+const assTutti = l=>[...assNomi(l),...(assEst(l)?[assEst(l)]:[])];
+const assDi = (l,op)=>assNomi(l).some(n=>nrm(n)===nrm(op));
+const persone = ()=>[...new Set([...utentiAss().map(u=>u.nome),...lavori().flatMap(assTutti)])].sort((a,b)=>a.localeCompare(b,'it'));
+const assLab = l=>[...assNomi(l).map(n=>isUtente(n)?n:n+' ⚠'),...(assEst(l)?[assEst(l)+' (senza accesso)']:[])].join(', ');
+/* scelta multipla: utenti spuntabili + «altra persona (senza accesso)» */
+function assMultiHTML(id,l){ const us=utentiAss(), cur=assNomi(l), est=assEst(l); const vecchi=cur.filter(n=>!isUtente(n));
+  return `<span class="ass-w" id="${id}" style="display:grid;gap:4px">${us.map(u=>`<label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-am="${esc(u.nome)}" ${cur.some(n=>nrm(n)===nrm(u.nome))?'checked':''}> ${esc(u.nome)}${u.ruolo?' <span class="muted">· '+esc(RUOLO_N[u.ruolo]||u.ruolo)+'</span>':''}</label>`).join('')}
+    ${vecchi.map(n=>`<label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-am="${esc(n)}" checked> ${esc(n)} <span style="color:var(--warn)">— non è un utente: nessuno lo vede sul telefono</span></label>`).join('')}
+    <label class="row small" style="gap:6px;flex-wrap:nowrap;align-items:center"><input type="checkbox" data-amx ${est?'checked':''}> Altra persona (senza accesso)</label>
+    <input data-amxn value="${esc(est)}" placeholder="nome della persona" ${est?'':'hidden'}></span>`; }
+function assMultiBind(root,id){ const w=$('#'+id,root); if(!w) return; const c=$('[data-amx]',w), x=$('[data-amxn]',w); c.addEventListener('change',()=>{ x.hidden=!c.checked; if(c.checked) x.focus(); }); }
+function assMultiVal(root,id){ const w=$('#'+id,root); if(!w) return {nomi:[],est:''}; return {nomi:$$('[data-am]',w).filter(x=>x.checked).map(x=>x.dataset.am),est:$('[data-amx]',w).checked?$('[data-amxn]',w).value.trim():''}; }
 /* menu: nessuno · utenti · altra persona (nome scritto a mano) */
 function assSelHTML(id,cur,est){ const us=utentiAss(); const vecchio=cur&&!est&&!isUtente(cur);
   return `<span class="ass-w" style="display:grid;gap:6px"><select id="${id}"><option value="">— nessuno —</option>${us.map(u=>`<option value="u:${esc(u.nome)}" ${!est&&cur&&u.nome.toLowerCase()===String(cur).toLowerCase()?'selected':''}>${esc(u.nome)}${u.ruolo?' · '+esc(RUOLO_N[u.ruolo]||u.ruolo):''}</option>`).join('')}${vecchio?`<option value="v:${esc(cur)}" selected>${esc(cur)} — non è un utente</option>`:''}<option value="x:" ${est?'selected':''}>Altra persona (senza accesso)…</option></select>
@@ -2158,16 +2176,16 @@ const ordinaCodici = cs=>[...cs].sort((a,c)=>VASCHE.findIndex(v=>v.code===a)-VAS
 
 /* ===================== Vista: Lavori ===================== */
 const LQ = {segnalati:'Segnalazioni',oggi:'Oggi',scaduti:'Scaduti',senzadata:'Senza data',nonass:'Non assegnati',bozze:'Bozze',dacon:'Da convalidare',nonfatti:'Non fatti'};
-const lqTest = (k,l)=>k==='segnalati'?l.stato==='segnalato':k==='oggi'?l.data===today()&&lavAperto(l):k==='scaduti'?lavScaduto(l):k==='senzadata'?!l.data&&lavAttivo(l):k==='nonass'?!l.assegnato&&['bozza','dafare'].includes(l.stato):k==='bozze'?l.stato==='bozza':k==='dacon'?l.stato==='eseguito':k==='nonfatti'?l.stato==='noneseguito':true;
+const lqTest = (k,l)=>k==='segnalati'?l.stato==='segnalato':k==='oggi'?l.data===today()&&lavAperto(l):k==='scaduti'?lavScaduto(l):k==='senzadata'?!l.data&&lavAttivo(l):k==='nonass'?!assTutti(l).length&&['bozza','dafare'].includes(l.stato):k==='bozze'?l.stato==='bozza':k==='dacon'?l.stato==='eseguito':k==='nonfatti'?l.stato==='noneseguito':true;
 function lavCard(l){ const d=lavDiff(l), late=lavScaduto(l), cs=ordinaCodici(lavCodes(l)), mv=lavMov(l);
   return `<button class="lcard" data-lid="${l.id}"><div class="spread" style="width:100%;gap:6px"><span class="row" style="gap:6px">${l.priorita==='alta'?'<span class="chip scad">Alta</span>':l.priorita==='bassa'?'<span class="chip">Bassa</span>':''}<b>${esc(lavTitolo(l))}</b></span><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span></div>
-    ${l.segnalazione?`<div class="small"><span class="chip segn">Segnalato da ${esc(l.segnalazione.da||'')}</span> <span class="muted">${fd((l.segnalazione.il||l.creatoIl||'').slice(0,10))}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}</span></div>`:''}<div class="small muted">${esc(l.num||'')} · ${esc(l.tipo)} · ${l.data?fd(l.data)+(l.ora?' '+esc(l.ora):''):'senza data'} · ${l.assegnato?'👤 '+esc(assLab(l)):'<i>non assegnato</i>'}</div>
+    ${l.segnalazione?`<div class="small"><span class="chip segn">Segnalato da ${esc(l.segnalazione.da||'')}</span> <span class="muted">${fd((l.segnalazione.il||l.creatoIl||'').slice(0,10))}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}</span></div>`:''}<div class="small muted">${esc(l.num||'')} · ${esc(l.tipo)} · ${l.data?fd(l.data)+(l.ora?' '+esc(l.ora):''):'senza data'} · ${assTutti(l).length?'👤 '+esc(assLab(l)):'<i>non assegnato</i>'}</div>
     ${cs.length?`<div class="small">${esc(elencoV(cs))}${lavVini(l).length?' <span class="muted">· '+lavVini(l).map(v=>esc(vName(v))).join(', ')+'</span>':''}</div>`:''}
     <div class="row small" style="gap:6px">${mv.length?`<span class="chip">${l.arr?`${(l.arr.partite||[]).length} partit${(l.arr.partite||[]).length===1?'a':'e'} · ${mv.length} vasch${mv.length===1?'a':'e'}`:`${mv.length} moviment${mv.length===1?'o':'i'}`}</span>`:''}${(l.prodotti||[]).length?`<span class="chip">${l.prodotti.length} prodott${l.prodotti.length===1?'o':'i'}</span>`:''}${d?'<span class="chip warn">Da verificare</span>':''}${late?'<span class="chip scad">Data superata</span>':''}${l.esec&&l.stato==='eseguito'?`<span class="small muted">fatto${l.esec.da?' da '+esc(l.esec.da):''}${l.esec.comePrevisto===false?' · con differenze':''}</span>`:''}</div></button>`; }
 function viewLavori(app){
   UI.lv=UI.lv||{vista:'elenco',giorno:today(),f:{}}; const V=UI.lv, F=V.f;
   const legacy=attivi(S.eventi).filter(e=>!e.storico&&e.data>today());
-  const match=l=>(!F.locale||lavCodes(l).some(c=>locDi(c)===F.locale))&&(!F.vasca||lavCodes(l).includes(F.vasca))&&(!F.vino||lavVini(l).includes(F.vino))&&(!F.tipo||l.tipo===F.tipo)&&(!F.persona||(F.persona==='-'?!l.assegnato:l.assegnato===F.persona))&&(!F.stato||l.stato===F.stato)&&(!V.q||lqTest(V.q,l));
+  const match=l=>(!F.locale||lavCodes(l).some(c=>locDi(c)===F.locale))&&(!F.vasca||lavCodes(l).includes(F.vasca))&&(!F.vino||lavVini(l).includes(F.vino))&&(!F.tipo||l.tipo===F.tipo)&&(!F.persona||(F.persona==='-'?!assTutti(l).length:assTutti(l).some(n=>nrm(n)===nrm(F.persona))))&&(!F.stato||l.stato===F.stato)&&(!V.q||lqTest(V.q,l));
   const chiusi=V.vista==='chiusi';
   const all=lavori().filter(l=>(chiusi?!lavAttivo(l):lavAttivo(l))&&match(l));
   const group=(lab,list)=>`<div class="lgroup"><h3>${lab} <span class="muted small">${list.length}</span></h3>${list.length?list.map(lavCard).join(''):'<p class="muted small">Nessun lavoro.</p>'}</div>`;
@@ -2237,7 +2255,7 @@ function formLavoro(ed,preset){
     <label class="f">Data prevista<input type="date" data-free id="w-data" value="${esc(l.data||'')}"></label>
     <label class="f">Ora<input type="time" id="w-ora" value="${esc(l.ora||'')}"></label>
     <label class="f">Priorità<select id="w-prio">${Object.entries(LPRIO).map(([k,t])=>`<option value="${k}" ${l.priorita===k?'selected':''}>${t}</option>`).join('')}</select></label>
-    <label class="f">Assegnato a${assSelHTML('w-ass',l.assegnato||'',!!l.assegnatoEsterno)}</label>
+    <div class="f">Assegnato a <span class="muted small">(anche più persone: basta che uno lo segni fatto)</span>${assMultiHTML('w-ass',l)}</div>
    </div>
    <div class="seg" id="w-trf" role="group" aria-label="Trasferimento" style="margin-top:10px"><button type="button" data-trf="0">Senza trasferimento</button><button type="button" data-trf="1">Con trasferimento tra contenitori</button></div>
    <fieldset class="lvf" id="w-arr"><legend>Vino in arrivo</legend>
@@ -2279,7 +2297,7 @@ function formLavoro(ed,preset){
    <div id="msg" class="err"></div>
    <div class="foot">${ed&&lavAttivo(ed)?`<button type="button" class="btn ghost" id="w-ann" style="margin-right:auto">${ed&&ed.stato==='segnalato'?'Scarta la segnalazione…':bozza?'Scarta la bozza…':'Annulla il lavoro…'}</button>`:''}<button type="button" class="btn" data-close>${ed?'Chiudi senza salvare':'Annulla'}</button>${nuovo||bozza?'<button type="button" class="btn" id="w-bz">Salva bozza</button>':''}<button class="btn pri" id="sv">${nuovo||bozza?'Programma lavoro':'Salva modifiche'}</button></div></form>`,(b,close)=>{
     { const wa=$('#w-ann',b); if(wa) wa.onclick=()=>{ const o=lavori().find(x=>x.id===ed.id); close(); if(o) annullaLavoro(o); }; }
-    assBind(b,'w-ass');
+    assMultiBind(b,'w-ass');
     const tipo=()=>$('#w-tipo',b).value, T=()=>LT(tipo())||{};
     const isImb=()=>tipo()==='Imbottigliamento';
     const isArr=()=>T().reg==='arr';
@@ -2417,7 +2435,7 @@ function formLavoro(ed,preset){
         const vol=p.volMan||prodVolRif(tmp,p,sr); p.volL=vol||null; p.volMan=!!p.volMan; p.qta=qtaTeorica(p.dose,p.udm,vol,p.prodotto);
         if(!p.note) delete p.note; if(!p.qtaTot) delete p.qtaTot;
         const c=S.prodotti.find(x=>x.nome.toLowerCase()===p.prodotto.toLowerCase()); if(!c) S.prodotti.push({nome:p.prodotto,udm:p.udm,classe:p.classe||'',daUso:true}); else if(p.classe&&!c.classe) c.classe=p.classe; });
-      const av=assVal(b,'w-ass'); const ass=av.nome, assEst=av.est&&!!ass;
+      const av=assMultiVal(b,'w-ass'); const assTxt=[...av.nomi,...(av.est?[av.est]:[])].join(', '), ass=assTxt;
       if(!bz&&av.est&&!ass){ m.textContent='Scrivi il nome della persona, oppure scegli un utente.'; return; }
       const amb=[]; if(!bz){
         mov.filter(r=>r.a==='?').forEach(r=>amb.push(isArr()?`Vasca da concordare per ${ptLab(r.da)}.`:`Arrivo da concordare per ${vlab(r.da)}.`));
@@ -2428,13 +2446,13 @@ function formLavoro(ed,preset){
         else if(!isUtente(ass)) amb.push(`«${ass}» non è tra gli utenti: nessuno lo vede sul telefono.`); }
       const go=()=>{
         const now=new Date().toISOString();
-        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:ass,assegnatoEsterno:assEst,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
+        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:assTxt,assegnati:av.nomi,esterno:av.est,assegnatoEsterno:false,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
         if(ed){ const x=lavori().find(z=>z.id===ed.id); const prima=x.assegnato||'';
           if((x.stato==='bozza'||x.stato==='segnalato')&&!bz){ const sg=x.stato==='segnalato'; Object.assign(x,o); lavLog(x,'dafare',sg?'Programmato dalla segnalazione':'Programmato'); }
           else if(x.stato==='segnalato'&&bz){ Object.assign(x,o); lavLog(x,'bozza','Segnalazione trasformata in bozza'); }
           else { (x.storia=x.storia||[]).push({il:now,stato:x.stato,nota:x.stato==='bozza'?'Bozza modificata':'Istruzioni modificate'}); Object.assign(x,o); }
-          if(prima!==ass) x.storia.push({il:now,stato:x.stato,nota:ass?'Assegnato a '+ass+(assEst?' (senza accesso)':''):'Tolto l\'assegnatario'}); }
-        else { const st0=bz?'bozza':'dafare'; lavori().push({id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now,storia:[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(ass?[{il:now,stato:st0,nota:'Assegnato a '+ass+(assEst?' (senza accesso)':'')}]:[])]}); }
+          if(prima!==assTxt) x.storia.push({il:now,stato:x.stato,nota:assTxt?'Assegnato a '+assLab(x):'Tolto l\'assegnatario'}); }
+        else { const st0=bz?'bozza':'dafare'; const nl={id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now}; nl.storia=[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(assTxt?[{il:now,stato:st0,nota:'Assegnato a '+assLab(nl)}]:[])]; lavori().push(nl); }
         close(); refresh(); toast(bz?'Bozza salvata':ed&&!bozza?'Lavoro aggiornato':'Lavoro programmato'); };
       if(amb.length) modal('Prima di programmare',`<p>Ci sono punti ancora aperti:</p><ul>${amb.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="hint">Puoi programmare lo stesso: chi esegue vede le indicazioni come le hai scritte (es. «da concordare»).</p>
         <div class="foot"><button class="btn" data-close>Torna alla scheda</button><button class="btn" id="a-bz">Salva come bozza</button><button class="btn pri" id="a-ok">Programma lo stesso</button></div>`,(b2,close2)=>{ $('#a-ok',b2).onclick=()=>{ close2(); go(); }; $('#a-bz',b2).onclick=()=>{ close2(); salva(true); }; });
@@ -2459,10 +2477,11 @@ function lavDettaglio(id){
   const vsTxt=cs.map(c=>{const r=rifSt(l)[c]||{}; return `<li><b>${esc(vlab(c))}</b> — ${r.vino?esc(vName(r.vino))+' · '+hL(r.L):'vuota'}</li>`;}).join('');
   modal(`${l.num||'Lavoro'} · ${lavTitolo(l)}`,`
    <div class="row" style="gap:6px"><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span><span class="chip">${esc(l.tipo)}</span>${l.priorita!=='normale'?`<span class="chip ${l.priorita==='alta'?'scad':''}">Priorità ${LPRIO[l.priorita]}</span>`:''}${lavScaduto(l)?'<span class="chip scad">Data superata</span>':''}</div>
-   ${l.segnalazione?`<div class="box small" style="background:var(--surface-2);margin-top:10px"><b>Segnalato da ${esc(l.segnalazione.da||'')}</b> il ${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}${l.segnalazione.urgente?' · <b>urgente</b>':''}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}<div style="white-space:pre-wrap;margin-top:4px">${esc(l.segnalazione.testo||'')}</div></div>`:''}
+   ${l.segnalazione?`<div class="box small" style="background:var(--surface-2);margin-top:10px"><b>Segnalato da ${esc(l.segnalazione.da||'')}</b> il ${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}${l.segnalazione.urgente?' · <b>urgente</b>':''}${l.segnalazione.giaFatto?' · dice di averlo già fatto':''}<div style="white-space:pre-wrap;margin-top:4px">${esc(l.segnalazione.testo||'')}</div>
+     <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center"><span class="muted">${(l.segnalazione.mostraA||[]).length?'Mostrata anche a <b>'+esc(l.segnalazione.mostraA.join(', '))+'</b>':'La vedete solo tu e chi l\'ha scritta'}</span><button type="button" class="btn sm" id="ld-mostra">Mostra anche a…</button></div></div>`:''}
    <dl class="kv" style="margin-top:10px">
     <dt>Quando</dt><dd>${l.data?fd(l.data)+(l.ora?' alle '+esc(l.ora):''):'<span class="muted">senza data</span>'}</dd>
-    <dt>Assegnato a</dt><dd>${l.assegnato?esc(l.assegnato)+(l.assegnatoEsterno?' <span class="muted small">(senza accesso: da avvisare a voce)</span>':isUtente(l.assegnato)?'':' <span class="small" style="color:var(--warn)">— non è tra gli utenti: nessuno lo vede sul telefono</span>'):'<span class="muted">nessuno</span>'}</dd>
+    <dt>Assegnato a</dt><dd>${assTutti(l).length?[...assNomi(l).map(n=>esc(n)+(isUtente(n)?'':' <span class="small" style="color:var(--warn)">— non è tra gli utenti: nessuno lo vede sul telefono</span>')),...(assEst(l)?[esc(assEst(l))+' <span class="muted small">(senza accesso: da avvisare a voce)</span>']:[])].join(', '):'<span class="muted">nessuno</span>'}</dd>
     ${cs.length&&!(l.imb&&l.imb.vasca)?`<dt>Contenitori</dt><dd>${cs.length>6?`<div class="small">${esc(elencoV(cs))}</div><details><summary class="small">dettaglio (alla programmazione)</summary><ul style="margin:0;padding-left:18px">${vsTxt}</ul></details>`:`<ul style="margin:0;padding-left:18px">${vsTxt}</ul><span class="small muted">alla programmazione (${fd((l.rif||{}).data||today())})</span>`}</dd>`:''}
    </dl>
    ${l.imb&&l.imb.vasca?`<h3 style="margin:10px 0 4px">Da imbottigliare</h3><p style="margin:0">${esc(imbTxt(l,rifSt(l)))}</p>${l.esec&&l.esec.imb&&(l.esec.imb.pz||l.esec.imb.L)?`<p class="small" style="margin:4px 0 0">Dichiarato: <b>${l.esec.imb.pz?nf(l.esec.imb.pz,0)+' '+imbPzN(l.imb):''}${l.esec.imb.pz&&l.esec.imb.L?' · ':''}${l.esec.imb.L?hL(l.esec.imb.L):''}</b></p>`:''}`:''}
@@ -2489,10 +2508,11 @@ function lavDettaglio(id){
     if(go('ld-rip')) go('ld-rip').onclick=()=>{ close(); lavLog(l,'dafare','Riprogrammato dopo «non fatto»'); formLavoro(l); };
     if(go('ld-dup')) go('ld-dup').onclick=()=>{ close(); const c=JSON.parse(JSON.stringify(l)); ['id','num','stato','storia','esec','convalida','rif','creatoIl','modificatoIl'].forEach(k=>delete c[k]); c.data=''; formLavoro(null,c); };
     if(go('ld-ann')) go('ld-ann').onclick=()=>{ close(); annullaLavoro(l); };
+    if(go('ld-mostra')) go('ld-mostra').onclick=()=>{ close(); segnMostra(l); };
     if(go('ld-chiudi')) go('ld-chiudi').onclick=()=>{ close(); modal('Chiudi la segnalazione',`<p>Chiudo <b>${esc(lavTitolo(l))}</b> senza programmare un lavoro (per esempio perché è già sistemato o non serve). In cantina non cambia niente.</p><label class="f">Nota (facoltativa)<input id="cs-n" placeholder="es. già pulito ieri"></label><div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="cs-ok">Chiudi</button></div>`,(b2,close2)=>{
       $('#cs-ok',b2).onclick=()=>{ const n=$('#cs-n',b2).value.trim(); l.convalida={il:new Date().toISOString(),ev:null,nota:n}; lavLog(l,'convalidato','Segnalazione chiusa'+(n?': '+n:'')); close2(); refresh(); toast('Segnalazione chiusa'); }; }); };
-    if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); dichiaraEsec(l,'eseguito',{chi:l.assegnato||'',chiEst:!!l.assegnatoEsterno,poi:()=>lavDettaglio(l.id)}); };
-    if(go('ld-non')) go('ld-non').onclick=()=>{ close(); dichiaraEsec(l,'noneseguito',{chi:l.assegnato||'',chiEst:!!l.assegnatoEsterno,poi:()=>lavDettaglio(l.id)}); };
+    if(go('ld-ese')) go('ld-ese').onclick=()=>{ close(); dichiaraEsec(l,'eseguito',{chi:assNomi(l)[0]||assEst(l)||'',chiEst:!assNomi(l).length&&!!assEst(l),poi:()=>lavDettaglio(l.id)}); };
+    if(go('ld-non')) go('ld-non').onclick=()=>{ close(); dichiaraEsec(l,'noneseguito',{chi:assNomi(l)[0]||assEst(l)||'',chiEst:!assNomi(l).length&&!!assEst(l),poi:()=>lavDettaglio(l.id)}); };
     if(go('ld-conv')) go('ld-conv').onclick=()=>{ close(); formConvalida(l); };
   });
 }
@@ -2610,26 +2630,39 @@ function viewOperatore(app){
   if(!op){ app.innerHTML=`<div class="opv">${head}<h2>Chi sei?</h2>${pers.length?`<div class="op-pers">${pers.map(p=>`<button type="button" class="btn" data-op="${esc(p)}">${esc(p)}</button>`).join('')}</div>`:'<p class="muted">Nessuna persona: assegna prima un lavoro a qualcuno.</p>'}<p class="hint">Sul sito la persona sarà quella dell'accesso.</p></div>`;
     bindHead(); $$('[data-op]',app).forEach(x=>x.onclick=()=>{ try{ localStorage.setItem('gcg-op',x.dataset.op); }catch(e){} UI.opNome=x.dataset.op; viewOperatore(app); });
     return; }
-  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&x.stato==='dafare'&&String(x.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase()); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
-  const mine=lavori().filter(l=>String(l.assegnato||'').trim().toLowerCase()===String(op).trim().toLowerCase());
+  if(UI.opSel){ const l=lavori().find(x=>x.id===UI.opSel&&x.stato==='dafare'&&assDi(x,op)); if(l) return opDettaglio(app,l,op,head,bindHead); UI.opSel=null; }
+  const mine=lavori().filter(l=>assDi(l,op));
+  const insieme=l=>{ const al=assTutti(l).filter(n=>nrm(n)!==nrm(op)); return al.length?'insieme a '+al.join(', '):''; };
   const todo=mine.filter(l=>l.stato==='dafare').sort(lavSort);
   const sez=[['In ritardo',todo.filter(l=>l.data&&l.data<today())],['Oggi',todo.filter(l=>l.data===today())],['Prossimi giorni',todo.filter(l=>l.data&&l.data>today())],['Senza data',todo.filter(l=>!l.data)]];
   const sett=addDays(today(),-7)+'T';
   const segn=mine.filter(l=>['eseguito','noneseguito','convalidato'].includes(l.stato)&&(l.esec&&l.esec.dichiaratoIl||'')>=sett).sort((a,b)=>(b.esec.dichiaratoIl||'')<(a.esec.dichiaratoIl||'')?-1:1);
   const card=l=>{ const cs=lavCodes(l); return `<button type="button" class="opcard" data-ol="${l.id}"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="row" style="gap:4px;flex-wrap:wrap;justify-content:flex-end">${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}${l.stato==='dafare'?(l.data&&l.data<today()?'<span class="chip rit">In ritardo · da fare</span>':'<span class="chip segn">Da fare</span>'):''}</span></div>
     <div class="small muted">${l.data?giornoNome(l.data)+' '+fd(l.data)+(l.ora?' · '+esc(l.ora):''):'senza data'} · ${esc(l.tipo)}</div>
-    ${cs.length?`<div class="small">${esc(elencoV(cs))}</div>`:''}${l.stato!=='dafare'?`<div><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Segnato fatto':'Segnato non fatto'}</span></div>`:''}</button>`; };
+    ${insieme(l)?`<div class="small">👥 ${esc(insieme(l))}</div>`:''}${cs.length?`<div class="small">${esc(elencoV(cs))}</div>`:''}${l.stato!=='dafare'?`<div><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Segnato fatto':'Segnato non fatto'}</span></div>`:''}</button>`; };
   const io=x=>String(x||'').trim().toLowerCase()===String(op).trim().toLowerCase();
   const mieSegn=lavori().filter(l=>l.segnalazione&&io(l.segnalazione.da)&&(l.segnalazione.il||l.creatoIl||'')>=addDays(today(),-30)).sort((a,b)=>(b.segnalazione.il||'')<(a.segnalazione.il||'')?-1:1);
-  const segStato=l=>l.stato==='segnalato'?['In attesa del responsabile','segn']:l.stato==='annullato'?['Scartata','']:l.stato==='convalidato'?[l.convalida&&l.convalida.ev?'Fatta e registrata':'Chiusa','ok']:l.stato==='eseguito'?['Fatta, da convalidare','warn']:l.stato==='noneseguito'?['Non fatta','scad']:['Programmata'+(l.data?' per il '+fd(l.data):'')+(l.assegnato?' · '+l.assegnato:''),'prog'];
+  const segAltri=lavori().filter(l=>l.segnalazione&&!io(l.segnalazione.da)&&(l.segnalazione.mostraA||[]).some(io)&&(l.stato==='segnalato'||(l.segnalazione.il||l.creatoIl||'')>=addDays(today(),-30))).sort((a,b)=>(b.segnalazione.il||'')<(a.segnalazione.il||'')?-1:1);
+  const segStato=l=>l.stato==='segnalato'?['In attesa del responsabile','segn']:l.stato==='annullato'?['Scartata','']:l.stato==='convalidato'?[l.convalida&&l.convalida.ev?'Fatta e registrata':'Chiusa','ok']:l.stato==='eseguito'?['Fatta, da convalidare','warn']:l.stato==='noneseguito'?['Non fatta','scad']:['Programmata'+(l.data?' per il '+fd(l.data):'')+(assTutti(l).length?' · '+assTutti(l).join(', '):''),'prog'];
   app.innerHTML=`<div class="opv">${head}<div class="spread"><h2>I miei lavori</h2><button type="button" class="btn pri" id="op-seg">+ Segnala</button></div>
     ${todo.length?sez.filter(([,xs])=>xs.length).map(([t,xs])=>`<h3 class="op-h">${t} <span class="muted small">${xs.length}</span></h3>${xs.map(card).join('')}`).join(''):'<p class="muted">Nessun lavoro da fare. 👍</p>'}
-    ${segn.length?`<h3 class="op-h">Lavori segnati da te negli ultimi 7 giorni</h3>${segn.map(l=>`<div class="opcard" style="cursor:default"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Fatto · da controllare':l.stato==='convalidato'?'Fatto · controllato':'Non fatto'}</span></div><div class="small muted">${l.esec&&l.esec.dichiaratoIl?new Date(l.esec.dichiaratoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):''}</div></div>`).join('')}`:''}
+    ${segn.length?`<h3 class="op-h">Lavori segnati negli ultimi 7 giorni</h3>${segn.map(l=>`<div class="opcard" style="cursor:default"><div class="spread"><b>${esc(lavTitolo(l))}</b><span class="chip ${LSTCLS[l.stato]}">${l.stato==='eseguito'?'Fatto · da controllare':l.stato==='convalidato'?'Fatto · controllato':'Non fatto'}</span></div><div class="small muted">${l.esec&&l.esec.dichiaratoIl?new Date(l.esec.dichiaratoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):''}${l.esec&&l.esec.da?' · segnato da '+(nrm(l.esec.da)===nrm(op)?'te':esc(l.esec.da)):''}</div></div>`).join('')}`:''}
+    ${segAltri.length?`<h3 class="op-h">Segnalazioni mostrate a te</h3>${segAltri.map(l=>{ const [t,c]=segStato(l); return `<div class="opcard" style="cursor:default"><div class="spread"><b>${esc((l.segnalazione.testo||'').split('\n')[0].slice(0,80))}</b>${l.segnalazione.urgente?'<span class="chip scad">Urgente</span>':''}</div><div class="small muted">da ${esc(l.segnalazione.da||'')} · ${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${lavCodes(l).length?' · '+esc(elencoV(lavCodes(l))):''}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}</div>${(l.segnalazione.testo||'').includes('\n')?`<div class="small" style="white-space:pre-wrap;margin-top:4px">${esc(l.segnalazione.testo)}</div>`:''}<div><span class="chip ${c}">${esc(t)}</span></div></div>`; }).join('')}`:''}
     <h3 class="op-h">Le mie segnalazioni <span class="muted small">ultimi 30 giorni</span></h3>
     ${mieSegn.length?mieSegn.map(l=>{ const [t,c]=segStato(l); return `<div class="opcard" style="cursor:default"><div class="spread"><b>${esc((l.segnalazione.testo||'').split('\n')[0].slice(0,80))}</b>${l.segnalazione.urgente?'<span class="chip scad">Urgente</span>':''}</div><div class="small muted">${new Date(l.segnalazione.il||l.creatoIl).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}${lavCodes(l).length?' · '+esc(elencoV(lavCodes(l))):''}${l.segnalazione.locale?' · '+esc(locNome(l.segnalazione.locale)):''}</div><div><span class="chip ${c}">${esc(t)}</span></div></div>`; }).join(''):'<p class="muted small">Nessuna. Con «+ Segnala» avvisi il responsabile di qualcosa da fare (es. pulire il pavimento, lavare la vasca 5, colmare).</p>'}</div>`;
   bindHead(); $$('[data-ol]',app).forEach(x=>x.onclick=()=>{ UI.opSel=x.dataset.ol; viewOperatore(app); window.scrollTo(0,0); });
   $('#op-seg',app).onclick=()=>formSegnala(op);
 }
+/* «Mostra anche a…»: il responsabile sceglie quali utenti vedono una segnalazione (in sola lettura, col testo). Sul sito chi viene aggiunto riceve una notifica. */
+function segnMostra(l){ const sg=l.segnalazione, cur=sg.mostraA||[]; const us=utentiAss().filter(u=>nrm(u.nome)!==nrm(sg.da));
+  modal('Mostra la segnalazione anche a…',`<p class="small"><b>${esc((sg.testo||'').split('\n')[0].slice(0,80))}</b> · segnalata da ${esc(sg.da||'')}</p>
+   <p class="hint">Le persone spuntate la vedono nella loro app tra le segnalazioni, con il testo, ma non possono modificarla né chiuderla. Chi aggiungi ora riceve una notifica.</p>
+   <div style="display:grid;gap:6px;margin:8px 0">${us.length?us.map(u=>`<label class="row small" style="gap:6px"><input type="checkbox" data-sm="${esc(u.nome)}" ${cur.some(n=>nrm(n)===nrm(u.nome))?'checked':''}> ${esc(u.nome)}${u.ruolo?' <span class="muted">· '+esc(RUOLO_N[u.ruolo]||u.ruolo)+'</span>':''}</label>`).join(''):'<p class="muted small">Nessun altro utente.</p>'}</div>
+   <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="sm-ok">Salva</button></div>`,(b,close)=>{
+    $('#sm-ok',b).onclick=()=>{ const nv=$$('[data-sm]',b).filter(x=>x.checked).map(x=>x.dataset.sm); const agg=nv.filter(n=>!cur.some(c=>nrm(c)===nrm(n))), tolti=cur.filter(c=>!nv.some(n=>nrm(n)===nrm(c)));
+      if(!agg.length&&!tolti.length){ close(); return lavDettaglio(l.id); }
+      sg.mostraA=nv; const now=new Date().toISOString(); l.modificatoIl=now; (l.storia=l.storia||[]).push({il:now,stato:l.stato,nota:[agg.length?'Mostrata anche a '+agg.join(', '):'',tolti.length?'Non più mostrata a '+tolti.join(', '):''].filter(Boolean).join(' · ')});
+      close(); refresh(); toast(nv.length?'Segnalazione mostrata a '+nv.join(', '):'Segnalazione non più condivisa'); lavDettaglio(l.id); }; }); }
 /* ===================== Segnalazione dell'operatore: avvisa il responsabile, non cambia la cantina ===================== */
 function formSegnala(op){ let vs=[];
   const locs=DEPOSITI.filter(l=>l.stato!=='disattivo'&&l.stato!=='rimosso');
@@ -2935,7 +2968,7 @@ function viewVendemmia(app){
     <div><div class="muted small">Mosto ottenuto</div><b style="font-size:1.4rem">${hL(Lpig)}</b></div>
     ${(()=>{ const mi=ev.filter(e=>e.tipo==='carico'&&e.prodotto&&e.data.startsWith(Y)).reduce((a,e)=>a+(e.L||0),0); return mi?`<div><div class="muted small">Mosto entrato da fuori</div><b style="font-size:1.4rem">${hL(mi)}</b></div>`:''; })()}
     <div><div class="muted small">Resa media</div><b style="font-size:1.4rem">${resa(Lpig,kgPig)}</b> <span class="muted small">litri ogni 100 kg</span></div></div>
-    ${uve.length?`<div class="small" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"><div><span class="muted">Per varietà:</span> ${grp(e=>e.varieta)}</div><div><span class="muted">Per classificazione:</span> ${grp(e=>uvaClass(e))}</div><div><span class="muted">Per provenienza:</span> ${grp(e=>e.fonte)}</div><div><span class="muted">Conto lavorazione:</span> ${grp(e=>e.conto||NOSTRO+' (vino nostro)')}</div></div>`:''}</div>
+    ${uve.length?`<div class="small" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"><div><span class="muted">Per varietà:</span> ${grp(e=>e.varieta)}</div><div><span class="muted">Per classificazione:</span> ${grp(e=>uvaClass(e))}</div><div><span class="muted">Per provenienza:</span> ${grp(e=>e.fonte)}</div><div><span class="muted">Conto lavorazione:</span> ${grp(e=>e.conto||nostroLab())}</div></div>`:''}</div>
   ${(()=>{ const df=daFareOggi(); if(!df.length) return ''; const oggi=df.filter(r=>!r.arretrato), arr=df.filter(r=>r.arretrato); const tot=oggi.reduce((a,r)=>a+r.manca,0);
     const vs=[...new Set(df.map(r=>r.vasca))];
     return `<div class="panel"><div class="spread"><h3>Da fare oggi</h3><span class="muted small">${tot?tot+' da fare':'tutto fatto'}${arr.length?` · <span style="color:var(--danger)">${arr.reduce((a,r)=>a+r.manca,0)} arretrati da ieri</span>`:''}</span></div><div class="tbl-wrap"><table><tbody>
@@ -2954,7 +2987,7 @@ function viewVendemmia(app){
        <tr data-fcr="${esc(v.code)}" hidden><td colspan="7"><div style="max-width:600px">${fermCurve(v.code)}</div></td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna vasca in fermentazione. Le vasche entrano in fermentazione dalla pigiatura (casella «iniziano la fermentazione») o dal pulsante «Densità / temp.» della vasca.</p>'}</div>
   <div class="panel"><h3>Uve in attesa di lavorazione</h3>
    ${attesa.length?`<div class="tbl-wrap"><table><thead><tr><th>Arrivo</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto lavorazione</th><th class="r">Da lavorare</th><th>Grado</th><th></th></tr></thead><tbody>
-    ${attesa.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||'vino nostro')}</td><td class="r"><b>${nf(uvaRes(e.id),0)} kg</b>${uvaRes(e.id)<e.kg-0.5?` <span class="muted small">di ${nf(e.kg,0)}</span>`:''}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="r"><button class="btn sm pri" data-lavu="${e.id}">Lavora</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva in attesa.</p>'}</div>
+    ${attesa.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||nostroLab())}</td><td class="r"><b>${nf(uvaRes(e.id),0)} kg</b>${uvaRes(e.id)<e.kg-0.5?` <span class="muted small">di ${nf(e.kg,0)}</span>`:''}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="r"><button class="btn sm pri" data-lavu="${e.id}">Lavora</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva in attesa.</p>'}</div>
   <div class="panel"><h3>Pigiature e pressature ${Y}</h3>
    ${pig.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Lavorazione</th><th>Uve</th><th>Vino</th><th>Vasche</th><th class="r">Mosto</th><th class="r">Resa</th><th></th></tr></thead><tbody>
     ${pig.map(e=>{ const kg=(e.uve||[]).reduce((s,u)=>s+(u.kg||0),0), L=(e.dest||[]).reduce((s,d)=>s+(d.L||0),0);
@@ -2962,7 +2995,7 @@ function viewVendemmia(app){
        <td class="small">${(e.dest||[]).map(d=>`<div style="white-space:nowrap">${vkind(d.vasca)} <b>${esc(vlab(d.vasca))}</b> · ${hL(d.L)}${d.fraz?` <span class="chip" style="text-transform:none;letter-spacing:0">${esc(d.fraz)}</span>`:''}</div>`).join('')}</td><td class="r" style="white-space:nowrap">${hL(L)}</td><td class="r" style="white-space:nowrap">${resa(L,kg)}${kg&&(L/kg>1||L/kg<0.3)?' <span class="chip warn" title="Controlla kg e litri (unità hL/L)">anomala</span>':''}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna lavorazione di uve.</p>'}</div>
   <div class="panel"><h3>Uve arrivate ${Y}</h3>
    ${uve.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto lavorazione</th><th class="r">Kg</th><th>Grado</th><th>Note</th><th></th></tr></thead><tbody>
-    ${uve.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||'vino nostro')}</td><td class="r">${nf(e.kg,0)}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="small muted">${esc(e.note||'')}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva registrata nel '+Y+'.</p>'}</div>`;
+    ${uve.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||nostroLab())}</td><td class="r">${nf(e.kg,0)}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="small muted">${esc(e.note||'')}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva registrata nel '+Y+'.</p>'}</div>`;
   $$('[data-vy]',app).forEach(b=>b.onclick=()=>{ UI.vendY=b.dataset.vy; viewVendemmia(app); });
   $('#vd-uva',app).onclick=()=>formUva();
   $('#vd-op',app).onclick=()=>formLavorazione({vasche:fer.map(v=>v.code),fase:'Vinificazione'});
@@ -2993,7 +3026,7 @@ function formUva(p={},corrId){
     <label class="f">Annata<input id="u-ann" inputmode="numeric" value="${esc(annNorm(p.annata)==='S.A.'?'':(p.annata||(p.data||today()).slice(0,4)))}" ${annNorm(p.annata)==='S.A.'?'disabled':''}><span class="row" style="gap:6px;font-size:.85rem;color:var(--ink)"><input type="checkbox" id="u-sa" ${annNorm(p.annata)==='S.A.'?'checked':''}> senza annata (s.a.)</span></label>
     <label class="f">Varietà<input id="u-var" list="u-varl" value="${esc(p.varieta||'')}" placeholder="es. Nebbiolo"><datalist id="u-varl">${varieta.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
     <label class="f">Provenienza / vigneto<input id="u-fonte" list="u-fl" value="${esc(p.fonte||'')}" placeholder="es. Gera"><datalist id="u-fl">${fonti.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
-    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="u-ct"><option value="">— nessuno (vino nostro)</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
+    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="u-ct"><option value="">— nessuno (${esc(nostroLab())})</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
     <label class="f">Grado all'arrivo<input id="u-gr" inputmode="decimal" value="${p.grado!=null?nfIn(p.grado,3):''}" placeholder="facoltativo"></label>
     <label class="f">Scala${scalaSel('u-sc',p.scala)}</label>
    </div>
@@ -3030,7 +3063,7 @@ function formPigiatura(p={},corrId){
     <label class="f">Lavorazione<select id="pg-lav">${LAV_UVA.map(x=>`<option ${x===(p.lav||LAV_UVA[0])?'selected':''}>${x}</option>`).join('')}</select></label></div>
    <fieldset class="lvf"><legend>Uve lavorate</legend>
     ${lots.length?`<div class="tbl-wrap"><table><thead><tr><th></th><th>Arrivo</th><th>Uva</th><th>Conto lavorazione</th><th class="r">Disponibili</th><th class="r">Kg lavorati</th></tr></thead><tbody>
-     ${lots.map(e=>`<tr data-u="${e.id}"><td><input type="checkbox" class="pu-c" ${(p.uve||[]).some(u=>u.uva===e.id)||(!p.uve&&lots.length===1)?'checked':''}></td><td>${fd(e.data)}</td><td>${esc([e.fonte,e.varieta].filter(Boolean).join(' · ')||'uva')}<div class="small muted">${esc(uvaClass(e))}</div></td><td class="small">${esc(e.conto||'vino nostro')}</td><td class="r">${nf(avail(e.id),0)} kg</td>
+     ${lots.map(e=>`<tr data-u="${e.id}"><td><input type="checkbox" class="pu-c" ${(p.uve||[]).some(u=>u.uva===e.id)||(!p.uve&&lots.length===1)?'checked':''}></td><td>${fd(e.data)}</td><td>${esc([e.fonte,e.varieta].filter(Boolean).join(' · ')||'uva')}<div class="small muted">${esc(uvaClass(e))}</div></td><td class="small">${esc(e.conto||nostroLab())}</td><td class="r">${nf(avail(e.id),0)} kg</td>
       <td class="r"><input class="pu-kg" inputmode="decimal" style="max-width:110px;text-align:right" value="${nfIn(pre[e.id]!=null&&pre[e.id]!==undefined?pre[e.id]:avail(e.id),0)}"></td></tr>`).join('')}</tbody></table></div>`:'<p class="err small">Nessuna uva in attesa: prima registra l\'«Entrata uva».</p>'}
    </fieldset>
    <div id="pg-warn"></div>
@@ -3092,7 +3125,7 @@ function formPigiatura(p={},corrId){
       uve.forEach(u=>{ const ev=evById(u.uva); if(u.kg>avail(u.uva)+0.5) W.push({k:'kg'+u.uva,t:`<b>${esc(uvaLab(ev))}</b>: lavori ${nf(u.kg,0)} kg ma ne risultano disponibili ${nf(avail(u.uva),0)}.`,ok:'Procedi: i kg in più restano segnalati come uva in negativo'});
         if(ev.data>data) W.push({k:'dt'+u.uva,t:`<b>${esc(uvaLab(ev))}</b> risulta arrivata il ${fd(ev.data)}, dopo la data della lavorazione (${fd(data)}).`,ok:'Procedi lo stesso'}); });
       const conti=[...new Set(uve.map(u=>(evById(u.uva)||{}).conto||''))];
-      if(conti.length>1) W.push({k:'conti',t:`Uve di conti lavorazione diversi (${conti.map(c=>esc(c||NOSTRO+' (vino nostro)')).join(' · ')}).`,ok:'Procedi: il mosto risulta di più conti lavorazione, divisi in % secondo i kg (si vede nella composizione e nel cartello)'});
+      if(conti.length>1) W.push({k:'conti',t:`Uve di conti lavorazione diversi (${conti.map(c=>esc(contoLab(c))).join(' · ')}).`,ok:'Procedi: il mosto risulta di più conti lavorazione, divisi in % secondo i kg (si vede nella composizione e nel cartello)'});
       if(isAtto(fv.categoria)){ const bad=uve.map(u=>evById(u.uva)).filter(e=>!(isAtto(e.categoria)&&e.denominazione===fv.denominazione));
         if(bad.length) W.push({k:'dop',t:`Il vino è «Atto a ${esc(fv.denominazione)}» ma ${bad.length===1?'questa uva non è atta':'queste uve non sono atte'} a quella denominazione: ${bad.map(x=>esc(uvaLab(x))).join('; ')}.`,ok:`Confermo: il vino resta «Atto a ${esc(fv.denominazione)}»`}); }
       dest.forEach((d,i)=>{ const s0=st[d.vasca]; if(s0&&s0.vino&&s0.L>1e-6&&s0.vino!==vid) W.push({k:'occ'+i,t:`La vasca <b>${esc(vlab(d.vasca))}</b> contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}): il mosto si unisce a quel vino. Il vino risultante si chiama:<br>
@@ -3176,7 +3209,7 @@ function evBody(e){
     (e.apporti||[]).forEach(a=>out.push(`<li>Apporto: ${esc(a.descr)} ${nf(a.qta)} ${esc(a.udm)}</li>`));
     if(e.tratteTxt) out.push(`<li>Vasche: ${esc(e.tratteTxt)}${e.attualiTxt?' · vasche attuali '+esc(e.attualiTxt):''} <span class="muted">(volumi non registrati)</span></li>`);
   }
-  if(e.tipo==='uva') out.push(`<li>${[e.varieta,uvaClass(e),e.fonte?'provenienza '+e.fonte:'',e.conto?'conto lavorazione '+e.conto:'vino nostro',e.grado!=null?gradoTxt(e.grado,e.scala):''].filter(Boolean).map(esc).join(' · ')}</li>`);
+  if(e.tipo==='uva') out.push(`<li>${[e.varieta,uvaClass(e),e.fonte?'provenienza '+e.fonte:'',e.conto?'conto lavorazione '+e.conto:nostroLab(),e.grado!=null?gradoTxt(e.grado,e.scala):''].filter(Boolean).map(esc).join(' · ')}</li>`);
   if(e.tipo==='pigiatura'){ const kg=(e.uve||[]).reduce((a,u)=>a+(u.kg||0),0), L=(e.dest||[]).reduce((a,d)=>a+(d.L||0),0);
     out.push(`<li>${esc(uveDescr(e))}</li>`); out.push(`<li>Vino <b>${esc(vName(e.vino))}</b> · ${(e.dest||[]).map(d=>`${vkind(d.vasca).toLowerCase()} ${esc(vlab(d.vasca))}: ${hL(d.L)}${d.fraz?' ('+esc(d.fraz)+')':''}`).join(' · ')} <span class="muted">(${e.stima||'stimato'})</span></li>`);
     if(kg&&L) out.push(`<li>Resa ${nf(L/kg*100,1)} % (${hL(L)} da ${nf(kg,0)} kg)${e.ferm?' · vasche in fermentazione':''}</li>`); }
@@ -3199,7 +3232,7 @@ function evBody(e){
   if((e.tratte||[]).length>6){ const det=out.splice(o0); const tot=e.tratte.reduce((a,t)=>a+(t.L||0),0); const sv=e.tratte.filter(t=>t.svuota).length;
     out.push(`<li>${e.tratte.length} movimenti · ${hL(tot)} arrivati in tutto${sv?` · ${sv} contenitor${sv>1?'i':'e'} svuotat${sv>1?'i':'o'}`:''}</li><li style="list-style:none"><details><summary class="small" style="cursor:pointer">Dettaglio dei movimenti</summary><ul>${det.join('')}</ul></details></li>`); }
   if(e.tipo==='manutenzione'){ out.push(`<li>${e.vasche.map(c=>esc(vlab(c))).join(', ')}${e.giorni?` · per ${e.giorni} giorni, fino al ${fd(addDays(e.data,e.giorni))}`:''}</li>`); if((e.prodotti||[]).length) out.push(`<li>${e.prodotti.map(p=>`<b>${esc(p.prodotto)}</b> ${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):''}${p.volL&&p.dose!=null?` <span class="muted">(${qtaTeorica(p.dose,p.udm,p.volL)} su ${hL(p.volL)})</span>`:''}${p.reale?' · usata '+esc(p.reale):''}`).join(' · ')}</li>`); }
-  else if(e.tipo==='unifica'){ out.push(`<li>Da qui <b>${esc(vName(e.vino))}</b> risulta composto al 100% da sé stesso${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}. Le partite di origine restano in «Da dove viene» nella genealogia.</li>`); if(e.contoPrima) out.push(`<li>Prima: ${esc(e.contoPrima)} → dopo: <b>${esc(e.conto===''?NOSTRO+' (vino nostro)':e.conto)}</b></li>`); }
+  else if(e.tipo==='unifica'){ out.push(`<li>Da qui <b>${esc(vName(e.vino))}</b> risulta composto al 100% da sé stesso${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}. Le partite di origine restano in «Da dove viene» nella genealogia.</li>`); if(e.contoPrima) out.push(`<li>Prima: ${esc(e.contoPrima)} → dopo: <b>${esc(contoLab(e.conto))}</b></li>`); }
   else if(e.tipo==='certificazione'){ out.push(`<li>${e.inPlace?`<b>${esc(vName(e.vino))}</b> certificato: la scheda passa da «${esc(e.daCat||attoDi((vino(e.vino)||{}).categoria))}» a ${esc((vino(e.vino)||{}).categoria||'DOP')}`:`Da <b>${vNameSub(e.vino)}</b> a <b>${vNameSub(e.nuovoVino)}</b>`}${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}</li>`); if(e.idoneita) out.push(`<li>Codice idoneità: <b>${esc(e.idoneita)}</b></li>`); }
   else if(e.vasche&&e.vasche.length) out.push(`<li>${e.vasche.length>6?'Contenitori trattati':'Vasche trattate'}: ${esc(elencoV(e.vasche))}</li>`);
   (e.perdite||[]).forEach((p,k)=>{ const L=((RA.diffCalc||{})[e.id+'_p'+k]||{}).calc; out.push(`<li>${esc(vlab(p.vasca))}: ${esc(DIFF[p.tipo]||p.tipo)} <b>${hL(L!=null?L:(p.L||0))}</b>${p.volDopo!=null?` <span class="muted">(volume dopo l'operazione ${hL(p.volDopo)})</span>`:''}${p.tipo==='recupero'&&p.feccDest?' in '+esc(vlab(p.feccDest)):''}${p.tipo==='verificare'?(verTxt('ver:'+e.id+'_p'+k)||' · <span class="chip warn">da verificare</span> <span class="muted">(Inventario → Differenze aperte)</span>'):''}</li>`); });
@@ -3718,7 +3751,7 @@ function formLavorazione(p={},corrId){
           <label><input type="radio" name="r${c.idx}" value="__new"> un nuovo vino</label>
           <div class="fg rs-new" hidden style="margin-top:6px">${vinoPicker('rs'+c.idx,null)}</div></fieldset>`).join('')}
           <p class="small" style="margin:8px 0 0">La provenienza viene conservata in ogni caso. Le analisi precedenti non passano al vino risultante.</p>
-          ${corrId?'':`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:400"><input type="checkbox" id="cf-uni" style="margin-top:3px"> <span><b>Rendi vino unico</b> dove si uniscono: da qui la composizione mostrerà solo il vino risultante (100%), senza le partite di prima. Le origini restano in «Da dove viene» nella genealogia.${(()=>{ const cs=new Set(); cf.forEach(c=>{ contoVasca(c.dest).forEach(([x])=>cs.add(x)); (ev.tratte||[]).filter(t=>t.a===c.dest&&t.da).forEach(t=>contoVasca(t.da).forEach(([x])=>cs.add(x))); }); return cs.size>1?`<br><span style="color:var(--warn)"><b>Attenzione:</b> si uniscono vini di conti diversi (${[...cs].map(x=>esc(x===NOSTRO?'vino nostro':x)).join(', ')}): il vino unico risulterà ${cs.has(NOSTRO)?'<b>vino nostro</b>':'del conto prevalente'}. Se non è giusto, non spuntare e usa poi «Rendi vino unico» dalla pagina del vino, dove scegli tu.</span>`:''; })()}</span></label>`}</div>`:'');
+          ${corrId?'':`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:400"><input type="checkbox" id="cf-uni" style="margin-top:3px"> <span><b>Rendi vino unico</b> dove si uniscono: da qui la composizione mostrerà solo il vino risultante (100%), senza le partite di prima. Le origini restano in «Da dove viene» nella genealogia.${(()=>{ const cs=new Set(); cf.forEach(c=>{ contoVasca(c.dest).forEach(([x])=>cs.add(x)); (ev.tratte||[]).filter(t=>t.a===c.dest&&t.da).forEach(t=>contoVasca(t.da).forEach(([x])=>cs.add(x))); }); return cs.size>1?`<br><span style="color:var(--warn)"><b>Attenzione:</b> si uniscono vini di conti diversi (${[...cs].map(x=>esc(contoLab(x))).join(', ')}): il vino unico risulterà ${cs.has(NOSTRO)?'<b>'+esc(nostroLab())+'</b>':'del conto prevalente'}. Se non è giusto, non spuntare e usa poi «Rendi vino unico» dalla pagina del vino, dove scegli tu.</span>`:''; })()}</span></label>`}</div>`:'');
         $$('#conf fieldset[data-ci]',b).forEach(fs=>{ const box=$('.rs-new',fs); if(!box) return; const px='rs'+fs.dataset.ci; pickerBind(fs,px);
           const cc=sim.conflitti[ev.id].find(c=>c.idx===+fs.dataset.ci); const vin=vino(cc&&cc.vinoDest)||{}; if(vin.annata) annSet(fs,px,vin.annata);
           $$('input[type=radio]',fs).forEach(x=>x.onchange=()=>{ box.hidden=$('input:checked',fs).value!=='__new'; }); });
@@ -3734,7 +3767,7 @@ function formLavorazione(p={},corrId){
           const ct=cs.length>1?(cs.some(([x])=>x===NOSTRO)?NOSTRO:cs[0][0]):(cs[0]?cs[0][0]:NOSTRO);
           const pv={}; vv.forEach(c=>provVasca(c).forEach(([p])=>{ if(p!=='Provenienza non indicata') pv[p]=1; })); const pvs=Object.keys(pv);
           S.eventi.push({id:uid(),tipo:'unifica',data:ev.data,ord:ev.ord+0.5+k*0.01,fase:ev.fase||'Affinamento',vino:vid,vasche:vv,conto:ct===NOSTRO?'':ct,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
-            contoPrima:cs.length>1?cs.map(([x,L])=>(x===NOSTRO?'vino nostro':x)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()}); });
+            contoPrima:cs.length>1?cs.map(([x,L])=>contoLab(x)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()}); });
         save(); refresh(); }
       toast(corrId?'Correzione salvata':uDest.length?'Lavorazione salvata · vino unico':'Lavorazione salvata');
     };
@@ -3759,7 +3792,7 @@ function formCarico(p={},corrId){
    </fieldset>
    <div class="fg">
     <label class="f" style="grid-column:span 2">Provenienza<input id="c-p" list="c-pl" value="${esc(p.provenienza&&p.provenienza!=='Giacenza di apertura'?p.provenienza:'')}" placeholder="scegli dall'elenco o scrivi"><datalist id="c-pl">${[...new Set([...provList(),...S.eventi.filter(e=>e.tipo==='carico'&&e.provenienza&&e.provenienza!=='Giacenza di apertura').map(e=>e.provenienza)])].map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
-    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="c-ct"><option value="">— nessuno (vino nostro)</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
+    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="c-ct"><option value="">— nessuno (${esc(nostroLab())})</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
    </div>
    <div id="c-mw" class="box small" ${p.prodotto?'':'hidden'} style="margin:4px 0 8px">
      <div>Il mosto entra in <b>vinificazione</b>${''}: la vasca compare in Vendemmia, la lavorazione si apre in fase Vinificazione e diventa vino con «Fine fermentazione». <span id="c-mft">${p.prodotto==='mostoferm'?'La vasca risulta già <b>in fermentazione</b>.':'La fermentazione la fai partire tu con «Inizio fermentazione».'}</span></div>
@@ -4044,7 +4077,7 @@ function formCartello(code){
       <label class="f">Capacità nominale<input id="k-cap" value="${esc(nf(v.cap)+' hL')}"></label>
       <label class="f wide">Riga sotto la tipologia<input id="k-or" value="${esc(def.origine)}"></label>
       <label class="f wide">Riga sotto la capacità<input id="k-mi" value="${esc(def.misura)}"></label>
-      <label class="f wide">Note<textarea id="k-no">${esc(def.note)}</textarea><span class="hint">${provs.length?'Di chi è il vino: '+provs.map(([pv,f])=>esc(pv===NOSTRO?pv+' (vino nostro)':pv)+(provs.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')+(one?' — se cambi la nota, viene ricordata per questo conto (anche in Dati → Conti lavorazione).':' — vino di più conti: nota composta.'):''}</span></label>
+      <label class="f wide">Note<textarea id="k-no">${esc(def.note)}</textarea><span class="hint">${provs.length?'Di chi è il vino: '+provs.map(([pv,f])=>esc(contoLab(pv))+(provs.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')+(one?' — se cambi la nota, viene ricordata per questo conto (anche in Dati → Conti lavorazione).':' — vino di più conti: nota composta.'):''}</span></label>
       <label class="pronto-box" style="grid-column:1/-1"><input type="checkbox" id="k-pr" ${s.pronto?'checked':''}> <span><b>Scritta «VINO PRONTO»</b><br><span class="hint">${s.pronto?'Il vino in questa vasca è segnato come pronto.':'Il vino in questa vasca non è segnato come pronto.'}</span></span></label>
       <label class="row small" style="grid-column:1/-1;gap:6px"><input type="checkbox" id="k-rem" checked> Ricorda le righe (e la nota per questo conto) per i prossimi cartelli</label>
     </form>
@@ -4096,7 +4129,7 @@ function viewScheda(app,code){
      <dt>Vasca</dt><dd>${vkind(code)} ${esc(vlab(code))}${capTxt(code)}</dd>
      <dt>Volume</dt><dd>${hL(s.L)}${kgTxt(s.vino,s.L)}</dd>
      <dt>Stato</dt><dd>${esc(D.stato)}</dd>
-     <dt>Di chi è</dt><dd>${D.conti.map(([c,f])=>esc(c===NOSTRO?c+' (vino nostro)':c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')||'—'}</dd>
+     <dt>Di chi è</dt><dd>${D.conti.map(([c,f])=>esc(contoLab(c))+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')||'—'}</dd>
      ${w.idoneita?`<dt>Codice idoneità</dt><dd>${esc(w.idoneita)}</dd>`:''}
    </dl></div>
   <div class="panel"><h3>Origine e composizione</h3>${compRows(D.G,s.L,false)}</div>
@@ -4127,7 +4160,7 @@ async function schedaPDF(code){
   const tab=(headR,body,opt={})=>{ doc.autoTable({startY:y,head:[headR.map(T)],body:body.map(r=>r.map(T)),margin:{left:M,right:M},styles:{fontSize:8.5,cellPadding:1.6,overflow:'linebreak'},headStyles:{fillColor:[120,25,45],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,244,240]},...opt}); y=doc.lastAutoTable.finalY+6; };
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(110); doc.text(T(azNome().toUpperCase()+' · SCHEDA '+vkind(code).toUpperCase()+' '+vlab(code)+' · '+fd(asOf())),M,y); doc.setTextColor(0); y+=8;
   doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text(T(vName(s.vino)),M,y); y+=6; doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.text(T(vinoSub(w)),M,y); y+=7;
-  tab(['Vasca','Volume','Stato','Di chi è'].concat(w.idoneita?['Codice idoneità']:[]),[[vkind(code)+' '+vlab(code)+capTxt(code),hL(s.L),D.stato,D.conti.map(([c,f])=>(c===NOSTRO?c+' (vino nostro)':c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')].concat(w.idoneita?[w.idoneita]:[])]);
+  tab(['Vasca','Volume','Stato','Di chi è'].concat(w.idoneita?['Codice idoneità']:[]),[[vkind(code)+' '+vlab(code)+capTxt(code),hL(s.L),D.stato,D.conti.map(([c,f])=>contoLab(c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')].concat(w.idoneita?[w.idoneita]:[])]);
   head('Origine e composizione');
   const tmp=document.createElement('div'); tmp.innerHTML=compRows(D.G,s.L,false); $$('li',tmp).forEach(li=>para('• '+li.textContent.replace(/\s+/g,' ').trim()));
   y+=2;
@@ -4159,7 +4192,7 @@ function vinoTot(id){ let L=0; const vs=[]; for(const v of VASCHE){const s=R.st[
 const statoVasca = c=>{ const x=R.st[c]; return x.ferm?'fermentazione':x.vinif?'vinificazione':x.pronto?'pronto':'affinamento'; };
 const filtriVasca = F=>!!(F&&(F.dep||F.conto||(F.stato&&F.stato!=='esaurito')));
 const vascaPassa = (c,F)=>(!F.dep||(VMAP[c]&&VMAP[c].dep===F.dep))&&(!F.conto||contoVasca(c).some(([ct,f])=>ct===F.conto&&f>0.001))&&(!F.stato||F.stato==='esaurito'||statoVasca(c)===F.stato);
-const filtroTxt = F=>[F.conto?'conto lavorazione '+(F.conto===NOSTRO?'vino nostro':F.conto):'',F.dep?'locale '+locNome(F.dep):'',F.stato&&F.stato!=='esaurito'?'stato «'+({vinificazione:'in vinificazione',fermentazione:'in fermentazione',affinamento:'in affinamento',pronto:'pronto',vuota:'vasca vuota'}[F.stato])+'»':''].filter(Boolean).join(' · ');
+const filtroTxt = F=>[F.conto?(F.conto===NOSTRO?nostroLab():'conto lavorazione '+F.conto):'',F.dep?'locale '+locNome(F.dep):'',F.stato&&F.stato!=='esaurito'?'stato «'+({vinificazione:'in vinificazione',fermentazione:'in fermentazione',affinamento:'in affinamento',pronto:'pronto',vuota:'vasca vuota'}[F.stato])+'»':''].filter(Boolean).join(' · ');
 /* ricerca e filtri dei Vini: restano mentre si passa dall'elenco a una scheda vino e ritorno; si azzerano uscendo dalla sezione o riaprendo il programma */
 function vfLoad(){ if(!UI.vf) UI.vf={}; return UI.vf; }
 function vfStore(){}
@@ -4203,7 +4236,7 @@ function vfBarHTML(F,extra='',opt={}){
     ${sel('ann','Annata',[['','Tutte'],...annate.map(a=>[String(a),a==='S.A.'?'Senza annata':String(a)])])}
     ${sel('stato','Stato',[['','Tutti'],['vinificazione','In vinificazione'],['fermentazione','In fermentazione'],['affinamento','In affinamento'],['pronto','Pronto da imbottigliare'],opt.inv?['vuota','Vasca vuota']:['esaurito','Esaurito (0 hL)']])}
     ${sel('dep','Locale',[['','Tutti'],...DEPOSITI.map(d=>[d.id,d.nome])])}
-    ${sel('conto','Conto lavorazione',[['','Tutti'],[NOSTRO,'Vino nostro'],...contiList().map(c=>[c.nome,c.nome])])}
+    ${sel('conto','Conto lavorazione',[['','Tutti'],[NOSTRO,nostroLab()],...contiList().map(c=>[c.nome,c.nome])])}
     ${sel('an','Analisi',[['','Tutte'],['si','Con analisi'],['no','Senza analisi'],['vecchie','Ultima analisi oltre 60 giorni']])}
     ${sel('ord','Ordina per',opt.inv?[['','Vasca'],['loc','Locale'],['vino','Vino'],['vol','Volume']]:[['','Volume'],['nome','Nome'],['annata','Annata'],['analisi','Ultima analisi']])}
     <button class="btn sm" id="vf-x" ${nAtt?'':'disabled'}>Azzera filtri${nAtt?' ('+nAtt+')':''}</button></div>${extra}</div>`; }
@@ -4247,15 +4280,15 @@ function formUnifica(vid,pre){ const w=vino(vid); if(!w) return;
   modal('Rendi vino unico · '+vName(vid),`<form id="fu" novalidate>
     <p style="margin:0 0 8px">Da questa data <b>${esc(vName(vid))}</b> risulterà composto al <b>100% da sé stesso</b>: la composizione non elencherà più le partite di prima. Le registrazioni restano tutte, e le partite di origine si vedono con «Da dove viene» nella genealogia. Si annulla dal Registro.</p>
     <div class="fg"><label class="f">Data<input type="date" id="u-d" value="${today()}" max="${today()}"></label></div>
-    <fieldset class="lvf"><legend>Vasche</legend>${vs.map(c=>{ const x=info(c); return `<label class="row" style="gap:8px;margin:4px 0"><input type="checkbox" class="u-v" value="${esc(c)}" ${sel0.includes(c)?'checked':''}> <b>${esc(vlab(c))}</b> · ${hL(R.st[c].L)} <span class="muted small">${x.n&&x.n.leaf?'già un\'unica partita':x.parti+' parti'}${x.conti.length>1?' · '+x.conti.map(([ct,f])=>esc(ct===NOSTRO?'vino nostro':ct)+' '+nf(f*100,0)+'%').join(', '):''}</span></label>`; }).join('')}</fieldset>
+    <fieldset class="lvf"><legend>Vasche</legend>${vs.map(c=>{ const x=info(c); return `<label class="row" style="gap:8px;margin:4px 0"><input type="checkbox" class="u-v" value="${esc(c)}" ${sel0.includes(c)?'checked':''}> <b>${esc(vlab(c))}</b> · ${hL(R.st[c].L)} <span class="muted small">${x.n&&x.n.leaf?'già un\'unica partita':x.parti+' parti'}${x.conti.length>1?' · '+x.conti.map(([ct,f])=>esc(contoLab(ct))+' '+nf(f*100,0)+'%').join(', '):''}</span></label>`; }).join('')}</fieldset>
     <div id="u-cw"></div>
     <div id="msg" class="err"></div><div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Rendi vino unico</button></div></form>`,(b,close)=>{
     const sel=()=>$$('.u-v',b).filter(x=>x.checked).map(x=>x.value);
     const conti=()=>{ const g={}; sel().forEach(c=>contoVasca(c).forEach(([ct,f])=>{ g[ct]=(g[ct]||0)+f*R.st[c].L; })); return Object.entries(g).sort((a,b2)=>b2[1]-a[1]); };
     const upd=()=>{ const cs=conti(); const cw=$('#u-cw',b);
       if(cs.length>1){ const def=cs.some(([ct])=>ct===NOSTRO)?NOSTRO:cs[0][0];
-        cw.innerHTML=`<div class="box warn" style="color:var(--ink)"><b>Attenzione: vino di conti diversi.</b> ${cs.map(([ct,L])=>esc(ct===NOSTRO?'vino nostro':'conto '+ct)+' '+hL(L)).join(' · ')}. Diventando vino unico avrà un solo proprietario.
-          <label class="f" style="margin-top:6px;max-width:320px">Di chi è il vino unico<select id="u-ct">${cs.map(([ct])=>`<option value="${esc(ct===NOSTRO?'':ct)}" ${ct===def?'selected':''}>${esc(ct===NOSTRO?'Vino nostro':ct)}</option>`).join('')}</select></label></div>`; }
+        cw.innerHTML=`<div class="box warn" style="color:var(--ink)"><b>Attenzione: vino di conti diversi.</b> ${cs.map(([ct,L])=>esc(ct===NOSTRO?nostroLab():'conto '+ct)+' '+hL(L)).join(' · ')}. Diventando vino unico avrà un solo proprietario.
+          <label class="f" style="margin-top:6px;max-width:320px">Di chi è il vino unico<select id="u-ct">${cs.map(([ct])=>`<option value="${esc(ct===NOSTRO?'':ct)}" ${ct===def?'selected':''}>${esc(contoLab(ct))}</option>`).join('')}</select></label></div>`; }
       else cw.innerHTML=''; };
     $$('.u-v',b).forEach(x=>x.onchange=upd); upd();
     $('#fu',b).onsubmit=e=>{ e.preventDefault(); const m=$('#msg',b); const vv=sel(), data=$('#u-d',b).value||today();
@@ -4263,7 +4296,7 @@ function formUnifica(vid,pre){ const w=vino(vid); if(!w) return;
       const cs=conti(); const ctSel=$('#u-ct',b); const conto=ctSel?ctSel.value:(cs[0]?(cs[0][0]===NOSTRO?'':cs[0][0]):'');
       const pv={}; vv.forEach(c=>provVasca(c).forEach(([p,f])=>{ pv[p]=(pv[p]||0)+f; })); const pvs=Object.keys(pv).filter(p=>p!=='Provenienza non indicata');
       const ev={id:uid(),tipo:'unifica',data,ord:Date.now(),fase:'Affinamento',vino:vid,vasche:vv,conto,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
-        contoPrima:cs.length>1?cs.map(([ct,L])=>(ct===NOSTRO?'vino nostro':ct)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()};
+        contoPrima:cs.length>1?cs.map(([ct,L])=>contoLab(ct)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()};
       S.eventi.push(ev); save(); close(); refresh(); toast(vName(vid)+' è ora un vino unico'); };
   });
 }
@@ -4577,7 +4610,7 @@ function formConfrontoMaxidata(){
 }
 function maxiReview(b,letti){
   const vOpt=sel=>`<option value="">— non c'è nel gestionale</option>`+[...S.vini].sort((a,c)=>vName(a.id).localeCompare(vName(c.id))).map(v=>`<option value="${esc(v.id)}" ${v.id===sel?'selected':''}>${esc(vName(v.id))}</option>`).join('');
-  const pOpt=sel=>`<option value="">— non indicato</option>`+[NOSTRO,...contiList().map(c=>c.nome)].map(p=>`<option value="${esc(p)}" ${p===sel?'selected':''}>${esc(p===NOSTRO?p+' (vino nostro)':p)}</option>`).join('');
+  const pOpt=sel=>`<option value="">— non indicato</option>`+[NOSTRO,...contiList().map(c=>c.nome)].map(p=>`<option value="${esc(p)}" ${p===sel?'selected':''}>${esc(contoLab(p))}</option>`).join('');
   $('#mx-rev',b).innerHTML=letti.map((r,i)=>{ const ck=mxKey(r.conto); const provSel=(S.maxiConti||{})[ck]||r.provenienza||'';
     return `<section class="panel" data-mx="${i}" style="margin-top:10px"><div class="spread"><h3>${esc(r.conto||r.file)}</h3><label class="f" style="max-width:300px">Conto lavorazione nel gestionale<select class="mx-prov">${pOpt(provSel)}</select></label></div>
      <p class="small muted">${esc(r.file)} · giacenza al ${r.data?fd(r.data):'?'}${r.somme_ok===false?' · <span class="chip warn">le somme non tornano con il riepilogo: controlla</span>':''}</p>
@@ -4763,7 +4796,7 @@ function invFiltra(rows,F){ const q=(F.q||'').toLowerCase().trim(); const ultima
 function viewInventario(app){
   const tutteRows=VASCHE.filter(v=>R.st[v.code].vino||(R.misure[v.code]||[]).length||(UI.vfInv&&UI.vfInv.stato==='vuota')).map(v=>{const s=R.st[v.code],ms=R.misure[v.code]||[],l=ms[ms.length-1];return {v,s,l}});
   UI.vfInv=UI.vfInv||{}; const FI=UI.vfInv, nF=vfAttivi(FI); const rows=nF?invFiltra(tutteRows,FI):(FI.ord?invFiltra(tutteRows,FI):tutteRows);
-  const quotaConto=c=>{ if(!FI.conto) return ''; const f=(contoVasca(c).find(([ct])=>ct===FI.conto)||[])[1]||0; return f<0.999?` <span class="small muted">di cui ${nf(f*100,0)}% ${FI.conto===NOSTRO?'vino nostro':'conto '+esc(FI.conto)}</span>`:''; };
+  const quotaConto=c=>{ if(!FI.conto) return ''; const f=(contoVasca(c).find(([ct])=>ct===FI.conto)||[])[1]||0; return f<0.999?` <span class="small muted">di cui ${nf(f*100,0)}% ${FI.conto===NOSTRO?esc(nostroLab()):'conto '+esc(FI.conto)}</span>`:''; };
   const aperte=rows.filter(r=>r.l&&r.l.scelta==='segnala');
   const anom=anomalieQta(), anAp=anom.filter(x=>!verifiche()[x.key]), anCh=anom.filter(x=>verifiche()[x.key]);
   app.innerHTML=`<div class="spread"><h2>Inventario${UI.asOf&&UI.asOf!==today()?' al '+fd(UI.asOf):''}</h2><div class="row"><button class="btn" id="mx">Confronta con Maxidata</button><button class="btn pri" id="nm">Nuova misura</button></div></div>
@@ -4889,7 +4922,7 @@ function viewBenvenuto(app){
     <form id="fbv" novalidate>
       <h3 style="margin-top:14px">1 · La cantina</h3>
       <div class="fg"><label class="f">Nome della cantina *<input id="bv-n" placeholder="es. Cantina dei Colli"></label>
-        <label class="f">Ragione sociale *<input id="bv-r" placeholder="es. Cantina dei Colli S.r.l."><span class="hint">È il «vino nostro»: il vino che non lavori per conto di altri.</span></label>
+        <label class="f">Ragione sociale *<input id="bv-r" placeholder="es. Cantina dei Colli S.r.l."><span class="hint">Serve nei documenti e nel confronto con Maxidata. Il vino che non lavori per conto di altri compare col nome della cantina.</span></label>
         <label class="f">Sigla nel marchio<input id="bv-s" maxlength="3" placeholder="es. CC"></label></div>
       <h3 style="margin-top:14px">2 · Il primo locale</h3>
       <div class="fg"><label class="f">Nome del locale *<input id="bv-l" placeholder="es. Cantina, Barricaia"></label>
@@ -5299,15 +5332,15 @@ function catPanel(box){ const D={open:{},te:teList().map(x=>({...x,_old:x.id})),
 function viewDati(app){
   const az=S.azienda||{};
   app.innerHTML=`<h2>Dati e backup</h2>
-  <div class="panel"><h3>Dati azienda</h3><p class="hint">Il nome compare in alto e nella scheda PDF; la ragione sociale è il «vino nostro» (conto lavorazione vuoto) nei filtri e nei cartelli.</p>
-   <div class="fg"><label class="f">Nome della cantina<input id="az-n" value="${esc(az.nome||'')}"></label><label class="f">Ragione sociale (vino nostro)<input id="az-r" value="${esc(az.ragione||'')}"></label><label class="f">Sigla nel marchio (2–3 lettere)<input id="az-s" maxlength="3" value="${esc(az.sigla||'')}"></label></div>
+  <div class="panel"><h3>Dati azienda</h3><p class="hint">Il nome compare in alto, nella scheda PDF e ovunque si indica di chi è il vino: il vino non in conto lavorazione è scritto col nome della cantina. La ragione sociale serve nel confronto con Maxidata.</p>
+   <div class="fg"><label class="f">Nome della cantina<input id="az-n" value="${esc(az.nome||'')}"></label><label class="f">Ragione sociale<input id="az-r" value="${esc(az.ragione||'')}"></label><label class="f">Sigla nel marchio (2–3 lettere)<input id="az-s" maxlength="3" value="${esc(az.sigla||'')}"></label></div>
    <div class="actions"><button class="btn pri" id="az-ok">Salva dati azienda</button></div></div>
   <div class="panel"><h3>Locali e contenitori</h3><p class="hint">I locali della cantina (ognuno con la sua pianta) e le vasche, botti e altri contenitori di ciascuno. Qui si aggiunge un locale nuovo o un contenitore.</p>
    <p class="small">${DEPOSITI.map(l=>`<b>${esc(l.nome)}</b> · ${VASCHE.filter(v=>v.dep===l.id&&v.stato==='attivo').length} ${contNome(l.id)}`).join('<br>')}</p>
    <div class="actions"><a class="btn pri" href="#locali">Gestisci locali e contenitori</a></div></div>
   <div class="panel"><h3>Conti lavorazione (conto terzi)</h3><p class="hint">Le aziende per cui lavori il vino: compaiono in «Conto lavorazione per» nell'entrata vino. Una per riga, nella forma <code>Nome | dicitura per il cartello</code>. Se cambi un nome (stessa riga), le entrate già registrate vengono aggiornate.</p>
    <textarea id="ct-t" style="min-height:110px">${esc(contiList().map(c=>c.nome+' | '+(c.nota||'')).join('\n'))}</textarea>
-   <label class="f wide" style="margin-top:8px">Dicitura per il vino nostro (${esc(NOSTRO)})<input id="ct-n" value="${esc(S.notaNostro!=null?S.notaNostro:NOSTRO)}"></label>
+   <label class="f wide" style="margin-top:8px">Dicitura sul cartello per il vino di ${esc(nostroLab())} <span class="muted small">(non in conto lavorazione)</span><input id="ct-n" value="${esc(S.notaNostro!=null?S.notaNostro:NOSTRO)}"></label>
    <div class="actions"><button class="btn pri" id="ct-s">Salva conti lavorazione</button><button class="btn" id="ct-r">Svuota elenco</button></div></div>
   <div class="panel"><h3>Provenienze</h3><p class="hint">Da dove arriva il vino o l'uva (es. un fornitore o una zona): proposte nel campo «Provenienza» delle entrate. Una per riga. Si può sempre scriverne una nuova nel modulo. Le aziende per cui lavori il vino vanno in «Conti lavorazione».</p>
    <textarea id="pv-t" style="min-height:120px">${esc(provList().join('\n'))}</textarea>

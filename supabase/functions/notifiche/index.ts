@@ -62,7 +62,9 @@ Deno.serve(async (req: Request) => {
     const P = (pr ?? []) as any[];
     const togli = (ids: string[]) => [...new Set(ids)].filter((i) => i && i !== attore);
     const admin = () => togli(P.filter((p) => p.ruolo === "admin").map((p) => p.id));
-    const assegnato = (l: any) => togli(P.filter((p) => l.assegnato && norm(p.nome) === norm(l.assegnato)).map((p) => p.id));
+    /* assegnati: elenco (lavori a più persone) oppure il vecchio campo singolo */
+    const nomi = (l: any): string[] => (Array.isArray(l?.assegnati) ? l.assegnati : (l?.assegnato && !l?.assegnatoEsterno ? [l.assegnato] : [])).map((x: unknown) => norm(x)).filter(Boolean);
+    const di = (ns: string[]) => togli(P.filter((p) => ns.includes(norm(p.nome))).map((p) => p.id));
     const opUrl = (id: string) => P.find((p) => p.id === id)?.ruolo === "operatore" ? "/#operatore" : "/#lavori";
     const inviati: string[] = [];
     const a = async (ids: string[], title: string, corpo: string) => {
@@ -72,16 +74,23 @@ Deno.serve(async (req: Request) => {
         await manda([id], { title, body: op ? "Apri l'app per vedere i dettagli" : corpo, url: opUrl(id), tag: "lav-" + n.id }); inviati.push(title);
       }
     };
-    if (APERTI.includes(n.stato) && n.assegnato && (!o || !APERTI.includes(o.stato) || norm(o.assegnato) !== norm(n.assegnato))) {
-      await a(assegnato(n), (n.priorita === "alta" ? "Urgente · " : "") + "Nuovo lavoro per te", `${titolo(n)} · ${quando(n)}`);
-    } else if (o && APERTI.includes(o.stato) && APERTI.includes(n.stato) && n.assegnato && norm(o.assegnato) === norm(n.assegnato) &&
-      CAMPI.some((k) => JSON.stringify(o[k] ?? null) !== JSON.stringify(n[k] ?? null))) {
-      await a(assegnato(n), "Lavoro modificato", `${titolo(n)} · ${quando(n)}`);
+    if (APERTI.includes(n.stato)) {
+      const ora = nomi(n), prima = o && APERTI.includes(o.stato) ? nomi(o) : [];
+      const nuovi = ora.filter((x) => !prima.includes(x)), restano = ora.filter((x) => prima.includes(x));
+      if (nuovi.length) await a(di(nuovi), (n.priorita === "alta" ? "Urgente · " : "") + "Nuovo lavoro per te", `${titolo(n)} · ${quando(n)}`);
+      if (restano.length && CAMPI.some((k) => JSON.stringify(o[k] ?? null) !== JSON.stringify(n[k] ?? null)))
+        await a(di(restano), "Lavoro modificato", `${titolo(n)} · ${quando(n)}`);
     }
     if (o && APERTI.includes(o.stato) && ["eseguito", "noneseguito"].includes(n.stato)) {
       const chi = txt(n.esec?.da || "L'operatore", 40);
       await a(admin(), n.stato === "eseguito" ? `${chi} ha segnato fatto` : `${chi}: non fatto`,
         n.stato === "eseguito" ? `${titolo(n)} — da convalidare` : `${titolo(n)} — ${txt(n.esec?.note, 120)}`);
+    }
+    /* segnalazione mostrata ad altri utenti: avviso solo a chi è stato aggiunto ora */
+    if (n.segnalazione && Array.isArray(n.segnalazione.mostraA)) {
+      const prima = (Array.isArray(o?.segnalazione?.mostraA) ? o.segnalazione.mostraA : []).map((x: unknown) => norm(x));
+      const nuovi = n.segnalazione.mostraA.map((x: unknown) => norm(x)).filter((x: string) => x && !prima.includes(x));
+      if (nuovi.length) await a(di(nuovi), "Nuova segnalazione per te", `${txt(n.segnalazione.testo, 160)} — da ${txt(n.segnalazione.da, 40)}`);
     }
     if (n.segnalazione && (!o || !o.segnalazione)) {
       const s = n.segnalazione;

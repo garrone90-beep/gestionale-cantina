@@ -793,6 +793,9 @@ function applicaCfg(cfg){ const c=JSON.parse(JSON.stringify(cfg));
 /* dati esistenti senza «azienda» = dati di Cantine Garrone di prima del passo 6 */
 function migraAzienda(){ if(!S) return; if(!S.azienda&&haDati(S)){ applicaCfg(CFG_GARRONE()); S.profilo='garrone'; } NOSTRO=(S.azienda&&S.azienda.ragione)||'Vino nostro'; }
 const azNome = ()=>(S&&S.azienda&&S.azienda.nome)||'Cantina Pratica';
+/* come si scrive il vino proprio (conto lavorazione vuoto): il nome della cantina in Dati azienda */
+const nostroLab = ()=>(S&&S.azienda&&(S.azienda.nome||S.azienda.ragione))||NOSTRO;
+const contoLab = c=>!c||c===NOSTRO?nostroLab():c;
 function applyBrand(){ const n=azNome(), sg=(S&&S.azienda&&S.azienda.sigla)||n.split(/\s+/).filter(w=>w.length>2).map(w=>w[0]).join('').slice(0,3).toUpperCase()||'GC';
   /* il nome dell'app è uguale per tutte le cantine: niente nome dell'azienda nel titolo e nel menu */
   document.title='Cantina Pratica'; const h=document.querySelector('.brand h1'); if(h) h.textContent='Cantina Pratica'; const mk=document.querySelector('.brand-mark'); if(mk&&!mk.querySelector('img')) mk.innerHTML='<img src="'+ICONA_APP+'" alt="" width="34" height="34">'; }
@@ -2963,7 +2966,7 @@ function viewVendemmia(app){
     <div><div class="muted small">Mosto ottenuto</div><b style="font-size:1.4rem">${hL(Lpig)}</b></div>
     ${(()=>{ const mi=ev.filter(e=>e.tipo==='carico'&&e.prodotto&&e.data.startsWith(Y)).reduce((a,e)=>a+(e.L||0),0); return mi?`<div><div class="muted small">Mosto entrato da fuori</div><b style="font-size:1.4rem">${hL(mi)}</b></div>`:''; })()}
     <div><div class="muted small">Resa media</div><b style="font-size:1.4rem">${resa(Lpig,kgPig)}</b> <span class="muted small">litri ogni 100 kg</span></div></div>
-    ${uve.length?`<div class="small" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"><div><span class="muted">Per varietà:</span> ${grp(e=>e.varieta)}</div><div><span class="muted">Per classificazione:</span> ${grp(e=>uvaClass(e))}</div><div><span class="muted">Per provenienza:</span> ${grp(e=>e.fonte)}</div><div><span class="muted">Conto lavorazione:</span> ${grp(e=>e.conto||NOSTRO+' (vino nostro)')}</div></div>`:''}</div>
+    ${uve.length?`<div class="small" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"><div><span class="muted">Per varietà:</span> ${grp(e=>e.varieta)}</div><div><span class="muted">Per classificazione:</span> ${grp(e=>uvaClass(e))}</div><div><span class="muted">Per provenienza:</span> ${grp(e=>e.fonte)}</div><div><span class="muted">Conto lavorazione:</span> ${grp(e=>e.conto||nostroLab())}</div></div>`:''}</div>
   ${(()=>{ const df=daFareOggi(); if(!df.length) return ''; const oggi=df.filter(r=>!r.arretrato), arr=df.filter(r=>r.arretrato); const tot=oggi.reduce((a,r)=>a+r.manca,0);
     const vs=[...new Set(df.map(r=>r.vasca))];
     return `<div class="panel"><div class="spread"><h3>Da fare oggi</h3><span class="muted small">${tot?tot+' da fare':'tutto fatto'}${arr.length?` · <span style="color:var(--danger)">${arr.reduce((a,r)=>a+r.manca,0)} arretrati da ieri</span>`:''}</span></div><div class="tbl-wrap"><table><tbody>
@@ -2982,7 +2985,7 @@ function viewVendemmia(app){
        <tr data-fcr="${esc(v.code)}" hidden><td colspan="7"><div style="max-width:600px">${fermCurve(v.code)}</div></td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna vasca in fermentazione. Le vasche entrano in fermentazione dalla pigiatura (casella «iniziano la fermentazione») o dal pulsante «Densità / temp.» della vasca.</p>'}</div>
   <div class="panel"><h3>Uve in attesa di lavorazione</h3>
    ${attesa.length?`<div class="tbl-wrap"><table><thead><tr><th>Arrivo</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto lavorazione</th><th class="r">Da lavorare</th><th>Grado</th><th></th></tr></thead><tbody>
-    ${attesa.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||'vino nostro')}</td><td class="r"><b>${nf(uvaRes(e.id),0)} kg</b>${uvaRes(e.id)<e.kg-0.5?` <span class="muted small">di ${nf(e.kg,0)}</span>`:''}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="r"><button class="btn sm pri" data-lavu="${e.id}">Lavora</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva in attesa.</p>'}</div>
+    ${attesa.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||nostroLab())}</td><td class="r"><b>${nf(uvaRes(e.id),0)} kg</b>${uvaRes(e.id)<e.kg-0.5?` <span class="muted small">di ${nf(e.kg,0)}</span>`:''}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="r"><button class="btn sm pri" data-lavu="${e.id}">Lavora</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva in attesa.</p>'}</div>
   <div class="panel"><h3>Pigiature e pressature ${Y}</h3>
    ${pig.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Lavorazione</th><th>Uve</th><th>Vino</th><th>Vasche</th><th class="r">Mosto</th><th class="r">Resa</th><th></th></tr></thead><tbody>
     ${pig.map(e=>{ const kg=(e.uve||[]).reduce((s,u)=>s+(u.kg||0),0), L=(e.dest||[]).reduce((s,d)=>s+(d.L||0),0);
@@ -2990,7 +2993,7 @@ function viewVendemmia(app){
        <td class="small">${(e.dest||[]).map(d=>`<div style="white-space:nowrap">${vkind(d.vasca)} <b>${esc(vlab(d.vasca))}</b> · ${hL(d.L)}${d.fraz?` <span class="chip" style="text-transform:none;letter-spacing:0">${esc(d.fraz)}</span>`:''}</div>`).join('')}</td><td class="r" style="white-space:nowrap">${hL(L)}</td><td class="r" style="white-space:nowrap">${resa(L,kg)}${kg&&(L/kg>1||L/kg<0.3)?' <span class="chip warn" title="Controlla kg e litri (unità hL/L)">anomala</span>':''}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna lavorazione di uve.</p>'}</div>
   <div class="panel"><h3>Uve arrivate ${Y}</h3>
    ${uve.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto lavorazione</th><th class="r">Kg</th><th>Grado</th><th>Note</th><th></th></tr></thead><tbody>
-    ${uve.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||'vino nostro')}</td><td class="r">${nf(e.kg,0)}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="small muted">${esc(e.note||'')}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva registrata nel '+Y+'.</p>'}</div>`;
+    ${uve.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||nostroLab())}</td><td class="r">${nf(e.kg,0)}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="small muted">${esc(e.note||'')}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva registrata nel '+Y+'.</p>'}</div>`;
   $$('[data-vy]',app).forEach(b=>b.onclick=()=>{ UI.vendY=b.dataset.vy; viewVendemmia(app); });
   $('#vd-uva',app).onclick=()=>formUva();
   $('#vd-op',app).onclick=()=>formLavorazione({vasche:fer.map(v=>v.code),fase:'Vinificazione'});
@@ -3021,7 +3024,7 @@ function formUva(p={},corrId){
     <label class="f">Annata<input id="u-ann" inputmode="numeric" value="${esc(annNorm(p.annata)==='S.A.'?'':(p.annata||(p.data||today()).slice(0,4)))}" ${annNorm(p.annata)==='S.A.'?'disabled':''}><span class="row" style="gap:6px;font-size:.85rem;color:var(--ink)"><input type="checkbox" id="u-sa" ${annNorm(p.annata)==='S.A.'?'checked':''}> senza annata (s.a.)</span></label>
     <label class="f">Varietà<input id="u-var" list="u-varl" value="${esc(p.varieta||'')}" placeholder="es. Nebbiolo"><datalist id="u-varl">${varieta.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
     <label class="f">Provenienza / vigneto<input id="u-fonte" list="u-fl" value="${esc(p.fonte||'')}" placeholder="es. Gera"><datalist id="u-fl">${fonti.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
-    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="u-ct"><option value="">— nessuno (vino nostro)</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
+    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="u-ct"><option value="">— nessuno (${esc(nostroLab())})</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
     <label class="f">Grado all'arrivo<input id="u-gr" inputmode="decimal" value="${p.grado!=null?nfIn(p.grado,3):''}" placeholder="facoltativo"></label>
     <label class="f">Scala${scalaSel('u-sc',p.scala)}</label>
    </div>
@@ -3058,7 +3061,7 @@ function formPigiatura(p={},corrId){
     <label class="f">Lavorazione<select id="pg-lav">${LAV_UVA.map(x=>`<option ${x===(p.lav||LAV_UVA[0])?'selected':''}>${x}</option>`).join('')}</select></label></div>
    <fieldset class="lvf"><legend>Uve lavorate</legend>
     ${lots.length?`<div class="tbl-wrap"><table><thead><tr><th></th><th>Arrivo</th><th>Uva</th><th>Conto lavorazione</th><th class="r">Disponibili</th><th class="r">Kg lavorati</th></tr></thead><tbody>
-     ${lots.map(e=>`<tr data-u="${e.id}"><td><input type="checkbox" class="pu-c" ${(p.uve||[]).some(u=>u.uva===e.id)||(!p.uve&&lots.length===1)?'checked':''}></td><td>${fd(e.data)}</td><td>${esc([e.fonte,e.varieta].filter(Boolean).join(' · ')||'uva')}<div class="small muted">${esc(uvaClass(e))}</div></td><td class="small">${esc(e.conto||'vino nostro')}</td><td class="r">${nf(avail(e.id),0)} kg</td>
+     ${lots.map(e=>`<tr data-u="${e.id}"><td><input type="checkbox" class="pu-c" ${(p.uve||[]).some(u=>u.uva===e.id)||(!p.uve&&lots.length===1)?'checked':''}></td><td>${fd(e.data)}</td><td>${esc([e.fonte,e.varieta].filter(Boolean).join(' · ')||'uva')}<div class="small muted">${esc(uvaClass(e))}</div></td><td class="small">${esc(e.conto||nostroLab())}</td><td class="r">${nf(avail(e.id),0)} kg</td>
       <td class="r"><input class="pu-kg" inputmode="decimal" style="max-width:110px;text-align:right" value="${nfIn(pre[e.id]!=null&&pre[e.id]!==undefined?pre[e.id]:avail(e.id),0)}"></td></tr>`).join('')}</tbody></table></div>`:'<p class="err small">Nessuna uva in attesa: prima registra l\'«Entrata uva».</p>'}
    </fieldset>
    <div id="pg-warn"></div>
@@ -3120,7 +3123,7 @@ function formPigiatura(p={},corrId){
       uve.forEach(u=>{ const ev=evById(u.uva); if(u.kg>avail(u.uva)+0.5) W.push({k:'kg'+u.uva,t:`<b>${esc(uvaLab(ev))}</b>: lavori ${nf(u.kg,0)} kg ma ne risultano disponibili ${nf(avail(u.uva),0)}.`,ok:'Procedi: i kg in più restano segnalati come uva in negativo'});
         if(ev.data>data) W.push({k:'dt'+u.uva,t:`<b>${esc(uvaLab(ev))}</b> risulta arrivata il ${fd(ev.data)}, dopo la data della lavorazione (${fd(data)}).`,ok:'Procedi lo stesso'}); });
       const conti=[...new Set(uve.map(u=>(evById(u.uva)||{}).conto||''))];
-      if(conti.length>1) W.push({k:'conti',t:`Uve di conti lavorazione diversi (${conti.map(c=>esc(c||NOSTRO+' (vino nostro)')).join(' · ')}).`,ok:'Procedi: il mosto risulta di più conti lavorazione, divisi in % secondo i kg (si vede nella composizione e nel cartello)'});
+      if(conti.length>1) W.push({k:'conti',t:`Uve di conti lavorazione diversi (${conti.map(c=>esc(contoLab(c))).join(' · ')}).`,ok:'Procedi: il mosto risulta di più conti lavorazione, divisi in % secondo i kg (si vede nella composizione e nel cartello)'});
       if(isAtto(fv.categoria)){ const bad=uve.map(u=>evById(u.uva)).filter(e=>!(isAtto(e.categoria)&&e.denominazione===fv.denominazione));
         if(bad.length) W.push({k:'dop',t:`Il vino è «Atto a ${esc(fv.denominazione)}» ma ${bad.length===1?'questa uva non è atta':'queste uve non sono atte'} a quella denominazione: ${bad.map(x=>esc(uvaLab(x))).join('; ')}.`,ok:`Confermo: il vino resta «Atto a ${esc(fv.denominazione)}»`}); }
       dest.forEach((d,i)=>{ const s0=st[d.vasca]; if(s0&&s0.vino&&s0.L>1e-6&&s0.vino!==vid) W.push({k:'occ'+i,t:`La vasca <b>${esc(vlab(d.vasca))}</b> contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}): il mosto si unisce a quel vino. Il vino risultante si chiama:<br>
@@ -3204,7 +3207,7 @@ function evBody(e){
     (e.apporti||[]).forEach(a=>out.push(`<li>Apporto: ${esc(a.descr)} ${nf(a.qta)} ${esc(a.udm)}</li>`));
     if(e.tratteTxt) out.push(`<li>Vasche: ${esc(e.tratteTxt)}${e.attualiTxt?' · vasche attuali '+esc(e.attualiTxt):''} <span class="muted">(volumi non registrati)</span></li>`);
   }
-  if(e.tipo==='uva') out.push(`<li>${[e.varieta,uvaClass(e),e.fonte?'provenienza '+e.fonte:'',e.conto?'conto lavorazione '+e.conto:'vino nostro',e.grado!=null?gradoTxt(e.grado,e.scala):''].filter(Boolean).map(esc).join(' · ')}</li>`);
+  if(e.tipo==='uva') out.push(`<li>${[e.varieta,uvaClass(e),e.fonte?'provenienza '+e.fonte:'',e.conto?'conto lavorazione '+e.conto:nostroLab(),e.grado!=null?gradoTxt(e.grado,e.scala):''].filter(Boolean).map(esc).join(' · ')}</li>`);
   if(e.tipo==='pigiatura'){ const kg=(e.uve||[]).reduce((a,u)=>a+(u.kg||0),0), L=(e.dest||[]).reduce((a,d)=>a+(d.L||0),0);
     out.push(`<li>${esc(uveDescr(e))}</li>`); out.push(`<li>Vino <b>${esc(vName(e.vino))}</b> · ${(e.dest||[]).map(d=>`${vkind(d.vasca).toLowerCase()} ${esc(vlab(d.vasca))}: ${hL(d.L)}${d.fraz?' ('+esc(d.fraz)+')':''}`).join(' · ')} <span class="muted">(${e.stima||'stimato'})</span></li>`);
     if(kg&&L) out.push(`<li>Resa ${nf(L/kg*100,1)} % (${hL(L)} da ${nf(kg,0)} kg)${e.ferm?' · vasche in fermentazione':''}</li>`); }
@@ -3227,7 +3230,7 @@ function evBody(e){
   if((e.tratte||[]).length>6){ const det=out.splice(o0); const tot=e.tratte.reduce((a,t)=>a+(t.L||0),0); const sv=e.tratte.filter(t=>t.svuota).length;
     out.push(`<li>${e.tratte.length} movimenti · ${hL(tot)} arrivati in tutto${sv?` · ${sv} contenitor${sv>1?'i':'e'} svuotat${sv>1?'i':'o'}`:''}</li><li style="list-style:none"><details><summary class="small" style="cursor:pointer">Dettaglio dei movimenti</summary><ul>${det.join('')}</ul></details></li>`); }
   if(e.tipo==='manutenzione'){ out.push(`<li>${e.vasche.map(c=>esc(vlab(c))).join(', ')}${e.giorni?` · per ${e.giorni} giorni, fino al ${fd(addDays(e.data,e.giorni))}`:''}</li>`); if((e.prodotti||[]).length) out.push(`<li>${e.prodotti.map(p=>`<b>${esc(p.prodotto)}</b> ${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):''}${p.volL&&p.dose!=null?` <span class="muted">(${qtaTeorica(p.dose,p.udm,p.volL)} su ${hL(p.volL)})</span>`:''}${p.reale?' · usata '+esc(p.reale):''}`).join(' · ')}</li>`); }
-  else if(e.tipo==='unifica'){ out.push(`<li>Da qui <b>${esc(vName(e.vino))}</b> risulta composto al 100% da sé stesso${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}. Le partite di origine restano in «Da dove viene» nella genealogia.</li>`); if(e.contoPrima) out.push(`<li>Prima: ${esc(e.contoPrima)} → dopo: <b>${esc(e.conto===''?NOSTRO+' (vino nostro)':e.conto)}</b></li>`); }
+  else if(e.tipo==='unifica'){ out.push(`<li>Da qui <b>${esc(vName(e.vino))}</b> risulta composto al 100% da sé stesso${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}. Le partite di origine restano in «Da dove viene» nella genealogia.</li>`); if(e.contoPrima) out.push(`<li>Prima: ${esc(e.contoPrima)} → dopo: <b>${esc(contoLab(e.conto))}</b></li>`); }
   else if(e.tipo==='certificazione'){ out.push(`<li>${e.inPlace?`<b>${esc(vName(e.vino))}</b> certificato: la scheda passa da «${esc(e.daCat||attoDi((vino(e.vino)||{}).categoria))}» a ${esc((vino(e.vino)||{}).categoria||'DOP')}`:`Da <b>${vNameSub(e.vino)}</b> a <b>${vNameSub(e.nuovoVino)}</b>`}${(e.vasche||[]).length?(e.vasche.length>1?' · vasche ':' · vasca ')+e.vasche.map(c=>esc(vlab(c))).join(', '):''}</li>`); if(e.idoneita) out.push(`<li>Codice idoneità: <b>${esc(e.idoneita)}</b></li>`); }
   else if(e.vasche&&e.vasche.length) out.push(`<li>${e.vasche.length>6?'Contenitori trattati':'Vasche trattate'}: ${esc(elencoV(e.vasche))}</li>`);
   (e.perdite||[]).forEach((p,k)=>{ const L=((RA.diffCalc||{})[e.id+'_p'+k]||{}).calc; out.push(`<li>${esc(vlab(p.vasca))}: ${esc(DIFF[p.tipo]||p.tipo)} <b>${hL(L!=null?L:(p.L||0))}</b>${p.volDopo!=null?` <span class="muted">(volume dopo l'operazione ${hL(p.volDopo)})</span>`:''}${p.tipo==='recupero'&&p.feccDest?' in '+esc(vlab(p.feccDest)):''}${p.tipo==='verificare'?(verTxt('ver:'+e.id+'_p'+k)||' · <span class="chip warn">da verificare</span> <span class="muted">(Inventario → Differenze aperte)</span>'):''}</li>`); });
@@ -3746,7 +3749,7 @@ function formLavorazione(p={},corrId){
           <label><input type="radio" name="r${c.idx}" value="__new"> un nuovo vino</label>
           <div class="fg rs-new" hidden style="margin-top:6px">${vinoPicker('rs'+c.idx,null)}</div></fieldset>`).join('')}
           <p class="small" style="margin:8px 0 0">La provenienza viene conservata in ogni caso. Le analisi precedenti non passano al vino risultante.</p>
-          ${corrId?'':`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:400"><input type="checkbox" id="cf-uni" style="margin-top:3px"> <span><b>Rendi vino unico</b> dove si uniscono: da qui la composizione mostrerà solo il vino risultante (100%), senza le partite di prima. Le origini restano in «Da dove viene» nella genealogia.${(()=>{ const cs=new Set(); cf.forEach(c=>{ contoVasca(c.dest).forEach(([x])=>cs.add(x)); (ev.tratte||[]).filter(t=>t.a===c.dest&&t.da).forEach(t=>contoVasca(t.da).forEach(([x])=>cs.add(x))); }); return cs.size>1?`<br><span style="color:var(--warn)"><b>Attenzione:</b> si uniscono vini di conti diversi (${[...cs].map(x=>esc(x===NOSTRO?'vino nostro':x)).join(', ')}): il vino unico risulterà ${cs.has(NOSTRO)?'<b>vino nostro</b>':'del conto prevalente'}. Se non è giusto, non spuntare e usa poi «Rendi vino unico» dalla pagina del vino, dove scegli tu.</span>`:''; })()}</span></label>`}</div>`:'');
+          ${corrId?'':`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:400"><input type="checkbox" id="cf-uni" style="margin-top:3px"> <span><b>Rendi vino unico</b> dove si uniscono: da qui la composizione mostrerà solo il vino risultante (100%), senza le partite di prima. Le origini restano in «Da dove viene» nella genealogia.${(()=>{ const cs=new Set(); cf.forEach(c=>{ contoVasca(c.dest).forEach(([x])=>cs.add(x)); (ev.tratte||[]).filter(t=>t.a===c.dest&&t.da).forEach(t=>contoVasca(t.da).forEach(([x])=>cs.add(x))); }); return cs.size>1?`<br><span style="color:var(--warn)"><b>Attenzione:</b> si uniscono vini di conti diversi (${[...cs].map(x=>esc(contoLab(x))).join(', ')}): il vino unico risulterà ${cs.has(NOSTRO)?'<b>'+esc(nostroLab())+'</b>':'del conto prevalente'}. Se non è giusto, non spuntare e usa poi «Rendi vino unico» dalla pagina del vino, dove scegli tu.</span>`:''; })()}</span></label>`}</div>`:'');
         $$('#conf fieldset[data-ci]',b).forEach(fs=>{ const box=$('.rs-new',fs); if(!box) return; const px='rs'+fs.dataset.ci; pickerBind(fs,px);
           const cc=sim.conflitti[ev.id].find(c=>c.idx===+fs.dataset.ci); const vin=vino(cc&&cc.vinoDest)||{}; if(vin.annata) annSet(fs,px,vin.annata);
           $$('input[type=radio]',fs).forEach(x=>x.onchange=()=>{ box.hidden=$('input:checked',fs).value!=='__new'; }); });
@@ -3762,7 +3765,7 @@ function formLavorazione(p={},corrId){
           const ct=cs.length>1?(cs.some(([x])=>x===NOSTRO)?NOSTRO:cs[0][0]):(cs[0]?cs[0][0]:NOSTRO);
           const pv={}; vv.forEach(c=>provVasca(c).forEach(([p])=>{ if(p!=='Provenienza non indicata') pv[p]=1; })); const pvs=Object.keys(pv);
           S.eventi.push({id:uid(),tipo:'unifica',data:ev.data,ord:ev.ord+0.5+k*0.01,fase:ev.fase||'Affinamento',vino:vid,vasche:vv,conto:ct===NOSTRO?'':ct,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
-            contoPrima:cs.length>1?cs.map(([x,L])=>(x===NOSTRO?'vino nostro':x)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()}); });
+            contoPrima:cs.length>1?cs.map(([x,L])=>contoLab(x)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()}); });
         save(); refresh(); }
       toast(corrId?'Correzione salvata':uDest.length?'Lavorazione salvata · vino unico':'Lavorazione salvata');
     };
@@ -3787,7 +3790,7 @@ function formCarico(p={},corrId){
    </fieldset>
    <div class="fg">
     <label class="f" style="grid-column:span 2">Provenienza<input id="c-p" list="c-pl" value="${esc(p.provenienza&&p.provenienza!=='Giacenza di apertura'?p.provenienza:'')}" placeholder="scegli dall'elenco o scrivi"><datalist id="c-pl">${[...new Set([...provList(),...S.eventi.filter(e=>e.tipo==='carico'&&e.provenienza&&e.provenienza!=='Giacenza di apertura').map(e=>e.provenienza)])].map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
-    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="c-ct"><option value="">— nessuno (vino nostro)</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
+    <label class="f" style="grid-column:span 2">Conto lavorazione per<select id="c-ct"><option value="">— nessuno (${esc(nostroLab())})</option>${[...new Set([...contiList().map(c=>c.nome),...(p.conto?[p.conto]:[])])].map(n=>`<option ${p.conto===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
    </div>
    <div id="c-mw" class="box small" ${p.prodotto?'':'hidden'} style="margin:4px 0 8px">
      <div>Il mosto entra in <b>vinificazione</b>${''}: la vasca compare in Vendemmia, la lavorazione si apre in fase Vinificazione e diventa vino con «Fine fermentazione». <span id="c-mft">${p.prodotto==='mostoferm'?'La vasca risulta già <b>in fermentazione</b>.':'La fermentazione la fai partire tu con «Inizio fermentazione».'}</span></div>
@@ -4072,7 +4075,7 @@ function formCartello(code){
       <label class="f">Capacità nominale<input id="k-cap" value="${esc(nf(v.cap)+' hL')}"></label>
       <label class="f wide">Riga sotto la tipologia<input id="k-or" value="${esc(def.origine)}"></label>
       <label class="f wide">Riga sotto la capacità<input id="k-mi" value="${esc(def.misura)}"></label>
-      <label class="f wide">Note<textarea id="k-no">${esc(def.note)}</textarea><span class="hint">${provs.length?'Di chi è il vino: '+provs.map(([pv,f])=>esc(pv===NOSTRO?pv+' (vino nostro)':pv)+(provs.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')+(one?' — se cambi la nota, viene ricordata per questo conto (anche in Dati → Conti lavorazione).':' — vino di più conti: nota composta.'):''}</span></label>
+      <label class="f wide">Note<textarea id="k-no">${esc(def.note)}</textarea><span class="hint">${provs.length?'Di chi è il vino: '+provs.map(([pv,f])=>esc(contoLab(pv))+(provs.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')+(one?' — se cambi la nota, viene ricordata per questo conto (anche in Dati → Conti lavorazione).':' — vino di più conti: nota composta.'):''}</span></label>
       <label class="pronto-box" style="grid-column:1/-1"><input type="checkbox" id="k-pr" ${s.pronto?'checked':''}> <span><b>Scritta «VINO PRONTO»</b><br><span class="hint">${s.pronto?'Il vino in questa vasca è segnato come pronto.':'Il vino in questa vasca non è segnato come pronto.'}</span></span></label>
       <label class="row small" style="grid-column:1/-1;gap:6px"><input type="checkbox" id="k-rem" checked> Ricorda le righe (e la nota per questo conto) per i prossimi cartelli</label>
     </form>
@@ -4124,7 +4127,7 @@ function viewScheda(app,code){
      <dt>Vasca</dt><dd>${vkind(code)} ${esc(vlab(code))}${capTxt(code)}</dd>
      <dt>Volume</dt><dd>${hL(s.L)}${kgTxt(s.vino,s.L)}</dd>
      <dt>Stato</dt><dd>${esc(D.stato)}</dd>
-     <dt>Di chi è</dt><dd>${D.conti.map(([c,f])=>esc(c===NOSTRO?c+' (vino nostro)':c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')||'—'}</dd>
+     <dt>Di chi è</dt><dd>${D.conti.map(([c,f])=>esc(contoLab(c))+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')||'—'}</dd>
      ${w.idoneita?`<dt>Codice idoneità</dt><dd>${esc(w.idoneita)}</dd>`:''}
    </dl></div>
   <div class="panel"><h3>Origine e composizione</h3>${compRows(D.G,s.L,false)}</div>
@@ -4155,7 +4158,7 @@ async function schedaPDF(code){
   const tab=(headR,body,opt={})=>{ doc.autoTable({startY:y,head:[headR.map(T)],body:body.map(r=>r.map(T)),margin:{left:M,right:M},styles:{fontSize:8.5,cellPadding:1.6,overflow:'linebreak'},headStyles:{fillColor:[120,25,45],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,244,240]},...opt}); y=doc.lastAutoTable.finalY+6; };
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(110); doc.text(T(azNome().toUpperCase()+' · SCHEDA '+vkind(code).toUpperCase()+' '+vlab(code)+' · '+fd(asOf())),M,y); doc.setTextColor(0); y+=8;
   doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text(T(vName(s.vino)),M,y); y+=6; doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.text(T(vinoSub(w)),M,y); y+=7;
-  tab(['Vasca','Volume','Stato','Di chi è'].concat(w.idoneita?['Codice idoneità']:[]),[[vkind(code)+' '+vlab(code)+capTxt(code),hL(s.L),D.stato,D.conti.map(([c,f])=>(c===NOSTRO?c+' (vino nostro)':c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')].concat(w.idoneita?[w.idoneita]:[])]);
+  tab(['Vasca','Volume','Stato','Di chi è'].concat(w.idoneita?['Codice idoneità']:[]),[[vkind(code)+' '+vlab(code)+capTxt(code),hL(s.L),D.stato,D.conti.map(([c,f])=>contoLab(c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')].concat(w.idoneita?[w.idoneita]:[])]);
   head('Origine e composizione');
   const tmp=document.createElement('div'); tmp.innerHTML=compRows(D.G,s.L,false); $$('li',tmp).forEach(li=>para('• '+li.textContent.replace(/\s+/g,' ').trim()));
   y+=2;
@@ -4187,7 +4190,7 @@ function vinoTot(id){ let L=0; const vs=[]; for(const v of VASCHE){const s=R.st[
 const statoVasca = c=>{ const x=R.st[c]; return x.ferm?'fermentazione':x.vinif?'vinificazione':x.pronto?'pronto':'affinamento'; };
 const filtriVasca = F=>!!(F&&(F.dep||F.conto||(F.stato&&F.stato!=='esaurito')));
 const vascaPassa = (c,F)=>(!F.dep||(VMAP[c]&&VMAP[c].dep===F.dep))&&(!F.conto||contoVasca(c).some(([ct,f])=>ct===F.conto&&f>0.001))&&(!F.stato||F.stato==='esaurito'||statoVasca(c)===F.stato);
-const filtroTxt = F=>[F.conto?'conto lavorazione '+(F.conto===NOSTRO?'vino nostro':F.conto):'',F.dep?'locale '+locNome(F.dep):'',F.stato&&F.stato!=='esaurito'?'stato «'+({vinificazione:'in vinificazione',fermentazione:'in fermentazione',affinamento:'in affinamento',pronto:'pronto',vuota:'vasca vuota'}[F.stato])+'»':''].filter(Boolean).join(' · ');
+const filtroTxt = F=>[F.conto?(F.conto===NOSTRO?nostroLab():'conto lavorazione '+F.conto):'',F.dep?'locale '+locNome(F.dep):'',F.stato&&F.stato!=='esaurito'?'stato «'+({vinificazione:'in vinificazione',fermentazione:'in fermentazione',affinamento:'in affinamento',pronto:'pronto',vuota:'vasca vuota'}[F.stato])+'»':''].filter(Boolean).join(' · ');
 /* ricerca e filtri dei Vini: restano mentre si passa dall'elenco a una scheda vino e ritorno; si azzerano uscendo dalla sezione o riaprendo il programma */
 function vfLoad(){ if(!UI.vf) UI.vf={}; return UI.vf; }
 function vfStore(){}
@@ -4231,7 +4234,7 @@ function vfBarHTML(F,extra='',opt={}){
     ${sel('ann','Annata',[['','Tutte'],...annate.map(a=>[String(a),a==='S.A.'?'Senza annata':String(a)])])}
     ${sel('stato','Stato',[['','Tutti'],['vinificazione','In vinificazione'],['fermentazione','In fermentazione'],['affinamento','In affinamento'],['pronto','Pronto da imbottigliare'],opt.inv?['vuota','Vasca vuota']:['esaurito','Esaurito (0 hL)']])}
     ${sel('dep','Locale',[['','Tutti'],...DEPOSITI.map(d=>[d.id,d.nome])])}
-    ${sel('conto','Conto lavorazione',[['','Tutti'],[NOSTRO,'Vino nostro'],...contiList().map(c=>[c.nome,c.nome])])}
+    ${sel('conto','Conto lavorazione',[['','Tutti'],[NOSTRO,nostroLab()],...contiList().map(c=>[c.nome,c.nome])])}
     ${sel('an','Analisi',[['','Tutte'],['si','Con analisi'],['no','Senza analisi'],['vecchie','Ultima analisi oltre 60 giorni']])}
     ${sel('ord','Ordina per',opt.inv?[['','Vasca'],['loc','Locale'],['vino','Vino'],['vol','Volume']]:[['','Volume'],['nome','Nome'],['annata','Annata'],['analisi','Ultima analisi']])}
     <button class="btn sm" id="vf-x" ${nAtt?'':'disabled'}>Azzera filtri${nAtt?' ('+nAtt+')':''}</button></div>${extra}</div>`; }
@@ -4275,15 +4278,15 @@ function formUnifica(vid,pre){ const w=vino(vid); if(!w) return;
   modal('Rendi vino unico · '+vName(vid),`<form id="fu" novalidate>
     <p style="margin:0 0 8px">Da questa data <b>${esc(vName(vid))}</b> risulterà composto al <b>100% da sé stesso</b>: la composizione non elencherà più le partite di prima. Le registrazioni restano tutte, e le partite di origine si vedono con «Da dove viene» nella genealogia. Si annulla dal Registro.</p>
     <div class="fg"><label class="f">Data<input type="date" id="u-d" value="${today()}" max="${today()}"></label></div>
-    <fieldset class="lvf"><legend>Vasche</legend>${vs.map(c=>{ const x=info(c); return `<label class="row" style="gap:8px;margin:4px 0"><input type="checkbox" class="u-v" value="${esc(c)}" ${sel0.includes(c)?'checked':''}> <b>${esc(vlab(c))}</b> · ${hL(R.st[c].L)} <span class="muted small">${x.n&&x.n.leaf?'già un\'unica partita':x.parti+' parti'}${x.conti.length>1?' · '+x.conti.map(([ct,f])=>esc(ct===NOSTRO?'vino nostro':ct)+' '+nf(f*100,0)+'%').join(', '):''}</span></label>`; }).join('')}</fieldset>
+    <fieldset class="lvf"><legend>Vasche</legend>${vs.map(c=>{ const x=info(c); return `<label class="row" style="gap:8px;margin:4px 0"><input type="checkbox" class="u-v" value="${esc(c)}" ${sel0.includes(c)?'checked':''}> <b>${esc(vlab(c))}</b> · ${hL(R.st[c].L)} <span class="muted small">${x.n&&x.n.leaf?'già un\'unica partita':x.parti+' parti'}${x.conti.length>1?' · '+x.conti.map(([ct,f])=>esc(contoLab(ct))+' '+nf(f*100,0)+'%').join(', '):''}</span></label>`; }).join('')}</fieldset>
     <div id="u-cw"></div>
     <div id="msg" class="err"></div><div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Rendi vino unico</button></div></form>`,(b,close)=>{
     const sel=()=>$$('.u-v',b).filter(x=>x.checked).map(x=>x.value);
     const conti=()=>{ const g={}; sel().forEach(c=>contoVasca(c).forEach(([ct,f])=>{ g[ct]=(g[ct]||0)+f*R.st[c].L; })); return Object.entries(g).sort((a,b2)=>b2[1]-a[1]); };
     const upd=()=>{ const cs=conti(); const cw=$('#u-cw',b);
       if(cs.length>1){ const def=cs.some(([ct])=>ct===NOSTRO)?NOSTRO:cs[0][0];
-        cw.innerHTML=`<div class="box warn" style="color:var(--ink)"><b>Attenzione: vino di conti diversi.</b> ${cs.map(([ct,L])=>esc(ct===NOSTRO?'vino nostro':'conto '+ct)+' '+hL(L)).join(' · ')}. Diventando vino unico avrà un solo proprietario.
-          <label class="f" style="margin-top:6px;max-width:320px">Di chi è il vino unico<select id="u-ct">${cs.map(([ct])=>`<option value="${esc(ct===NOSTRO?'':ct)}" ${ct===def?'selected':''}>${esc(ct===NOSTRO?'Vino nostro':ct)}</option>`).join('')}</select></label></div>`; }
+        cw.innerHTML=`<div class="box warn" style="color:var(--ink)"><b>Attenzione: vino di conti diversi.</b> ${cs.map(([ct,L])=>esc(ct===NOSTRO?nostroLab():'conto '+ct)+' '+hL(L)).join(' · ')}. Diventando vino unico avrà un solo proprietario.
+          <label class="f" style="margin-top:6px;max-width:320px">Di chi è il vino unico<select id="u-ct">${cs.map(([ct])=>`<option value="${esc(ct===NOSTRO?'':ct)}" ${ct===def?'selected':''}>${esc(contoLab(ct))}</option>`).join('')}</select></label></div>`; }
       else cw.innerHTML=''; };
     $$('.u-v',b).forEach(x=>x.onchange=upd); upd();
     $('#fu',b).onsubmit=e=>{ e.preventDefault(); const m=$('#msg',b); const vv=sel(), data=$('#u-d',b).value||today();
@@ -4291,7 +4294,7 @@ function formUnifica(vid,pre){ const w=vino(vid); if(!w) return;
       const cs=conti(); const ctSel=$('#u-ct',b); const conto=ctSel?ctSel.value:(cs[0]?(cs[0][0]===NOSTRO?'':cs[0][0]):'');
       const pv={}; vv.forEach(c=>provVasca(c).forEach(([p,f])=>{ pv[p]=(pv[p]||0)+f; })); const pvs=Object.keys(pv).filter(p=>p!=='Provenienza non indicata');
       const ev={id:uid(),tipo:'unifica',data,ord:Date.now(),fase:'Affinamento',vino:vid,vasche:vv,conto,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
-        contoPrima:cs.length>1?cs.map(([ct,L])=>(ct===NOSTRO?'vino nostro':ct)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()};
+        contoPrima:cs.length>1?cs.map(([ct,L])=>contoLab(ct)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()};
       S.eventi.push(ev); save(); close(); refresh(); toast(vName(vid)+' è ora un vino unico'); };
   });
 }
@@ -4605,7 +4608,7 @@ function formConfrontoMaxidata(){
 }
 function maxiReview(b,letti){
   const vOpt=sel=>`<option value="">— non c'è nel gestionale</option>`+[...S.vini].sort((a,c)=>vName(a.id).localeCompare(vName(c.id))).map(v=>`<option value="${esc(v.id)}" ${v.id===sel?'selected':''}>${esc(vName(v.id))}</option>`).join('');
-  const pOpt=sel=>`<option value="">— non indicato</option>`+[NOSTRO,...contiList().map(c=>c.nome)].map(p=>`<option value="${esc(p)}" ${p===sel?'selected':''}>${esc(p===NOSTRO?p+' (vino nostro)':p)}</option>`).join('');
+  const pOpt=sel=>`<option value="">— non indicato</option>`+[NOSTRO,...contiList().map(c=>c.nome)].map(p=>`<option value="${esc(p)}" ${p===sel?'selected':''}>${esc(contoLab(p))}</option>`).join('');
   $('#mx-rev',b).innerHTML=letti.map((r,i)=>{ const ck=mxKey(r.conto); const provSel=(S.maxiConti||{})[ck]||r.provenienza||'';
     return `<section class="panel" data-mx="${i}" style="margin-top:10px"><div class="spread"><h3>${esc(r.conto||r.file)}</h3><label class="f" style="max-width:300px">Conto lavorazione nel gestionale<select class="mx-prov">${pOpt(provSel)}</select></label></div>
      <p class="small muted">${esc(r.file)} · giacenza al ${r.data?fd(r.data):'?'}${r.somme_ok===false?' · <span class="chip warn">le somme non tornano con il riepilogo: controlla</span>':''}</p>
@@ -4791,7 +4794,7 @@ function invFiltra(rows,F){ const q=(F.q||'').toLowerCase().trim(); const ultima
 function viewInventario(app){
   const tutteRows=VASCHE.filter(v=>R.st[v.code].vino||(R.misure[v.code]||[]).length||(UI.vfInv&&UI.vfInv.stato==='vuota')).map(v=>{const s=R.st[v.code],ms=R.misure[v.code]||[],l=ms[ms.length-1];return {v,s,l}});
   UI.vfInv=UI.vfInv||{}; const FI=UI.vfInv, nF=vfAttivi(FI); const rows=nF?invFiltra(tutteRows,FI):(FI.ord?invFiltra(tutteRows,FI):tutteRows);
-  const quotaConto=c=>{ if(!FI.conto) return ''; const f=(contoVasca(c).find(([ct])=>ct===FI.conto)||[])[1]||0; return f<0.999?` <span class="small muted">di cui ${nf(f*100,0)}% ${FI.conto===NOSTRO?'vino nostro':'conto '+esc(FI.conto)}</span>`:''; };
+  const quotaConto=c=>{ if(!FI.conto) return ''; const f=(contoVasca(c).find(([ct])=>ct===FI.conto)||[])[1]||0; return f<0.999?` <span class="small muted">di cui ${nf(f*100,0)}% ${FI.conto===NOSTRO?esc(nostroLab()):'conto '+esc(FI.conto)}</span>`:''; };
   const aperte=rows.filter(r=>r.l&&r.l.scelta==='segnala');
   const anom=anomalieQta(), anAp=anom.filter(x=>!verifiche()[x.key]), anCh=anom.filter(x=>verifiche()[x.key]);
   app.innerHTML=`<div class="spread"><h2>Inventario${UI.asOf&&UI.asOf!==today()?' al '+fd(UI.asOf):''}</h2><div class="row"><button class="btn" id="mx">Confronta con Maxidata</button><button class="btn pri" id="nm">Nuova misura</button></div></div>
@@ -4917,7 +4920,7 @@ function viewBenvenuto(app){
     <form id="fbv" novalidate>
       <h3 style="margin-top:14px">1 · La cantina</h3>
       <div class="fg"><label class="f">Nome della cantina *<input id="bv-n" placeholder="es. Cantina dei Colli"></label>
-        <label class="f">Ragione sociale *<input id="bv-r" placeholder="es. Cantina dei Colli S.r.l."><span class="hint">È il «vino nostro»: il vino che non lavori per conto di altri.</span></label>
+        <label class="f">Ragione sociale *<input id="bv-r" placeholder="es. Cantina dei Colli S.r.l."><span class="hint">Serve nei documenti e nel confronto con Maxidata. Il vino che non lavori per conto di altri compare col nome della cantina.</span></label>
         <label class="f">Sigla nel marchio<input id="bv-s" maxlength="3" placeholder="es. CC"></label></div>
       <h3 style="margin-top:14px">2 · Il primo locale</h3>
       <div class="fg"><label class="f">Nome del locale *<input id="bv-l" placeholder="es. Cantina, Barricaia"></label>
@@ -5327,15 +5330,15 @@ function catPanel(box){ const D={open:{},te:teList().map(x=>({...x,_old:x.id})),
 function viewDati(app){
   const az=S.azienda||{};
   app.innerHTML=`<h2>Dati e backup</h2>
-  <div class="panel"><h3>Dati azienda</h3><p class="hint">Il nome compare in alto e nella scheda PDF; la ragione sociale è il «vino nostro» (conto lavorazione vuoto) nei filtri e nei cartelli.</p>
-   <div class="fg"><label class="f">Nome della cantina<input id="az-n" value="${esc(az.nome||'')}"></label><label class="f">Ragione sociale (vino nostro)<input id="az-r" value="${esc(az.ragione||'')}"></label><label class="f">Sigla nel marchio (2–3 lettere)<input id="az-s" maxlength="3" value="${esc(az.sigla||'')}"></label></div>
+  <div class="panel"><h3>Dati azienda</h3><p class="hint">Il nome compare in alto, nella scheda PDF e ovunque si indica di chi è il vino: il vino non in conto lavorazione è scritto col nome della cantina. La ragione sociale serve nel confronto con Maxidata.</p>
+   <div class="fg"><label class="f">Nome della cantina<input id="az-n" value="${esc(az.nome||'')}"></label><label class="f">Ragione sociale<input id="az-r" value="${esc(az.ragione||'')}"></label><label class="f">Sigla nel marchio (2–3 lettere)<input id="az-s" maxlength="3" value="${esc(az.sigla||'')}"></label></div>
    <div class="actions"><button class="btn pri" id="az-ok">Salva dati azienda</button></div></div>
   <div class="panel"><h3>Locali e contenitori</h3><p class="hint">I locali della cantina (ognuno con la sua pianta) e le vasche, botti e altri contenitori di ciascuno. Qui si aggiunge un locale nuovo o un contenitore.</p>
    <p class="small">${DEPOSITI.map(l=>`<b>${esc(l.nome)}</b> · ${VASCHE.filter(v=>v.dep===l.id&&v.stato==='attivo').length} ${contNome(l.id)}`).join('<br>')}</p>
    <div class="actions"><a class="btn pri" href="#locali">Gestisci locali e contenitori</a></div></div>
   <div class="panel"><h3>Conti lavorazione (conto terzi)</h3><p class="hint">Le aziende per cui lavori il vino: compaiono in «Conto lavorazione per» nell'entrata vino. Una per riga, nella forma <code>Nome | dicitura per il cartello</code>. Se cambi un nome (stessa riga), le entrate già registrate vengono aggiornate.</p>
    <textarea id="ct-t" style="min-height:110px">${esc(contiList().map(c=>c.nome+' | '+(c.nota||'')).join('\n'))}</textarea>
-   <label class="f wide" style="margin-top:8px">Dicitura per il vino nostro (${esc(NOSTRO)})<input id="ct-n" value="${esc(S.notaNostro!=null?S.notaNostro:NOSTRO)}"></label>
+   <label class="f wide" style="margin-top:8px">Dicitura sul cartello per il vino di ${esc(nostroLab())} <span class="muted small">(non in conto lavorazione)</span><input id="ct-n" value="${esc(S.notaNostro!=null?S.notaNostro:NOSTRO)}"></label>
    <div class="actions"><button class="btn pri" id="ct-s">Salva conti lavorazione</button><button class="btn" id="ct-r">Svuota elenco</button></div></div>
   <div class="panel"><h3>Provenienze</h3><p class="hint">Da dove arriva il vino o l'uva (es. un fornitore o una zona): proposte nel campo «Provenienza» delle entrate. Una per riga. Si può sempre scriverne una nuova nel modulo. Le aziende per cui lavori il vino vanno in «Conti lavorazione».</p>
    <textarea id="pv-t" style="min-height:120px">${esc(provList().join('\n'))}</textarea>

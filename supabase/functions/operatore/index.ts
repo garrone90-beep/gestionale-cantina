@@ -77,7 +77,10 @@ Deno.serve(async (req: Request) => {
   /* ---------- da qui solo operatori ---------- */
   if (prof.ruolo !== "operatore") return out({ code: "not_granted", message: "Funzione riservata agli operatori" }, 403);
   const nome = norm(prof.nome);
-  const suo = (l: any) => l && norm(l.assegnato) === nome;
+  /* lavori a più persone: l.assegnati; i lavori vecchi hanno solo l.assegnato */
+  const suo = (l: any) => !!l && (Array.isArray(l.assegnati) ? l.assegnati.some((x: unknown) => norm(x) === nome) : (!l.assegnatoEsterno && norm(l.assegnato) === nome));
+  /* segnalazione di un altro che il responsabile ha mostrato anche a questo operatore */
+  const mostrata = (l: any) => !!l?.segnalazione && Array.isArray(l.segnalazione.mostraA) && l.segnalazione.mostraA.some((x: unknown) => norm(x) === nome);
 
   if (az === "carica") {
     const { data: rec, error } = await adm.from("record").select("id,data").eq("tipo", "lavoro").range(0, 9999);
@@ -86,7 +89,8 @@ Deno.serve(async (req: Request) => {
     const da30 = new Date(Date.now() - 30 * 864e5).toISOString();
     const lavori = (rec ?? []).map((r: any) => r.data).filter((l: any) => l && ((suo(l) &&
       (APERTI.includes(l.stato) || (["eseguito", "noneseguito", "convalidato"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da))) ||
-      (l.segnalazione && norm(l.segnalazione.da) === nome && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30)));
+      (l.segnalazione && norm(l.segnalazione.da) === nome && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30) ||
+      (mostrata(l) && (l.stato === "segnalato" || String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30))));
     const { data: imp } = await adm.from("impostazioni").select("chiave,valore").in("chiave", IMP);
     const ids = new Set<string>();
     lavori.filter((l: any) => suo(l) && APERTI.includes(l.stato)).forEach((l: any) => [l.rif?.vasche, l.attuale?.vasche].forEach((o: any) => Object.values(o ?? {}).forEach((x: any) => { if (x?.vino) ids.add(String(x.vino)); })));
@@ -101,9 +105,9 @@ Deno.serve(async (req: Request) => {
     (imp ?? []).forEach((r: any) => { S[r.chiave] = r.valore; });
     /* dei lavori già dichiarati e delle segnalazioni l'operatore riceve solo titolo e stato: niente dosi, prodotti, movimenti, istruzioni */
     const ridotto = (l: any) => ({ id: l.id, num: l.num, titolo: l.titolo || "", tipo: l.tipo, stato: l.stato, data: l.data || "", ora: l.ora || "", priorita: l.priorita,
-      assegnato: l.assegnato || "", vasche: [...new Set([...(Array.isArray(l.vasche) ? l.vasche : []), ...(Array.isArray(l.mov) ? l.mov.flatMap((m: any) => [m?.da, m?.a]) : [])].filter((c: any) => typeof c === "string" && c && c !== "?"))], mov: [], prodotti: [], istruzioni: "", _v: 2, ridotto: true,
+      assegnato: l.assegnato || "", assegnati: Array.isArray(l.assegnati) ? l.assegnati : undefined, esterno: l.esterno || undefined, vasche: [...new Set([...(Array.isArray(l.vasche) ? l.vasche : []), ...(Array.isArray(l.mov) ? l.mov.flatMap((m: any) => [m?.da, m?.a]) : [])].filter((c: any) => typeof c === "string" && c && c !== "?"))], mov: [], prodotti: [], istruzioni: "", _v: 2, ridotto: true,
       creatoIl: l.creatoIl, modificatoIl: l.modificatoIl, segnalazione: l.segnalazione,
-      esec: l.esec ? { dichiaratoIl: l.esec.dichiaratoIl, il: l.esec.il } : undefined, convalida: l.convalida ? { il: l.convalida.il, ev: l.convalida.ev ? true : undefined } : undefined, storia: [] });
+      esec: l.esec ? { dichiaratoIl: l.esec.dichiaratoIl, il: l.esec.il, da: l.esec.da } : undefined, convalida: l.convalida ? { il: l.convalida.il, ev: l.convalida.ev ? true : undefined } : undefined, storia: [] });
     const lavoriOut = lavori.map((l: any) => suo(l) && APERTI.includes(l.stato) ? pulito(l) : ridotto(l));
     return out({ nome: prof.nome, S, lavori: lavoriOut, vini });
   }
@@ -142,7 +146,7 @@ Deno.serve(async (req: Request) => {
     if (error) return out({ code: "db_error", message: error.message }, 500);
     const l: any = r?.data;
     if (!l || !suo(l)) return out({ code: "not_found", message: "Lavoro non trovato o non assegnato a te" }, 404);
-    if (!APERTI.includes(l.stato)) return out({ code: "conflict", message: "Il lavoro è già stato segnalato o modificato dal responsabile", lavoro: pulito(l) }, 409);
+    if (!APERTI.includes(l.stato)) return out({ code: "conflict", message: "Il lavoro è già stato segnato da un altro o modificato dal responsabile", lavoro: pulito(l) }, 409);
     const e = body.esec ?? {};
     const now = new Date().toISOString();
     const arr = (a: unknown, n: number) => Array.isArray(a) ? a.slice(0, n) : null;
