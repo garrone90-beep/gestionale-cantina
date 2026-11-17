@@ -1,4 +1,7 @@
 <!doctype html><html><head><meta charset=utf8><title>Cantina Pratica</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" type="image/png" sizes="32x32" href="/icone/icona-32.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><meta name="theme-color" content="#620123"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Cantina"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}details.ce-sez{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}details.ce-sez>summary{cursor:pointer;padding:2px 0}details.ce-sez[open]>summary{margin-bottom:8px}
+@media (max-width:700px){table.mis-tbl thead{display:none}table.mis-tbl,table.mis-tbl tbody{display:block}table.mis-tbl tr{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+table.mis-tbl td{display:block;border:0;padding:0;text-align:left}table.mis-tbl td.mt-v{grid-column:1/2}table.mis-tbl td.mt-n{grid-column:2/5}table.mis-tbl td.mt-b{grid-column:1/5;margin-top:6px}table.mis-tbl td.mt-b .row{justify-content:flex-start!important}
+table.mis-tbl td[data-l]::before{content:attr(data-l);display:block;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}}
 </style></head><body>
 
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -3241,12 +3244,12 @@ function correggi(id){
   else if(e.tipo==='uva') formUva(p,id);
   else if(e.tipo==='pigiatura') formPigiatura(p,id);
 }
-function annulla(id){
+function annulla(id,o={}){
   const e=S.eventi.find(x=>x.id===id);
-  modal('Annulla registrazione',`<p>Stai annullando <b>${esc(evTitle(e))}</b> del ${fd(e.data)}. La registrazione resta nel registro come annullata e le giacenze vengono ricalcolate senza di essa.</p>
-   <label class="f wide">Motivo<input id="motivo" placeholder="es. inserita due volte"></label>
-   <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">Annulla registrazione</button></div>`,(b,close)=>{
-    $('#ok',b).onclick=()=>{ if(e.tipo==='certificazione'&&e.inPlace){ const w=vino(e.vino); if(w&&isDen(w.categoria)){ w.categoria=e.daCat||attoDi(w.categoria); w.nome=nomeDi(w); } } e.stato='annullato';e.motivo=$('#motivo',b).value.trim();e.annullatoIl=new Date().toISOString();close();refresh();toast('Registrazione annullata');};
+  modal(o.titolo||'Annulla registrazione',`<p>${o.testo?`<b>${esc(evTitle(e))}</b> del ${fd(e.data)}. ${esc(o.testo)}`:`Stai annullando <b>${esc(evTitle(e))}</b> del ${fd(e.data)}. La registrazione resta nel registro come annullata e le giacenze vengono ricalcolate senza di essa.`}</p>
+   <label class="f wide">Motivo${o.ph?' <span class="muted small">(facoltativo)</span>':''}<input id="motivo" placeholder="${esc(o.ph||'es. inserita due volte')}"></label>
+   <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ok">${esc(o.btn||'Annulla registrazione')}</button></div>`,(b,close)=>{
+    $('#ok',b).onclick=()=>{ if(e.tipo==='certificazione'&&e.inPlace){ const w=vino(e.vino); if(w&&isDen(w.categoria)){ w.categoria=e.daCat||attoDi(w.categoria); w.nome=nomeDi(w); } } e.stato='annullato';e.motivo=$('#motivo',b).value.trim();e.annullatoIl=new Date().toISOString();close();refresh();toast(o.ok||'Registrazione annullata');};
   });
 }
 function storeEvent(ev, corrId){
@@ -3972,7 +3975,8 @@ function formMisura(p={},corrId){
       const vasca=$('#m-v',b).value,L=toL($('#m-L',b).value,$('#m-u',b).value);
       if(!vasca||L==null){$('#msg',b).textContent='Scegli la vasca e inserisci il volume misurato.';return;}
       const data=$('#m-data',b).value||today();
-      const ev={id:uid(),tipo:'misura',data,ord:Date.now(),fase:'Affinamento',vasca,L,strumento:$('#m-s',b).value.trim(),scelta:$('input[name=sc]:checked',b).value,note:$('#m-note',b).value.trim(),creatoIl:new Date().toISOString()};
+      const teo=(stateAt(data,ord0,corrId)[vasca]||{}).L; const sc=teo!=null&&Math.abs(L-teo)<0.5?'accetta':$('input[name=sc]:checked',b).value; /* misura uguale al teorico: nessuna differenza da tenere aperta */
+      const ev={id:uid(),tipo:'misura',data,ord:Date.now(),fase:'Affinamento',vasca,L,strumento:$('#m-s',b).value.trim(),scelta:sc,note:$('#m-note',b).value.trim(),creatoIl:new Date().toISOString()};
       if(corrId){const o=S.eventi.find(x=>x.id===corrId); if(o.data===data) ev.ord=o.ord;}
       storeEvent(ev,corrId); close(); refresh(); toast('Misura salvata');};
   });
@@ -4753,9 +4757,9 @@ function viewInventario(app){
   ${aperte.length||anom.length?`<div class="panel"><h3>Differenze aperte <span class="muted small" style="font-weight:400">· ${aperte.length+anAp.length}</span></h3>
    ${anAp.length?`<h4 style="margin:10px 0 4px">Travasi e imbottigliamenti</h4><p class="hint">Litri in più o in meno confermati durante un'operazione e lasciati da verificare. Restano qui finché non li chiudi con un esito: chiudere non cambia i volumi.</p>${anomTableHTML(anAp,false)}`:''}
    ${anCh.length?`<details style="margin-top:8px"><summary class="small" style="cursor:pointer">Già verificate (${anCh.length})</summary>${anomTableHTML(anCh,true)}</details>`:''}
-   ${aperte.length?`<h4 style="margin:14px 0 4px">Misure segnalate</h4><p class="hint">Misure segnalate ma non ancora accettate. «Accetta» corregge la misura e porta il volume al valore misurato, lasciando traccia.</p>
-   <div class="tbl-wrap"><table><thead><tr><th>Vasca</th><th>Vino</th><th>Data misura</th><th class="r">Teorico</th><th class="r">Misurato</th><th class="r">Differenza</th><th></th></tr></thead><tbody>
-   ${aperte.map(({v,l})=>`<tr><td>${esc(vlab(v.code))}</td><td>${esc(vName(l.vino))}</td><td>${fd(l.data)}</td><td class="r">${hL(l.teorico)}</td><td class="r">${hL(l.L)}</td><td class="r"><span class="chip warn">${l.diff>0?'+':''}${hL(l.diff)}</span></td><td class="r"><button class="btn sm" data-acc="${l.ev}">Accetta misura</button></td></tr>`).join('')}
+   ${aperte.length?`<h4 style="margin:14px 0 4px">Misure segnalate</h4><p class="hint">Misure segnalate ma non ancora accettate. «Accetta» porta il volume al valore misurato; «Modifica» corregge la misura (es. letta male); «Scarta» la toglie perché sbagliata: il volume resta il teorico. In tutti i casi resta traccia nel registro.</p>
+   <div class="tbl-wrap"><table class="mis-tbl"><thead><tr><th>Vasca</th><th>Vino</th><th>Data misura</th><th class="r">Teorico</th><th class="r">Misurato</th><th class="r">Differenza</th><th></th></tr></thead><tbody>
+   ${aperte.map(({v,l})=>`<tr><td class="mt-v"><b>${esc(vlab(v.code))}</b></td><td class="mt-n">${l.vino?tipoDot(l.vino)+' ':''}${esc(vName(l.vino))}</td><td data-l="Data">${fd(l.data)}</td><td class="r" data-l="Teorico">${hL(l.teorico)}</td><td class="r" data-l="Misurato">${hL(l.L)}</td><td class="r" data-l="Differenza"><span class="chip warn">${l.diff>0?'+':''}${hL(l.diff)}</span></td><td class="r mt-b"><div class="row" style="gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="btn sm pri" data-acc="${l.ev}">Accetta misura</button><button class="btn sm" data-mmod="${l.ev}">Modifica</button><button class="btn sm ghost danger" data-msc="${l.ev}">Scarta</button></div></td></tr>`).join('')}
    </tbody></table></div>`:''}${!aperte.length&&!anAp.length?'<p class="muted small">Nessuna differenza aperta.</p>':''}</div>`:''}
   ${vfBarHTML(FI,'',{inv:true})}
   <div class="panel"><div class="spread" style="margin-bottom:8px"><h3 style="margin:0">Giacenze per vasca</h3><span class="muted small">${rows.length} vasch${rows.length===1?'a':'e'}${nF?' su '+tutteRows.length:''} · <b>${hL(rows.reduce((a,r)=>a+(r.s.vino?r.s.L:0),0))}</b>${nF&&(FI.conto||FI.dep||(FI.stato&&FI.stato!=='vuota'))?' · '+esc(filtroTxt(FI)):''}</span></div>
@@ -4770,6 +4774,8 @@ function viewInventario(app){
   vfBarBind(app,live=>{ viewInventario(app); if(live){ const q=$('#vf-q',app); if(q){ q.focus(); const n=q.value.length; try{ q.setSelectionRange(n,n); }catch(e){} } } },'vfInv');
   bindActs(app); anomBind(app);
   $$('[data-acc]',app).forEach(b=>b.onclick=()=>{const e=S.eventi.find(x=>x.id===b.dataset.acc); const n={...JSON.parse(JSON.stringify(e)),id:uid(),scelta:'accetta',motivoCorr:'Differenza accettata da inventario',creatoIl:new Date().toISOString()}; delete n.stato; storeEvent(n,e.id); refresh(); toast('Misura accettata');});
+  $$('[data-mmod]',app).forEach(b=>b.onclick=()=>{ const e=S.eventi.find(x=>x.id===b.dataset.mmod); if(e) formMisura(e,e.id); });
+  $$('[data-msc]',app).forEach(b=>b.onclick=()=>annulla(b.dataset.msc,{titolo:'Scarta misura',testo:'La misura viene tolta dalle differenze aperte: il volume della vasca resta quello teorico. Nel registro resta come annullata.',ph:'es. misura ripetuta, tornava',btn:'Scarta misura',ok:'Misura scartata'}));
   $('#cpcsv',app).onclick=()=>copy($('#csv',app));
 }
 /* CSV per Excel italiano: punto e virgola, virgola decimale, niente separatore delle migliaia (U03).
