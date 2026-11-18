@@ -52,7 +52,7 @@
     try{
       const {data:prof,error:pe}=await sb.from('profili').select('ruolo,attivo,nome').eq('id',user.id).maybeSingle(); if(pe) throw pe;
       if(!prof||!prof.attivo) return errore(`L'utente <b>${esc(user.email)}</b> non è ancora abilitato. Chiedi all'amministratore di attivarlo.`,true);
-      ruolo=prof.ruolo;
+      ruolo=prof.ruolo; window.__IO={nome:prof.nome||user.email||''}; /* chi inserisce (per «Annulla inserimenti recenti») */
       if(ruolo==='operatore') return avviaOperatore(prof);
       const [rec,imp]=await Promise.all([tutte('record','tipo,id,data,aggiornato'),tutte('impostazioni','chiave,valore,aggiornato'),caricaUtenti()]);
       const S0={}; imp.forEach(r=>{ S0[r.chiave]=r.valore; }); Object.keys(REC).forEach(k=>{ S0[k]=[]; });

@@ -1983,10 +1983,10 @@ function bindActs(root){
     else if(a==='presa') formPresa(c);
     else if(a==='scheda') location.hash='scheda-'+c;
     else if(a==='fferm') formFineFerm(c);
-    else if(a==='iferm'){ S.eventi.push({id:uid(),tipo:'fermentazione',azione:'inizio',data:asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[c],creatoIl:new Date().toISOString()}); refresh(); toast('Vasca '+vlab(c)+': fermentazione iniziata il '+fd(asOf())); }
+    else if(a==='iferm'){ evPush({id:uid(),tipo:'fermentazione',azione:'inizio',data:asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[c],creatoIl:new Date().toISOString()}); refresh(); toast('Vasca '+vlab(c)+': fermentazione iniziata il '+fd(asOf())); }
     else if(a==='prog') formLavoro(null,{tipo:R.st[c].vino?'Travaso':'Pulizia vasche e attrezzature',vasche:[c]});
     else if(a==='finelav') formFineLav(c);
-    else if(a==='pronto'||a==='nopronto'){ S.eventi.push({id:uid(),tipo:'stato',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,pronto:a==='pronto',creatoIl:new Date().toISOString()}); refresh(); toast((a==='pronto'?Vnome(c)+': vino pronto':Vnome(c)+': tolto «pronto»')+' dal '+fd(asOf())); }
+    else if(a==='pronto'||a==='nopronto'){ evPush({id:uid(),tipo:'stato',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,pronto:a==='pronto',creatoIl:new Date().toISOString()}); refresh(); toast((a==='pronto'?Vnome(c)+': vino pronto':Vnome(c)+': tolto «pronto»')+' dal '+fd(asOf())); }
   });
 }
 
@@ -2268,7 +2268,7 @@ function convertiProgrammate(list){
         const vs=tr.length?[]:(e.vasca?[e.vasca]:(e.vasche||[]));
         const l={id:uid(),num:lavNum(),titolo:evTitle(e),tipo,data:e.data,ora:'',priorita:'normale',assegnato:'',vasche:vs,mov,conTrasf:tr.length>0,_v:2,
           prodotti:(e.aggiunte||[]).map(a=>({prodotto:a.prodotto,dose:a.dose,udm:a.udm,volL:a.volL||null,quando:'dopo',su:a.vasca?[a.vasca]:null})),istruzioni:'Creato dall\'operazione programmata del vecchio sistema: '+evTitle(e)+(e.note?'. '+e.note:''),stato:'dafare',creatoIl:new Date().toISOString(),modificatoIl:new Date().toISOString(),storia:[]};
-        l.rif=lavSnap(lavCodes(l)); lavori().push(l);
+        l.rif=lavSnap(lavCodes(l)); lavPush(l);
         e.stato='annullato'; e.motivo='Trasformata in lavoro programmato '+l.num; e.annullatoIl=new Date().toISOString(); });
       close(); refresh(); toast('Operazioni trasformate in lavori'); };
   });
@@ -2489,7 +2489,7 @@ function formLavoro(ed,preset){
           else if(x.stato==='segnalato'&&bz){ Object.assign(x,o); lavLog(x,'bozza','Segnalazione trasformata in bozza'); }
           else { (x.storia=x.storia||[]).push({il:now,stato:x.stato,nota:x.stato==='bozza'?'Bozza modificata':'Istruzioni modificate'}); Object.assign(x,o); }
           if(prima!==assTxt) x.storia.push({il:now,stato:x.stato,nota:assTxt?'Assegnato a '+assLab(x):'Tolto l\'assegnatario'}); }
-        else { const st0=bz?'bozza':'dafare'; const nl={id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now}; nl.storia=[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(assTxt?[{il:now,stato:st0,nota:'Assegnato a '+assLab(nl)}]:[])]; lavori().push(nl); }
+        else { const st0=bz?'bozza':'dafare'; const nl={id:uid(),num:lavNum(),...o,stato:st0,creatoIl:now}; nl.storia=[{il:now,stato:st0,nota:bz?'Creato come bozza':'Programmato'},...(assTxt?[{il:now,stato:st0,nota:'Assegnato a '+assLab(nl)}]:[])]; lavPush(nl); }
         close(); refresh(); toast(bz?'Bozza salvata':ed&&!bozza?'Lavoro aggiornato':'Lavoro programmato'); };
       if(amb.length) modal('Prima di programmare',`<p>Ci sono punti ancora aperti:</p><ul>${amb.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="hint">Puoi programmare lo stesso: chi esegue vede le indicazioni come le hai scritte (es. «da concordare»).</p>
         <div class="foot"><button class="btn" data-close>Torna alla scheda</button><button class="btn" id="a-bz">Salva come bozza</button><button class="btn pri" id="a-ok">Programma lo stesso</button></div>`,(b2,close2)=>{ $('#a-ok',b2).onclick=()=>{ close2(); go(); }; $('#a-bz',b2).onclick=()=>{ close2(); salva(true); }; });
@@ -2728,7 +2728,7 @@ function formSegnala(op){ let vs=[];
         storia:[{il:now,stato:'segnalato',nota:'Segnalato da '+op}]};
       if(gia){ l.esec={il:now,da:op,note:'Fatto da chi l\'ha segnalato',comePrevisto:true,diff:'',mov:null,prodotti:null,spunte:null,dichiaratoIl:now}; l.storia.push({il:now,stato:'eseguito',nota:'Fatto — dichiarato da '+op}); }
       if(!OPM()) l.rif=lavSnap(vs);
-      lavori().push(l); close(); refresh(); toast('Segnalazione inviata'); }; }); }
+      lavPush(l); close(); refresh(); toast('Segnalazione inviata'); }; }); }
 /* movimenti per l'operatore: per ogni vasca di partenza cosa contiene oggi, poi «da X → Y: quantità», e quanto resta */
 function opMovHTML(mv,st){ const gr=[]; mv.forEach(m=>{ let g=gr.find(x=>x.da===m.da); if(!g) gr.push(g={da:m.da,mv:[]}); g.mv.push(m); });
   return gr.map(g=>{ const s0=st[g.da]||{}, part=/^P:/.test(g.da||''); const nome=part?esc(vlab(g.da)):esc(vkind(g.da).toLowerCase())+' '+esc(vlab(g.da));
@@ -2776,7 +2776,7 @@ function formFineLav(c){
     $('#ffl',b).onsubmit=e=>{ e.preventDefault(); const sel=one?[ims[0].id||ims[0].ev]:$$('.fl-c:checked',b).map(x=>x.value);
       if(!sel.length){ $('#msg',b).textContent='Spunta almeno una lavorazione.'; return; }
       const lavs=ims.filter(x=>sel.includes(x.id||x.ev)).map(x=>x.lav);
-      S.eventi.push({id:uid(),tipo:'fineLav',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,lav:lavs.join(', '),rif:sel[0],rifs:sel,creatoIl:new Date().toISOString()});
+      evPush({id:uid(),tipo:'fineLav',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,lav:lavs.join(', '),rif:sel[0],rifs:sel,creatoIl:new Date().toISOString()});
       close(); refresh(); toast(Vnome(c)+': terminat'+(lavs.length>1?'e ':'a ')+lavs.join(', ')); };
   });
 }
@@ -2838,7 +2838,7 @@ function formManutenzione(codes,p={},corrId){
 function formFineMan(c){ const m=R.st[c].man; if(!m) return;
   modal('Fine manutenzione · '+vlab(c),`<p>Vuoi terminare <b>${esc(m.lav)}</b> in ${vkind(c).toLowerCase()} ${esc(vlab(c))}?</p><p class="small muted">Iniziata il ${fd(m.inizio)}. Data di fine: <b>${fd(asOf())}</b>.</p>
    <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Termina</button></div>`,(b,close)=>{
-    $('#ok',b).onclick=()=>{ S.eventi.push({id:uid(),tipo:'fineMan',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,man:m.lav,rif:m.ev,creatoIl:new Date().toISOString()}); close(); refresh(); toast('Manutenzione terminata'); };
+    $('#ok',b).onclick=()=>{ evPush({id:uid(),tipo:'fineMan',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,man:m.lav,rif:m.ev,creatoIl:new Date().toISOString()}); close(); refresh(); toast('Manutenzione terminata'); };
   });
 }
 function formBotte(c){ S.contenitori=S.contenitori||{}; const d=S.contenitori[c]||{};
@@ -3210,7 +3210,7 @@ function formFerm(code){
       const pm=pmaxDi(code); if(P!=null&&pm&&P>=pm*0.9&&!okP){ okP=true; $('#msg',b).innerHTML=`<div class="box warn" style="color:var(--ink);font-weight:400"><b>Pressione ${P>=pm?'oltre':'vicina'} al massimo</b> dell'autoclave (${nf(pm,1)} bar). Controlla subito. Premi di nuovo per salvare la misura.</div>`; $('#ff #sv',b).textContent='Salva comunque'; return; }
       const sc=$('#f-sc',b).value, data=$('#f-data',b).value||today(); S.scalaFerm=sc;
       fermLog().push({id:uid(),vasca:code,data,ora:$('#f-ora',b).value,val:v,scala:sc,T,ph,...(P!=null?{P}:{}),note:$('#f-no',b).value.trim(),vino:s.vino||null});
-      const fin=$('#f-in',b); if(fin&&fin.checked) S.eventi.push({id:uid(),tipo:'fermentazione',azione:'inizio',data,ord:Date.now(),fase:'Vinificazione',vasche:[code],creatoIl:new Date().toISOString()});
+      const fin=$('#f-in',b); if(fin&&fin.checked) evPush({id:uid(),tipo:'fermentazione',azione:'inizio',data,ord:Date.now(),fase:'Vinificazione',vasche:[code],creatoIl:new Date().toISOString()});
       close(); refresh(); toast('Misura salvata · '+vlab(code)); };
   });
 }
@@ -3237,13 +3237,13 @@ function formPresa(code){ const s=R.st[code]; const pm=pmaxDi(code);
    prodRowsBind(b,'ps-pr',()=>s.L||0);
    $('#fps',b).onsubmit=e=>{ e.preventDefault(); if(!s.vino) return $('#msg',b).textContent='L\'autoclave è vuota.';
      const ag=prodRowsRead(b,'ps-pr',s.L||null); prodSalva(ag);
-     S.eventi.push({id:uid(),tipo:'fermentazione',azione:'inizio',presa:{zucchero:zuccDi(ag)},aggiunte:ag,note:$('#ps-n',b).value.trim(),data:$('#ps-d',b).value||asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[code],creatoIl:new Date().toISOString()});
+     evPush({id:uid(),tipo:'fermentazione',azione:'inizio',presa:{zucchero:zuccDi(ag)},aggiunte:ag,note:$('#ps-n',b).value.trim(),data:$('#ps-d',b).value||asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[code],creatoIl:new Date().toISOString()});
      close(); refresh(); toast('Presa di spuma iniziata · '+vlab(code)); }; }); }
 function formFineFerm(code){ const s=R.st[code]; if(!inVin(s)) return;
   modal('Fine fermentazione · '+vlab(code),`<p>La vasca <b>${esc(vlab(code))}</b>${s.vino?' ('+esc(vName(s.vino))+')':''} è ${s.ferm?'in fermentazione dal '+fd(s.ferm.inizio):'in vinificazione dal '+fd(s.vinif.inizio)+' (fermentazione non registrata)'}.</p><p class="small muted">Dopo questa data la vasca esce dalla vinificazione: le lavorazioni si aprono in fase Affinamento.</p>
    <div class="fg"><label class="f">Data di fine<input type="date" id="fe-d" value="${asOf()}"></label><label class="f wide">Note<input id="fe-n" placeholder="es. zuccheri finiti, svinato"></label></div>
    <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Termina fermentazione</button></div>`,(b,close)=>{
-    $('#ok',b).onclick=()=>{ S.eventi.push({id:uid(),tipo:'fermentazione',azione:'fine',data:$('#fe-d',b).value||asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[code],note:$('#fe-n',b).value.trim(),creatoIl:new Date().toISOString()}); close(); refresh(); toast('Fermentazione terminata · '+vlab(code)); };
+    $('#ok',b).onclick=()=>{ evPush({id:uid(),tipo:'fermentazione',azione:'fine',data:$('#fe-d',b).value||asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[code],note:$('#fe-n',b).value.trim(),creatoIl:new Date().toISOString()}); close(); refresh(); toast('Fermentazione terminata · '+vlab(code)); };
   });
 }
 
@@ -3365,9 +3365,41 @@ function annulla(id,o={}){
     $('#ok',b).onclick=()=>{ if(e.tipo==='certificazione'&&e.inPlace){ const w=vino(e.vino); if(w&&isDen(w.categoria)){ w.categoria=e.daCat||attoDi(w.categoria); w.nome=nomeDi(w); } } e.stato='annullato';e.motivo=$('#motivo',b).value.trim();e.annullatoIl=new Date().toISOString();close();refresh();toast(o.ok||'Registrazione annullata');};
   });
 }
+/* chi inserisce: serve all'«Annulla inserimenti recenti» per proporre solo le cose proprie */
+const chiSono = ()=>(window.__IO&&window.__IO.nome)||'';
+function evPush(...evs){ evs.forEach(e=>{ if(!e.creatoIl) e.creatoIl=new Date().toISOString(); if(!e.creatoDa&&chiSono()) e.creatoDa=chiSono(); S.eventi.push(e); }); }
+function lavPush(...ls){ ls.forEach(l=>{ if(!l.creatoIl) l.creatoIl=new Date().toISOString(); if(!l.creatoDa&&!l.segnalazione&&chiSono()) l.creatoDa=chiSono(); lavori().push(l); }); }
+/* Registro → «Annulla inserimenti recenti»: annulla in gruppo (non cancella) registrazioni e lavori inseriti nel periodo scelto */
+function annullaRecenti(){ const PER=[['1h','Ultima ora',36e5],['3h','Ultime 3 ore',3*36e5],['oggi','Oggi',0],['7g','Ultimi 7 giorni',7*864e5]];
+  const da=k=>{ if(k==='oggi'){ const d=new Date(); d.setHours(0,0,0,0); return d.toISOString(); } return new Date(Date.now()-PER.find(x=>x[0]===k)[2]).toISOString(); };
+  const me=chiSono();
+  const elenco=k=>{ const t=da(k); const ev=S.eventi.filter(e=>(!e.stato||e.stato==='attivo')&&(e.creatoIl||'')>=t).map(e=>({k:'e',id:e.id,il:e.creatoIl,chi:e.creatoDa||'',txt:evTitle(e),data:e.data,corr:!!e.sostituisce}));
+    const lv=lavori().filter(l=>!['annullato'].includes(l.stato)&&(l.creatoIl||'')>=t).map(l=>({k:'l',id:l.id,il:l.creatoIl,chi:l.segnalazione?(l.segnalazione.da||''):(l.creatoDa||''),txt:(l.segnalazione?'Segnalazione: ':'Lavoro: ')+lavTitolo(l),data:l.data,stato:l.stato}));
+    return [...ev,...lv].sort((a,b)=>a.il<b.il?1:-1); };
+  const mio=x=>!x.chi||!me||nrm(x.chi)===nrm(me);
+  modal('Annulla inserimenti recenti',`<p class="hint">Scegli il periodo: compare quello che è stato inserito, con chi l'ha inserito. Di partenza sono spuntate solo le cose inserite da te. Niente viene cancellato: le registrazioni restano nel registro come annullate e le giacenze si ricalcolano; se annulli una correzione torna la versione precedente.</p>
+   <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">${PER.map(([k,t],i)=>`<button type="button" class="btn sm${i===0?' pri':''}" data-per="${k}">${t}</button>`).join('')}</div>
+   <div id="ar-l"></div><div id="msg" class="err"></div>
+   <div class="foot"><button class="btn" data-close>Chiudi</button><button class="btn pri" id="ar-ok" disabled>Annulla selezionati</button></div>`,(b,close)=>{
+    let cur='1h'; const draw=()=>{ const L=elenco(cur);
+      $('#ar-l',b).innerHTML=L.length?`<label class="row small" style="gap:6px;margin-bottom:4px"><input type="checkbox" id="ar-all"> Seleziona tutto (${L.length})</label><div class="tbl-wrap" style="max-height:50vh;overflow:auto"><table><tbody>${L.map(x=>`<tr><td style="width:28px"><input type="checkbox" data-ar="${x.k}:${x.id}" ${mio(x)?'checked':''}></td><td class="small" style="white-space:nowrap">${new Date(x.il).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(x.txt)}${x.corr?' <span class="chip">correzione: torna la versione precedente</span>':''}${x.k==='l'&&x.stato&&x.stato!=='dafare'&&x.stato!=='bozza'?` <span class="chip">${esc(LSTATI[x.stato]||x.stato)}</span>`:''}${x.data?` <span class="muted small">· del ${fd(x.data)}</span>`:''}</td><td class="small muted">${esc(x.chi||'—')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Niente inserito in questo periodo.</div>';
+      const cnt=()=>{ const n=$$('[data-ar]',b).filter(x=>x.checked).length; $('#ar-ok',b).disabled=!n; $('#ar-ok',b).textContent=n?`Annulla selezionati (${n})`:'Annulla selezionati'; };
+      if($('#ar-all',b)) $('#ar-all',b).onchange=ev=>{ $$('[data-ar]',b).forEach(x=>x.checked=ev.target.checked); cnt(); };
+      $$('[data-ar]',b).forEach(x=>x.onchange=cnt); cnt(); };
+    $$('[data-per]',b).forEach(x=>x.onclick=()=>{ cur=x.dataset.per; $$('[data-per]',b).forEach(y=>y.classList.toggle('pri',y===x)); draw(); });
+    draw();
+    $('#ar-ok',b).onclick=()=>{ const sel=$$('[data-ar]',b).filter(x=>x.checked).map(x=>x.dataset.ar.split(':')); if(!sel.length) return;
+      const now=new Date().toISOString(); let n=0;
+      /* prima le correzioni più recenti: così una catena di correzioni torna indietro nell'ordine giusto */
+      sel.filter(([k])=>k==='e').map(([,id])=>S.eventi.find(e=>e.id===id)).filter(Boolean).sort((a,c)=>(a.creatoIl||'')<(c.creatoIl||'')?1:-1).forEach(e=>{
+        if(e.tipo==='certificazione'&&e.inPlace){ const w=vino(e.vino); if(w&&isDen(w.categoria)){ w.categoria=e.daCat||attoDi(w.categoria); w.nome=nomeDi(w); } }
+        e.stato='annullato'; e.motivo='Annullo di gruppo degli inserimenti recenti'; e.annullatoIl=now; n++;
+        if(e.sostituisce){ const o=S.eventi.find(x=>x.id===e.sostituisce); if(o&&o.stato==='rettificato'&&o.rettificatoDa===e.id){ o.stato='attivo'; delete o.rettificatoDa; delete o.rettificatoIl; } } });
+      sel.filter(([k])=>k==='l').forEach(([,id])=>{ const l=lavori().find(x=>x.id===id); if(l){ lavLog(l,'annullato','Annullato: annullo di gruppo degli inserimenti recenti'); n++; } });
+      close(); refresh(); toast(n+' inserimenti annullati'); }; }); }
 function storeEvent(ev, corrId){
   if(corrId){ const old=S.eventi.find(x=>x.id===corrId); old.stato='rettificato'; old.rettificatoDa=ev.id; old.rettificatoIl=new Date().toISOString(); ev.sostituisce=corrId; ev.ord=old.data===ev.data?old.ord:Date.now(); }
-  S.eventi.push(ev);
+  evPush(ev);
 }
 
 /* ===================== Modale ===================== */
@@ -3760,7 +3792,7 @@ function formLavorazione(p={},corrId){
           if((dOps.length||mis.length)&&!ts.length) return msg.textContent='Spunta le vasche su cui hai lavorato.';
           const scrivi=(nota)=>{ dOps.forEach(op=>regOp(ts,op,{data:d,ora,min:num($('#vin-min',b).value),modo:$('#vin-modo',b).value,note:nota||''}));
             if(mis.length){ S.scalaFerm=sc; mis.forEach(x=>{ fermLog().push({id:uid(),vasca:x.c,data:d,ora,val:x.v,scala:sc,T:x.T,ph:x.ph,note:'',vino:R.st[x.c]?R.st[x.c].vino:null});
-              const sx=stNow()[x.c]; if(sx&&sx.vino&&!sx.ferm) S.eventi.push({id:uid(),tipo:'fermentazione',azione:'inizio',data:d,ord:Date.now(),fase:'Vinificazione',vasche:[x.c],creatoIl:new Date().toISOString()}); }); } };
+              const sx=stNow()[x.c]; if(sx&&sx.vino&&!sx.ferm) evPush({id:uid(),tipo:'fermentazione',azione:'inizio',data:d,ord:Date.now(),fase:'Vinificazione',vasche:[x.c],creatoIl:new Date().toISOString()}); }); } };
           if(!altri){ if(!dOps.length&&!mis.length) return msg.textContent='Tocca un\'operazione o scrivi una misura.'; scrivi($('#l-note',b).value.trim()); close(); refresh();
             toast([dOps.join(', '),mis.length?mis.length+' misur'+(mis.length>1?'e':'a'):''].filter(Boolean).join(' · ')+' · '+ts.map(vlab).join(', ')); return; }
           dCh.forEach(x=>x.checked=false); orig(e);
@@ -3846,7 +3878,7 @@ function formLavorazione(p={},corrId){
         Object.entries(perV).forEach(([vid,vv],k)=>{ const g={}; vv.forEach(c=>contoVasca(c).forEach(([ct,f])=>{ g[ct]=(g[ct]||0)+f*R.st[c].L; })); const cs=Object.entries(g).sort((a,b2)=>b2[1]-a[1]);
           const ct=cs.length>1?(cs.some(([x])=>x===NOSTRO)?NOSTRO:cs[0][0]):(cs[0]?cs[0][0]:NOSTRO);
           const pv={}; vv.forEach(c=>provVasca(c).forEach(([p])=>{ if(p!=='Provenienza non indicata') pv[p]=1; })); const pvs=Object.keys(pv);
-          S.eventi.push({id:uid(),tipo:'unifica',data:ev.data,ord:ev.ord+0.5+k*0.01,fase:ev.fase||'Affinamento',vino:vid,vasche:vv,conto:ct===NOSTRO?'':ct,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
+          evPush({id:uid(),tipo:'unifica',data:ev.data,ord:ev.ord+0.5+k*0.01,fase:ev.fase||'Affinamento',vino:vid,vasche:vv,conto:ct===NOSTRO?'':ct,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
             contoPrima:cs.length>1?cs.map(([x,L])=>contoLab(x)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()}); });
         save(); refresh(); }
       toast(corrId?'Correzione salvata':uDest.length?'Lavorazione salvata · vino unico':'Lavorazione salvata');
@@ -4501,7 +4533,7 @@ function formUnifica(vid,pre){ const w=vino(vid); if(!w) return;
       const pv={}; vv.forEach(c=>provVasca(c).forEach(([p,f])=>{ pv[p]=(pv[p]||0)+f; })); const pvs=Object.keys(pv).filter(p=>p!=='Provenienza non indicata');
       const ev={id:uid(),tipo:'unifica',data,ord:Date.now(),fase:'Affinamento',vino:vid,vasche:vv,conto,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
         contoPrima:cs.length>1?cs.map(([ct,L])=>contoLab(ct)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()};
-      S.eventi.push(ev); save(); close(); refresh(); toast(vName(vid)+' è ora un vino unico'); };
+      evPush(ev); save(); close(); refresh(); toast(vName(vid)+' è ora un vino unico'); };
   });
 }
 function formVino(p={},opt={}){ const cert=!!(opt.cert&&p.id&&isAtto(p.categoria));
@@ -4544,10 +4576,10 @@ function certifica(p,f,b,close){
   const ev={id:uid(),tipo:'certificazione',data,ord:Date.now(),fase:'Affinamento',vino:p.id,vasche:sel,idoneita:idon,daCat:p.categoria,creatoIl:new Date().toISOString()};
   if(!partial&&(!ex||ex.id===p.id)){
     const w=vino(p.id); Object.assign(w,{...fd2,nome:nomeDi(fd2),tipo:coloreDi(fd2),alias,note}); if(idon) w.idoneita=idon;
-    S.eventi.push({...ev,nuovoVino:p.id,inPlace:true}); close(); refresh(); toast('Vino certificato: ora è '+vName(p.id)); return; }
+    evPush({...ev,nuovoVino:p.id,inPlace:true}); close(); refresh(); toast('Vino certificato: ora è '+vName(p.id)); return; }
   let tid; if(ex) tid=ex.id; else { const r=pickerResolve(fd2); S.vini.push({...r.nuovo,note:'Certificato '+fd2.categoria+' da '+vName(p.id)+(partial?' ('+(sel.length>1?'vasche ':'vasca ')+sel.map(vlab).join(', ')+')':'')}); tid=r.nuovo.id; }
   if(idon) vino(tid).idoneita=idon; Object.assign(vino(p.id),{alias,note});
-  S.eventi.push({...ev,nuovoVino:tid,inPlace:false}); close(); location.hash='vino-'+tid; refresh();
+  evPush({...ev,nuovoVino:tid,inPlace:false}); close(); location.hash='vino-'+tid; refresh();
   toast((sel.length?(sel.length>1?'Vasche ':'Vasca ')+sel.map(vlab).join(', ')+' certificat'+(sel.length>1?'e':'a'):'Vino certificato')+': ora '+vName(tid)); }
 
 /* ===================== Scheda vino ===================== */
@@ -5039,10 +5071,10 @@ function copy(ta){ const t=ta.value; (navigator.clipboard?navigator.clipboard.wr
 /* ===================== Vista: registro ===================== */
 function viewRegistro(app){
   const all=[...S.eventi].sort((a,b)=>before(a,b)?1:-1);
-  app.innerHTML=`<div class="spread"><h2>Registro operazioni</h2><span class="muted small">${all.length} registrazioni, comprese correzioni e annullamenti</span></div>
+  app.innerHTML=`<div class="spread"><h2>Registro operazioni</h2><div class="row" style="gap:8px;align-items:center"><span class="muted small">${all.length} registrazioni, comprese correzioni e annullamenti</span><button class="btn sm" id="ar-btn">Annulla inserimenti recenti…</button></div></div>
   <div class="panel"><p class="hint">Niente si cancella: una correzione sostituisce la registrazione originale, che resta qui visibile. Le giacenze si ricalcolano dalle registrazioni attive.</p>
   <div class="tl">${conDiario(all,diarioGruppi(),true,e=>evRow(e)+(e.stato==='rettificato'?`<div class="small muted" style="margin:-6px 0 8px 106px">Sostituita il ${fd((e.rettificatoIl||'').slice(0,10))} dalla correzione registrata.</div>`:''))}</div></div>`;
-  bindEvOps(app); bindDiario(app);
+  bindEvOps(app); bindDiario(app); $('#ar-btn',app).onclick=annullaRecenti;
 }
 
 /* ===================== Vista: dati ===================== */
