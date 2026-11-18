@@ -2019,7 +2019,7 @@ const LTIPI = {
   'Filtrazione':{vas:'Vasche',vol:true,reg:'lav'},
   'Aggiunta di SO₂':{vas:'Vasche',vol:true,prod:true,reg:'lav'},
   'Aggiunta di prodotti enologici':{vas:'Vasche',vol:true,prod:true,reg:'lav'},
-  'Colmatura':{vas:'Vasca da cui prendere il vino',dest:true,destLab:'Vasca da colmare',vol:true,reg:'trav'},
+  'Colmatura':{vas:'Botti da colmare',reg:'colm'},
   'Campionamento e analisi':{vas:'Vasche da campionare',reg:'an'},
   'Rimontaggio / vinificazione':{vas:'Vasche',reg:'lav'},
   'Pulizia vasche e attrezzature':{vas:'Vasche (facoltative)',opt:true,reg:'man'},
@@ -2330,6 +2330,10 @@ function formLavoro(ed,preset){
     <div class="row" style="gap:6px;align-items:flex-end;flex-wrap:wrap;margin-top:6px"><label class="f" style="min-width:200px">Aggiungi<select id="w-vadd"></select></label><button type="button" class="btn sm" id="w-vbulk">Scegli più contenitori…</button><button type="button" class="btn sm ghost" id="w-vclr">Togli tutti</button></div>
     <div class="hint" id="w-vinfo"></div>
    </fieldset>
+   <fieldset class="lvf" id="w-colm" hidden><legend>Vino per la colmatura <span class="muted small">(facoltativo)</span></legend><div class="fg">
+     <label class="f">Prendere il vino dalla vasca<select id="w-cda">${vascaOpts((l.colm||{}).da||'',true)}</select></label>
+     <label class="f">Litri previsti in tutto<input id="w-cL" inputmode="decimal" value="${(l.colm||{}).L?nfIn(l.colm.L,1):''}" placeholder="es. 40"></label></div>
+     <div class="hint">Le botti restano al loro volume e con la loro composizione: i litri usati escono dalla vasca indicata.</div></fieldset>
    <fieldset class="lvf" id="w-imb"><legend>Cosa imbottigliare</legend>
     <div class="fg">
      <label class="f">Vasca<select id="w-iv">${vOpt((l.imb&&l.imb.vasca)||(l.vasche||[])[0]||'')}</select></label>
@@ -2433,7 +2437,7 @@ function formLavoro(ed,preset){
     const upd=()=>{ const t=T(), mode=LMOV(tipo()), im=inMov(), L=cur();
       $('#w-trf',b).hidden=mode!=='opz'; $$('[data-trf]',b).forEach(x=>x.setAttribute('aria-pressed',String((x.dataset.trf==='1')===conT)));
       $('#w-mf',b).hidden=!im; $('#w-cf',b).hidden=im||isImb(); $('#w-arr',b).hidden=!isArr(); $('#w-rsrc',b).hidden=isArr();
-      $('#w-mflab',b).textContent=isArr()?'Destinazioni: in quali vasche va ogni partita':'Movimenti previsti'; if(isArr()) ptReg(); $('#w-imb',b).hidden=!isImb(); if(isImb()) updImb(); $('#w-vlab',b).textContent=t.vas&&!/^Da vasca|^Vasca da cui/.test(t.vas)?t.vas.replace(/^Vasche/,'Contenitori').replace('(facoltative)','(facoltativi)'):'Contenitori';
+      $('#w-mflab',b).textContent=isArr()?'Destinazioni: in quali vasche va ogni partita':'Movimenti previsti'; if(isArr()) ptReg(); $('#w-imb',b).hidden=!isImb(); if(isImb()) updImb(); $('#w-colm',b).hidden=tipo()!=='Colmatura'; $('#w-vlab',b).textContent=t.vas&&!/^Da vasca|^Vasca da cui/.test(t.vas)?t.vas.replace(/^Vasche/,'Contenitori').replace('(facoltative)','(facoltativi)'):'Contenitori';
       if(im&&isArr()&&mv.some(m=>m.da&&!/^P:/.test(m.da))){ mv=[]; }
       /* arrivo vino: ogni riga senza partita (o con una partita tolta) prende la partita A */
       if(im&&isArr()&&pt[0]&&mv.some(m=>!pt.some(p=>'P:'+p.id===m.da))){ mv.forEach(m=>{ if(!pt.some(p=>'P:'+p.id===m.da)){ m.da='P:'+pt[0].id; if(m.q==='dadef') m.q='tutto'; } }); renderRows(); }
@@ -2502,7 +2506,7 @@ function formLavoro(ed,preset){
           av.nomi.filter(n=>!isUtente(n)).forEach(n=>amb.push(`«${n}» non è tra gli utenti: non lo vede sul telefono.`)); } }
       const go=()=>{
         const now=new Date().toISOString();
-        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,assegnato:assTxt,assegnati:av.nomi,esterno:av.est,assegnatoEsterno:false,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
+        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,colm:ty==='Colmatura'?{da:$('#w-cda',b).value||'',L:$('#w-cL',b).value.trim()?num($('#w-cL',b).value):null}:undefined,assegnato:assTxt,assegnati:av.nomi,esterno:av.est,assegnatoEsterno:false,imb:imb||undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
         if(ed){ const x=lavori().find(z=>z.id===ed.id); const prima=x.assegnato||'';
           if((x.stato==='bozza'||x.stato==='segnalato')&&!bz){ const sg=x.stato==='segnalato'; Object.assign(x,o); lavLog(x,'dafare',sg?'Programmato dalla segnalazione':'Programmato'); }
           else if(x.stato==='segnalato'&&bz){ Object.assign(x,o); lavLog(x,'bozza','Segnalazione trasformata in bozza'); }
@@ -2582,6 +2586,7 @@ function dichiaraEsec(l,stato,o={}){
   modal(fatto?'Fatto':'Non fatto',`<form id="fex" novalidate>
    <p class="small" style="margin-top:0"><b>${esc(lavTitolo(l))}</b></p>
    ${fatto?`<div class="fg"><label class="f">Quando l'hai fatto<input type="datetime-local" id="x-il" value="${ora}"></label>${o.op?'':`<label class="f">Chi l'ha fatto${assSelHTML('x-da',o.chi||'',!!o.chiEst)}</label>`}</div>
+     ${l.tipo==='Colmatura'&&l.colm&&l.colm.da?`<label class="f" style="margin-top:8px">Litri usati in tutto dalla ${esc(vnome(l.colm.da))} <span class="muted small">(facoltativo)</span><input id="x-cL" inputmode="decimal" placeholder="${l.colm.L?'previsti '+nfIn(l.colm.L,1):'es. 40'}"></label>`:''}
      ${l.imb&&l.imb.vasca?`<label class="row" style="gap:8px;margin:10px 0 0"><input type="checkbox" id="x-ivu" ${l.imb.q==='tutto'?'checked':''}> <span>La vasca <b>${esc(vlab(l.imb.vasca))}</b> è rimasta vuota</span></label>`:''}
      <label class="row" style="gap:8px;margin:10px 0"><input type="checkbox" id="x-dv" ${conc?'checked':''}> <span>Qualcosa è andato diversamente dal previsto</span></label>
      <div id="x-box" ${conc?'':'hidden'}>
@@ -2607,7 +2612,7 @@ function dichiaraEsec(l,stato,o={}){
         prodX=ps.map((p,i)=>$(`[data-xp="${i}"]`,b).value.trim()); }
       const imbX=$('#x-ipz',b)?{...(diverso?{pz:Math.floor(num($('#x-ipz',b).value)||0)||null,L:toL($('#x-iL',b).value,'hL')}:{}),...($('#x-ivu',b)&&$('#x-ivu',b).checked?{vuota:true}:{})}:null;
       const il=fatto&&$('#x-il',b).value?new Date($('#x-il',b).value).toISOString():new Date().toISOString();
-      l.esec={il,da:chi,note:no,comePrevisto:fatto?!diverso:null,diff:diverso?$('#x-df',b).value.trim():'',mov:movX,prodotti:prodX,imb:imbX&&(imbX.pz||imbX.L||imbX.vuota)?imbX:null,spunte:o.spunte||null,dichiaratoIl:new Date().toISOString()};
+      l.esec={il,da:chi,note:no,comePrevisto:fatto?!diverso:null,diff:diverso?$('#x-df',b).value.trim():'',mov:movX,prodotti:prodX,imb:imbX&&(imbX.pz||imbX.L||imbX.vuota)?imbX:null,colmL:$('#x-cL',b)&&$('#x-cL',b).value.trim()?num($('#x-cL',b).value):null,spunte:o.spunte||null,dichiaratoIl:new Date().toISOString()};
       lavLog(l,stato,(fatto?(diverso?'Fatto, con differenze':'Fatto come previsto'):'Non fatto: '+no)+(chi?' — dichiarato da '+chi:''));
       close(); if(o.prima) o.prima(); refresh(); toast(fatto?'Segnato come fatto':'Segnato come non fatto'); if(o.poi) o.poi(); };
   });
@@ -2658,6 +2663,7 @@ function apriRegistrazione(l){
         note:`${note}${ps.length>1?` · partita ${k+1} di ${ps.length}`:''}`,titoloExtra:ps.length>1?`Arrivo vino · partita ${k+1} di ${ps.length}: ${ptNome(p)}`:'Arrivo vino: '+ptNome(p),poi:k+1<ps.length?()=>apri(k+1):null}); };
     if(!ps.length){ UI.pendLav=null; toast('Nessuna partita con una vasca di destinazione'); return; }
     apri(0); return; }
+  if(l.tipo==='Colmatura'&&(l.colm||!mv.length)){ const c=l.colm||{}; formColmatura({vasche:(l.vasche||[]).filter(isCode),da:c.da||'',L:ex.colmL||c.L||null,data:today(),note}); return; }
   if(l.tipo==='Colmatura'){ const mm=(ex.mov&&ex.mov.length?mv.map((r,i)=>({...r,...(ex.mov[i]&&ex.mov[i].a?{a:ex.mov[i].a}:{}),L:(ex.mov[i]&&ex.mov[i].L)||(r.q==='hL'?r.L:null)})):mv.map(r=>({...r,L:r.q==='hL'?r.L:null})));
     const da=(mm.find(r=>isCode(r.da))||{}).da||'', vs=[...new Set(mm.map(r=>r.a).filter(isCode)),...(l.vasche||[]).filter(isCode)].filter(c=>c!==da), L=mm.reduce((a,r)=>a+(r.L||0),0);
     formColmatura({vasche:vs,da,L:L||null,data:today(),note}); return; }
@@ -2772,6 +2778,7 @@ function opDettaglio(app,l,op,head,bindHead){
     <div class="row" style="gap:6px">${l.priorita==='alta'?'<span class="chip scad">Urgente</span>':''}<span class="chip">${esc(l.tipo)}</span><span class="chip">${l.data?fd(l.data)+(l.ora?' · '+esc(l.ora):''):'senza data'}</span><span class="chip ${LSTCLS[l.stato]}">${LSTATI[l.stato]}</span></div>
     ${d?`<div class="box warn small" style="color:var(--ink)"><b>Attenzione:</b> nei contenitori la situazione è cambiata da quando il lavoro è stato programmato. Senti il responsabile prima di procedere.<ul style="margin:4px 0 0;padding-left:18px">${d.righe.map(r=>`<li>${esc(r.txt)}</li>`).join('')}</ul></div>`:''}
     ${l.istruzioni?`<h3 class="op-h">Istruzioni</h3><div class="box" style="background:var(--surface-2);white-space:pre-wrap">${esc(l.istruzioni)}</div>`:''}
+    ${l.tipo==='Colmatura'?`<h3 class="op-h">Colmatura</h3><div class="box" style="background:var(--surface-2)">${l.colm&&l.colm.da?`Prendi il vino dalla <b>${esc(vnome(l.colm.da))}</b>${(st[l.colm.da]||{}).vino?' ('+esc(vName(st[l.colm.da].vino))+')':''}${l.colm.L?` · circa <b>${nf(l.colm.L,0)} L</b> in tutto`:''}.`:'Colma i contenitori qui sotto.'} Quando segni «Fatto» puoi scrivere i litri usati.</div>`:''}
     ${l.imb&&l.imb.vasca?`<h3 class="op-h">Da imbottigliare</h3><div class="box" style="background:var(--surface-2)"><b>${esc(imbTxt(l,st))}</b></div>`:''}
     ${l.arr?`<h3 class="op-h">Vino in arrivo</h3><div class="box" style="background:var(--surface-2)">${arrHTML(l,true)}</div>${mv.filter(m=>isCode(m.a)).map(m=>m.a).filter((c,i,a)=>a.indexOf(c)===i).map(c=>{ const s=st[c]||{}; return s.vino&&s.L>1e-6?`<div class="small" style="color:var(--warn)">${esc(vlab(c))} contiene già ${esc(vName(s.vino))} (${hL(s.L)}): il vino in arrivo si unisce.</div>`:''; }).join('')}`:''}
     ${mv.length&&!l.arr?`<h3 class="op-h">Movimenti</h3>${opMovHTML(mv,st)}${movNote(mv).filter(x=>!/si divide in/.test(x)).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
@@ -3258,15 +3265,20 @@ const zuccDi = l=>{ const a=(l||[]).find(x=>/zucchero|saccarosio|mcr|mosto conce
    Con «Conta come taglio» diventa un travaso vero: le botti crescono dei litri aggiunti e le percentuali cambiano. */
 function formColmatura(p={},corrId){ const st=stOggi(); const sel=new Set(p.vasche||[]);
   const locs=[...new Set(VASCHE.filter(v=>v.stato==='attivo'&&st[v.code]&&st[v.code].vino).map(v=>v.dep))];
-  const riga=v=>`<label class="row small cm-r" style="gap:6px;flex-wrap:nowrap" data-q="${esc((vlab(v.code)+' '+vName(st[v.code].vino)).toLowerCase())}"><input type="checkbox" data-cm="${esc(v.code)}" ${sel.has(v.code)?'checked':''}> <b>${esc(vlab(v.code))}</b> <span class="muted">${esc(vName(st[v.code].vino))} · ${hL(st[v.code].L)}</span></label>`;
+  const LEGNO=['botte','barrique','tonneau'], cmTipo0=sel.size&&[...sel].every(c=>VMAP[c]&&!LEGNO.includes(VMAP[c].tipo))?'tutti':'legno';
+  const riga=v=>`<label class="row small cm-r" style="gap:6px;flex-wrap:nowrap" data-q="${esc((vlab(v.code)+' '+vName(st[v.code].vino)).toLowerCase())}" data-t="${esc(v.tipo)}" data-l="${esc(v.dep)}" data-w="${esc(st[v.code].vino)}"><input type="checkbox" data-cm="${esc(v.code)}" ${sel.has(v.code)?'checked':''}> <b>${esc(vlab(v.code))}</b> <span class="muted">${esc(vName(st[v.code].vino))} · ${hL(st[v.code].L)}</span></label>`;
   modal((corrId?'Correggi colmatura':'Colmatura'),`<form id="fcm" novalidate>
    <p class="hint">Le botti colmate restano al volume che risulta oggi e con la loro composizione. Se indichi la vasca e i litri usati, quei litri escono dalla vasca: sono il vino evaporato dalle botti.</p>
    <div class="fg"><label class="f">Data<input type="date" id="cm-d" value="${esc(p.data||today())}"></label>
     <label class="f">Vino preso dalla vasca <span class="muted small">(facoltativo)</span><select id="cm-da">${vascaOpts(p.da||'',true)}</select></label>
     <label class="f">Litri usati in tutto <span class="muted small">(facoltativo)</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input id="cm-L" inputmode="decimal" value="${p.L?nfIn(p.L,1):''}" placeholder="es. 40" style="min-width:0"><span class="muted">L</span></span></label></div>
    <div class="f wide" style="margin-top:8px"><span>Contenitori colmati <b id="cm-n"></b></span>
-    <input id="cm-q" placeholder="Cerca vasca o vino" style="margin:4px 0">
-    <div style="max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 8px">${locs.map(dep=>{ const vs=VASCHE.filter(v=>v.dep===dep&&v.stato==='attivo'&&st[v.code]&&st[v.code].vino); return `<div class="cm-g" style="margin:4px 0 8px"><div class="spread small"><b>${esc(locNome(dep))}</b><button type="button" class="btn sm ghost" data-cmall="${esc(dep)}">tutte</button></div>${vs.map(riga).join('')}</div>`; }).join('')||'<span class="muted small">Nessun contenitore con vino.</span>'}</div></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:4px 0">${[['legno','Botti, barrique, tonneau'],...TIPI_CONT.filter(t=>VASCHE.some(v=>v.tipo===t&&st[v.code]&&st[v.code].vino)).map(t=>[t,(PLUR[t]||t).replace(/^./,c=>c.toUpperCase())]),['tutti','Tutti']].filter((x,i,a)=>a.findIndex(y=>y[0]===x[0])===i).map(([k,t])=>`<button type="button" class="btn sm${k===cmTipo0?' pri':''}" data-cmt="${k}">${esc(t)}</button>`).join('')}</div>
+    <div class="fg" style="margin:0"><label class="f">Locale<select id="cm-loc"><option value="">Tutti</option>${locs.map(d=>`<option value="${esc(d)}">${esc(locNome(d))}</option>`).join('')}</select></label>
+     <label class="f">Vino<select id="cm-vin"><option value="">Tutti</option>${[...new Set(VASCHE.filter(v=>st[v.code]&&st[v.code].vino).map(v=>st[v.code].vino))].sort((a,c)=>vName(a).localeCompare(vName(c),'it')).map(w=>`<option value="${esc(w)}">${esc(vName(w))}</option>`).join('')}</select></label>
+     <label class="f">Cerca<input id="cm-q" placeholder="vasca o vino"></label></div>
+    <div class="row small" style="gap:14px;flex-wrap:wrap;margin:2px 0 6px"><label class="row" style="gap:6px"><input type="checkbox" id="cm-sv" disabled> Solo lo stesso vino della vasca di partenza</label><label class="row" style="gap:6px"><input type="checkbox" id="cm-ss"> Mostra solo i selezionati</label></div>
+    <div style="max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 8px">${''}${locs.map(dep=>{ const vs=VASCHE.filter(v=>v.dep===dep&&v.stato==='attivo'&&st[v.code]&&st[v.code].vino); return `<div class="cm-g" style="margin:4px 0 8px"><div class="spread small"><b>${esc(locNome(dep))}</b><button type="button" class="btn sm ghost" data-cmall="${esc(dep)}">tutte</button></div>${vs.map(riga).join('')}</div>`; }).join('')||'<span class="muted small">Nessun contenitore con vino.</span>'}<div class="muted small cm-none" hidden>Nessun contenitore con questi filtri.</div></div></div>
    <label class="row" style="gap:8px;margin:10px 0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" style="margin-top:3px" id="cm-tg" ${p.taglio?'checked':''}> <span><b>Conta come taglio</b> <span class="muted small">— le botti crescono dei litri aggiunti (divisi in proporzione al volume) e la composizione cambia con le percentuali</span></span></label>
    <label class="f wide">Note<input id="cm-no" value="${esc(p.note||'')}" placeholder="es. colmatura settimanale barricaia"></label>
    <div id="msg" class="err"></div>
@@ -3274,7 +3286,15 @@ function formColmatura(p={},corrId){ const st=stOggi(); const sel=new Set(p.vasc
    const cnt=()=>{ const n=$$('[data-cm]',b).filter(x=>x.checked).length; $('#cm-n',b).textContent=n?'· '+n+' selezionat'+(n===1?'o':'i'):''; }; cnt();
    b.addEventListener('change',e=>{ if(e.target.matches('[data-cm]')) cnt(); });
    $$('[data-cmall]',b).forEach(x=>x.onclick=()=>{ const g=x.closest('.cm-g'); const bx=$$('[data-cm]',g).filter(c=>!c.closest('.cm-r').hidden); const all=bx.every(c=>c.checked); bx.forEach(c=>c.checked=!all); cnt(); });
-   $('#cm-q',b).oninput=()=>{ const q=$('#cm-q',b).value.trim().toLowerCase(); $$('.cm-r',b).forEach(r=>r.hidden=!!q&&!r.dataset.q.includes(q)); };
+   let cmT=cmTipo0;
+   const filtra=()=>{ const q=$('#cm-q',b).value.trim().toLowerCase(), lo=$('#cm-loc',b).value, wv=$('#cm-vin',b).value, da=$('#cm-da',b).value, sv=$('#cm-sv',b), ss=$('#cm-ss',b).checked;
+     sv.disabled=!da||!st[da]||!st[da].vino; const wDa=!sv.disabled&&sv.checked?st[da].vino:'';
+     $$('.cm-r',b).forEach(r=>{ const ck=$('[data-cm]',r).checked; r.hidden=(q&&!r.dataset.q.includes(q))||(cmT==='legno'?!LEGNO.includes(r.dataset.t):cmT!=='tutti'&&r.dataset.t!==cmT)||(lo&&r.dataset.l!==lo)||(wv&&r.dataset.w!==wv)||(wDa&&r.dataset.w!==wDa)||(ss&&!ck)||($('[data-cm]',r).dataset.cm===da); });
+     $$('.cm-g',b).forEach(g=>g.hidden=!$$('.cm-r',g).some(r=>!r.hidden)); };
+   $$('[data-cmt]',b).forEach(x=>x.onclick=()=>{ cmT=x.dataset.cmt; $$('[data-cmt]',b).forEach(y=>y.classList.toggle('pri',y===x)); filtra(); });
+   ['#cm-q','#cm-loc','#cm-vin','#cm-sv','#cm-ss','#cm-da'].forEach(q=>{ $(q,b).addEventListener('input',filtra); $(q,b).addEventListener('change',filtra); });
+   b.addEventListener('change',e=>{ if(e.target.matches('[data-cm]')&&$('#cm-ss',b).checked) filtra(); });
+   filtra();
    $('#fcm',b).onsubmit=ev=>{ ev.preventDefault(); const m=$('#msg',b); m.textContent='';
      const data=$('#cm-d',b).value||today(), vs=$$('[data-cm]',b).filter(x=>x.checked).map(x=>x.dataset.cm), da=$('#cm-da',b).value, L=$('#cm-L',b).value.trim()?num($('#cm-L',b).value):null, tg=$('#cm-tg',b).checked;
      if(!vs.length) return m.textContent='Spunta almeno un contenitore colmato.';
@@ -3800,6 +3820,10 @@ function formLavorazione(p={},corrId){
       const fase=$('#l-fase',b).value; const list=fase==='Vinificazione'&&!corrId?[...new Set([...OPS_RAPIDE,...lavList(fase)])]:[...lavList(fase)]; { const pb=$('.pronto-box',b); if(pb){ pb.hidden=fase==='Vinificazione'; if(pb.hidden) $('#l-pronto',b).checked=false; } } [...keep].forEach(k=>{ if(!list.some(l=>l.toLowerCase()===k)){ const f=lavAll().find(l=>l.toLowerCase()===k); if(f) list.push(f);} });
       $('#l-chips',b).innerHTML=list.map(l=>`<label class="chip" style="cursor:pointer"><input type="checkbox" value="${esc(l)}" ${keep.has(l.toLowerCase())?'checked':''}> ${esc(l)}</label>`).join(''); upd(); if(window.__vinLayout) window.__vinLayout(); };
     renderOps();
+    $('#l-chips',b).addEventListener('change',e=>{ if(e.target.value!=='Colmatura') return; let h=$('#l-colmh',b);
+      if(e.target.checked&&!h){ $('#l-ops',b).insertAdjacentHTML('afterend',`<div class="box small" id="l-colmh" style="margin-top:6px;color:var(--ink)">Per colmare le botti <b>senza cambiare volumi e composizione</b> c'è la registrazione «Colmatura». <button type="button" class="btn sm" id="l-colmgo">Apri Colmatura</button></div>`);
+        $('#l-colmgo',b).onclick=()=>{ const vs=$$('#vch input:checked',b).map(x=>x.value).filter(isCode); $('.x',b.closest('.dlg')).click(); formColmatura({vasche:vs}); }; }
+      else if(!e.target.checked&&h) h.remove(); });
     $('#l-fase',b).onchange=renderOps;
     $('#l-ops',b).onchange=upd; $('#l-altro',b).oninput=upd;
     (()=>{ /* REG-VEND-06: in fase Vinificazione la stessa finestra diventa «smart» */
