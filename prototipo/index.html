@@ -1029,7 +1029,12 @@ function replay(events, stop){
             setImps(st[v],[...(st[v].imps||[]).filter(x=>!ns.some(n=>n.lav.toLowerCase()===x.lav.toLowerCase())),...ns]); } }); } }
     } else if(ev.tipo==='imbottigliamento'){
       if((ev.chiudeLav||[]).includes(ev.vasca)) closeImps(ev.vasca,ev.id);
-      const s = st[ev.vasca]; addVin(ev.id,s.vino); imb[ev.id]={i:curI,node:s.node,vino:s.vino,pronto:s.pronto,Lprima:s.L}; s.L -= ev.L; touches.push({i:curI,ev:ev.id,vasca:ev.vasca,kind:'imb',L:ev.L});
+      const s = st[ev.vasca]; addVin(ev.id,s.vino); imb[ev.id]={i:curI,node:s.node,vino:s.vino,pronto:s.pronto,Lprima:s.L};
+      /* vasca svuotata: esce tutto il contenuto; la differenza fra contenuto e pezzi × formato ha un esito */
+      const out = ev.svuota ? Math.max(0,s.L) : ev.L; let dIm=0;
+      if(ev.svuota){ const fatto=ev.bottiglie&&ev.formato?ev.bottiglie*ev.formato:out; dIm=out-fatto; diffCalc[ev.id+'_imb']={calc:dIm}; imb[ev.id].Lout=out; }
+      const srcN=s.node, vs=s.vino; s.L -= out; touches.push({i:curI,ev:ev.id,vasca:ev.vasca,kind:'imb',L:out});
+      if(ev.svuota&&ev.diffTipo==='recupero'&&ev.feccDest&&VMAP[ev.feccDest]&&dIm>1e-6&&vs){ pushAp(vs,{data:ev.data,ev:ev.id,da:vs,L:dIm,tipo:'fecce',vasca:ev.feccDest}); arrive(ev,'f',ev.feccDest,vs,dIm,srcN); touches.push({i:curI,ev:ev.id,vasca:ev.vasca,kind:'out',a:ev.feccDest,L:dIm,fecce:true,destNode:st[ev.feccDest].node}); }
       if(s.L < -1e-6){ ecc[ev.id+'_0']={vasca:ev.vasca,L:-s.L}; s.L=0; }
       if(Math.abs(s.L)<1e-6){s.L=0;s.vino=null;s.node=null;s.pronto=false;setImps(s,[]);s.ferm=null;s.vinif=null;}
     } else if(ev.tipo==='sboccatura'&&ev.liqVasca&&ev.liqL>0&&st[ev.liqVasca]){
@@ -2563,6 +2568,7 @@ function dichiaraEsec(l,stato,o={}){
   modal(fatto?'Fatto':'Non fatto',`<form id="fex" novalidate>
    <p class="small" style="margin-top:0"><b>${esc(lavTitolo(l))}</b></p>
    ${fatto?`<div class="fg"><label class="f">Quando l'hai fatto<input type="datetime-local" id="x-il" value="${ora}"></label>${o.op?'':`<label class="f">Chi l'ha fatto${assSelHTML('x-da',o.chi||'',!!o.chiEst)}</label>`}</div>
+     ${l.imb&&l.imb.vasca?`<label class="row" style="gap:8px;margin:10px 0 0"><input type="checkbox" id="x-ivu" ${l.imb.q==='tutto'?'checked':''}> <span>La vasca <b>${esc(vlab(l.imb.vasca))}</b> è rimasta vuota</span></label>`:''}
      <label class="row" style="gap:8px;margin:10px 0"><input type="checkbox" id="x-dv" ${conc?'checked':''}> <span>Qualcosa è andato diversamente dal previsto</span></label>
      <div id="x-box" ${conc?'':'hidden'}>
       ${mv.length?`<fieldset class="lvf"><legend>${l.arr?'Scaricato davvero (hL per vasca)':'Movimenti fatti davvero'}</legend>${mv.map((m,i)=>`<div class="fg" style="align-items:end"><div class="f"><span>${esc(l.arr?ptNome(ptDi(m.da)):vlab(m.da))} → ${m.a==='?'?'da concordare':esc(vlab(m.a))}</span><span class="small muted">previsto: ${l.arr&&movQtaL(m,null,mv)?hL(movQtaL(m,null,mv)):movQtaTxt(m)}</span></div>
@@ -2585,9 +2591,9 @@ function dichiaraEsec(l,stato,o={}){
       if(diverso){ movX=mv.map((r,i)=>{ const a=$(`[data-xa="${i}"]`,b).value, L=toL($(`[data-xl="${i}"]`,b).value,'hL'); return {a:a||'',L:L||null}; });
         const manca=mv.findIndex((r,i)=>r.a==='?'&&!movX[i].a); if(manca>=0){ m.textContent='Indica dove è arrivato il vino di '+(l.arr?ptNome(ptDi(mv[manca].da)):vlab(mv[manca].da))+'.'; return; }
         prodX=ps.map((p,i)=>$(`[data-xp="${i}"]`,b).value.trim()); }
-      const imbX=diverso&&$('#x-ipz',b)?{pz:Math.floor(num($('#x-ipz',b).value)||0)||null,L:toL($('#x-iL',b).value,'hL')}:null;
+      const imbX=$('#x-ipz',b)?{...(diverso?{pz:Math.floor(num($('#x-ipz',b).value)||0)||null,L:toL($('#x-iL',b).value,'hL')}:{}),...($('#x-ivu',b)&&$('#x-ivu',b).checked?{vuota:true}:{})}:null;
       const il=fatto&&$('#x-il',b).value?new Date($('#x-il',b).value).toISOString():new Date().toISOString();
-      l.esec={il,da:chi,note:no,comePrevisto:fatto?!diverso:null,diff:diverso?$('#x-df',b).value.trim():'',mov:movX,prodotti:prodX,imb:imbX&&(imbX.pz||imbX.L)?imbX:null,spunte:o.spunte||null,dichiaratoIl:new Date().toISOString()};
+      l.esec={il,da:chi,note:no,comePrevisto:fatto?!diverso:null,diff:diverso?$('#x-df',b).value.trim():'',mov:movX,prodotti:prodX,imb:imbX&&(imbX.pz||imbX.L||imbX.vuota)?imbX:null,spunte:o.spunte||null,dichiaratoIl:new Date().toISOString()};
       lavLog(l,stato,(fatto?(diverso?'Fatto, con differenze':'Fatto come previsto'):'Non fatto: '+no)+(chi?' — dichiarato da '+chi:''));
       close(); if(o.prima) o.prima(); refresh(); toast(fatto?'Segnato come fatto':'Segnato come non fatto'); if(o.poi) o.poi(); };
   });
@@ -2646,7 +2652,7 @@ function apriRegistrazione(l){
   else if(T.reg==='man') formManutenzione(l.vasche,{man:l.tipo==='Mantenimento botti'?MAN_TIPI[0]:'Pulizia',prodotti:(l.prodotti||[]).map((p,i)=>({...p,reale:(ex.prodotti||[])[i]||''})).filter((p,i)=>!(/^non aggiunt/i.test(p.reale)||(ex.spunte&&ex.spunte[i]===false))),note});
   else if(T.reg==='imb'){ const i=l.imb, x=ex.imb||{};
     if(i&&i.vasca){ const e=imbStima(i,st); const pz=x.pz||(i.q==='pz'?i.pz:null); const L=x.L||(x.pz?x.pz*(i.formato||0.75):null)||(i.q==='pz'?null:e.L);
-      formImbottigliamento({vasca:i.vasca,L:L||null,litriManuali:!!L,bottiglie:pz||undefined,bottiglieManuali:!!pz,formato:i.formato,conf:imbConf(i),lotto:i.lotto||'',data:today(),note,tiraggio:!!T.tir}); }
+      formImbottigliamento({vasca:i.vasca,L:L||null,litriManuali:!!L,bottiglie:pz||undefined,bottiglieManuali:!!pz,formato:i.formato,conf:imbConf(i),lotto:i.lotto||'',data:today(),note,tiraggio:!!T.tir,svuota:!!x.vuota}); }
     else formImbottigliamento({vasca:(l.vasche||[])[0],L:lavVolBase(l)||null,data:today(),note,tiraggio:!!T.tir}); }
   else if(T.reg==='an'){ const v=(st[(l.vasche||[])[0]]||{}).vino; if(!v){ UI.pendLav=null; toast('La vasca non contiene vino: impossibile registrare l\'analisi'); return; } formAnalisi(v,null,{ambito:'vasca',vasche:l.vasche.filter(c=>(st[c]||{}).vino===v),data:today()}); }
 }
@@ -3994,6 +4000,9 @@ function formImbottigliamento(p={},corrId){
     <label class="f">Formato<select id="i-fmt"><optgroup label="Bottiglia">${FORMATI.filter(x=>x.t==='Bottiglia').map(x=>`<option value="${x.k}" ${fmtSel===x.k?'selected':''}>Bottiglia ${nf(x.L,3)} L</option>`).join('')}</optgroup><optgroup label="Bag in box">${FORMATI.filter(x=>x.t==='Bag in box').map(x=>`<option value="${x.k}" ${fmtSel===x.k?'selected':''}>Bag in box ${nf(x.L,3)} L</option>`).join('')}</optgroup><option value="altro" ${fmtSel==='altro'?'selected':''}>altro…</option></select></label>
     <label class="f" id="i-fmtw" ${fmtSel==='altro'?'':'hidden'}>Formato (L)<input id="i-fmto" inputmode="decimal" value="${fmtSel==='altro'?nfIn(p.formato,3):''}"></label>
     <label class="f"><span id="i-btl">Pezzi</span><input id="i-bt" inputmode="numeric" value="${p.bottiglie||''}" placeholder="auto"></label>
+    <label class="row" style="gap:8px;grid-column:1/-1;margin:2px 0"><input type="checkbox" id="i-svu" ${p.svuota?'checked':''}> <span><b>La vasca si è svuotata</b> <span class="muted small">— esce tutto il contenuto; scrivi i ${tir?'pezzi':'pezzi'} fatti e indica che fine ha fatto la differenza</span></span></label>
+    <div id="i-dw" style="grid-column:1/-1" hidden><div class="fg"><label class="f">Che fine ha fatto la differenza<select id="i-de">${Object.entries(DIFF).filter(([k])=>k!=='resta'&&!(tir&&k==='recupero')).map(([k,t])=>`<option value="${k}" ${(p.diffTipo||'eliminate')===k?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+     <label class="f" id="i-fdw" ${p.diffTipo==='recupero'?'':'hidden'}>Contenitore delle fecce<select id="i-fd">${vascaOpts(p.feccDest||'')}</select></label></div></div>
    ${!tir&&MOD().spumanti&&MOD().charmat?`<label class="f" id="i-dosw" ${isAuto(p.vasca)?'':'hidden'}>Dosaggio (g/L)<input id="i-dos" inputmode="decimal" value="${p.dosaggio!=null?nfIn(p.dosaggio,1):''}" placeholder="es. 12"></label>
     <label class="f" id="i-menw" ${isAuto(p.vasca)?'':'hidden'}>Menzione<select id="i-men"><option value="">—</option>${MENZIONI.map(m=>`<option ${p.menzione===m?'selected':''}>${m}</option>`).join('')}</select></label>`:''}
    ${tir?`<label class="f">Metodo<select id="i-met">${Object.entries(METODI).filter(([k])=>mets.includes(k)||k===met).map(([k,t])=>`<option value="${k}" ${k===met?'selected':''}>${t}</option>`).join('')}</select></label>
@@ -4006,41 +4015,64 @@ function formImbottigliamento(p={},corrId){
    <label class="f wide">Note<textarea id="i-note">${esc(p.note||'')}</textarea></label>
    <div id="msg" class="err"></div>
    <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Salva</button></div></form>`,(b,close)=>{
-    let okImp=false, okEcc=false, okDup=false, okPz=false, manual=!!p.bottiglieManuali, Lman=p.L!=null&&p.litriManuali!==false;
+    let okImp=false, okEcc=false, okDup=false, okPz=false;
+    /* quale campo comanda: 'pz' (pezzi → quantità), 'L' (quantità → pezzi), null (entrambi scritti, es. dichiarati alla convalida) */
+    let drv = p.L!=null&&p.bottiglie&&p.litriManuali!==false&&p.bottiglieManuali ? null : p.bottiglie&&p.bottiglieManuali ? 'pz' : p.L!=null ? 'L' : p.bottiglie ? 'pz' : 'L';
     const fmtO=()=>FORMATI.find(x=>x.k===$('#i-fmt',b).value); const fmt=()=>$('#i-fmt',b).value==='altro'?num($('#i-fmto',b).value):fmtO().L; const conf=()=>$('#i-fmt',b).value==='altro'?'Altro':fmtO().t;
-    const calc=()=>{ let fm=fmt(); const u=$('#i-u',b).value;
-      if(manual&&!Lman){ const bt0=num($('#i-bt',b).value); $('#i-L',b).value=bt0&&fm?nfIn(u==='hL'?bt0*fm/100:bt0*fm,3):''; }
-      else if(!manual&&!Lman) $('#i-L',b).value='';
-      const L=toL($('#i-L',b).value,u);
-      $('#i-Ll',b).textContent='Quantità uscita'+(Lman?'':(manual&&L?' (calcolata)':'')); $('#i-fmtw',b).hidden=$('#i-fmt',b).value!=='altro';
-      const pz=conf()==='Bag in box'?'Bag in box':conf()==='Altro'?'Confezioni':'Bottiglie'; $('#i-btl',b).textContent=pz+(manual?' (modificato)':' (calcolato)');
-      const n=L&&fm?Math.floor(L/fm+1e-9):0;
-      if(!manual&&Lman) $('#i-bt',b).value=n?String(n):''; else if(!manual&&!Lman) $('#i-bt',b).value='';
-      const bt=num($('#i-bt',b).value), tot=bt&&fm?bt*fm:0, diff=L?L-tot:0;
-      const warn = bt&&L&&(tot>L+1e-6 || diff>Math.max(fm,L*0.02));
-      $('#i-calc',b).className = warn?'box warn small':'hint';
-      $('#i-calc',b).innerHTML = !n&&!bt?'' : warn
+    const svu=()=>$('#i-svu',b).checked, ordE=()=>{ const o=corrId&&S.eventi.find(x=>x.id===corrId); return o&&o.data===($('#i-data',b).value||today())?o.ord:Date.now(); };
+    let cK='', cV=0; const cont=()=>{ const v=$('#i-v',b).value, d=$('#i-data',b).value||today(); if(!v) return 0; if(cK!==v+'|'+d){ cK=v+'|'+d; cV=Math.max(0,((stateAt(d,ordE(),corrId)[v])||{}).L||0); } return cV; };
+    const setL=L=>{ const u=$('#i-u',b).value; $('#i-L',b).value=L?nfIn(u==='hL'?L/100:L,3):''; };
+    const getL=()=>toL($('#i-L',b).value,$('#i-u',b).value), getPz=()=>Math.floor(num($('#i-bt',b).value)||0);
+    const pzDaL=()=>{ const fm=fmt(), L=getL(); $('#i-bt',b).value=L&&fm?String(Math.floor(L/fm+1e-9)):''; };
+    const LdaPz=()=>{ const fm=fmt(), n=getPz(); setL(n&&fm?n*fm:0); };
+    let Ccont=0;
+    const calc=()=>{ const fm=fmt(), sv=svu(); $('#i-fmtw',b).hidden=$('#i-fmt',b).value!=='altro';
+      $('#i-L',b).disabled=sv; if(sv){ Ccont=cont(); setL(Ccont); if(!$('#i-bt',b).value.trim()&&document.activeElement!==$('#i-bt',b)) pzDaL(); }
+      const L=getL(), bt=getPz();
+      $('#i-Ll',b).textContent=sv?'Quantità uscita (tutto il contenuto)':'Quantità uscita'+(drv==='pz'&&L?' (calcolata)':'');
+      const pz=conf()==='Bag in box'?'Bag in box':conf()==='Altro'?'Confezioni':'Bottiglie'; $('#i-btl',b).textContent=pz+(drv==='L'&&bt&&!sv?' (calcolati)':'');
+      const tot=bt&&fm?bt*fm:0, diff=L?L-tot:0, n=L&&fm?Math.floor(L/fm+1e-9):0;
+      $('#i-dw',b).hidden=!(sv&&bt&&diff>0.5); $('#i-fdw',b).hidden=$('#i-de',b).value!=='recupero';
+      const warn = !sv && drv===null && bt && L && (tot>L+1e-6 || diff>Math.max(fm,L*0.02));
+      const over = sv && bt && diff< -0.5;
+      $('#i-calc',b).className = warn||over?'box warn small':'hint';
+      $('#i-calc',b).innerHTML = !bt&&!n?'' : over
+        ? `<b>Più vino del previsto:</b> ${nf(bt,0)} ${pz.toLowerCase()} da ${nf(fm,3)} L = <b>${nf(tot,1)} L</b>, ma nella vasca risultavano <b>${nf(L,1)} L</b> (${nf(-diff,1)} L in più). Se confermi la vasca risulta vuota e la differenza va tra le Differenze aperte dell'Inventario.`
+        : warn
         ? `<b>Controlla i conti:</b> ${nf(bt,0)} ${pz.toLowerCase()} da ${nf(fm,3)} L = <b>${nf(tot,1)} L</b>, ma la quantità uscita è <b>${nf(L,1)} L</b> (${tot>L?'mancano':'avanzano'} ${nf(Math.abs(diff),1)} L). Puoi usare <button type="button" class="btn sm" id="i-reset">${nf(n,0)} ${pz.toLowerCase()}</button> oppure <button type="button" class="btn sm" id="i-resetL">${nf(bt*fm,1)} L usciti</button>`
-        : `${nf(bt||n,0)} ${pz.toLowerCase()} da ${nf(fm,3)} L = ${nf((bt||n)*fm,1)} L su ${nf(L,1)} L usciti${diff>1e-6&&bt?` · differenza ${nf(diff,1)} L (cali/residui)`:''}`;
-      const rs=$('#i-reset',b); if(rs) rs.onclick=()=>{manual=false; okPz=false; calc();};
-      const rl=$('#i-resetL',b); if(rl) rl.onclick=()=>{Lman=false; okPz=false; calc();};
+        : `${nf(bt||n,0)} ${pz.toLowerCase()} da ${nf(fm,3)} L = ${nf((bt||n)*fm,1)} L${L?` su ${nf(L,1)} L usciti`:''}${sv&&diff>0.5&&bt?` · differenza <b>${nf(diff,1)} L</b>: indica sotto che fine ha fatto`:''}${!sv&&diff>1e-6&&bt?` · differenza ${nf(diff,1)} L (cali/residui)`:''}`;
+      const rs=$('#i-reset',b); if(rs) rs.onclick=()=>{ drv='L'; pzDaL(); okPz=false; calc(); };
+      const rl=$('#i-resetL',b); if(rl) rl.onclick=()=>{ drv='pz'; LdaPz(); okPz=false; calc(); };
       return warn; };
+    /* mentre scrivi un campo, l'altro si adegua; un campo svuotato resta vuoto finché non esci */
+    $('#i-bt',b).addEventListener('input',()=>{ if($('#i-bt',b).value.trim()===''){ drv='L'; return; } drv='pz'; if(!svu()) LdaPz(); });
+    $('#i-bt',b).addEventListener('blur',()=>{ if($('#i-bt',b).value.trim()===''&&getL()){ drv='L'; pzDaL(); calc(); } });
+    $('#i-L',b).addEventListener('input',()=>{ if($('#i-L',b).value.trim()===''){ drv='pz'; return; } drv='L'; pzDaL(); });
+    $('#i-L',b).addEventListener('blur',()=>{ if($('#i-L',b).value.trim()===''&&getPz()){ drv='pz'; LdaPz(); calc(); } });
+    $('#i-fmt',b).addEventListener('change',()=>{ if(drv==='pz'&&!svu()) LdaPz(); else if(drv==='L'||svu()) pzDaL(); });
+    if($('#i-fmto',b)) $('#i-fmto',b).addEventListener('input',()=>{ if(drv==='pz'&&!svu()) LdaPz(); else pzDaL(); });
+    $('#i-u',b).addEventListener('change',()=>{ if(drv==='pz') LdaPz(); });
+    $('#i-svu',b).addEventListener('change',()=>{ if(!svu()){ drv='pz'; LdaPz(); } });
+    ['#i-v','#i-data'].forEach(q=>$(q,b).addEventListener('change',()=>{ if(svu()){ $('#i-bt',b).value=''; } }));
+    if(drv==='L'&&p.L!=null&&!p.bottiglie) pzDaL(); else if(drv==='pz'&&p.bottiglie&&p.L==null) LdaPz();
     if($('#i-dos',b)){ let mt=!!p.menzione; const vs=()=>{ const au=isAuto($('#i-v',b).value); $('#i-dosw',b).hidden=!au; $('#i-menw',b).hidden=!au; };
       $('#i-v',b).addEventListener('change',vs); $('#i-men',b).onchange=()=>{mt=true;}; $('#i-dos',b).addEventListener('input',()=>{ if(!mt) $('#i-men',b).value=menzDa($('#i-dos',b).value.trim()===''?null:num($('#i-dos',b).value)); }); }
     if(tir) prodRowsBind(b,'i-pr',()=>toL($('#i-L',b).value,$('#i-u',b).value)||0);
     $('#i-prop',b).onclick=()=>{ $('#i-lot',b).value=tir?propTir($('#i-data',b).value||today(),corrId):propLotto($('#i-data',b).value||today()); okDup=false; };
     if(tir&&!p.lotto&&!corrId){ $('#i-lot',b).value=propTir($('#i-data',b).value||today()); let lt=false; $('#i-lot',b).addEventListener('input',()=>{lt=true;}); $('#i-data',b).addEventListener('change',()=>{ if(!lt) $('#i-lot',b).value=propTir($('#i-data',b).value||today()); }); }
-    $('#i-bt',b).addEventListener('input',()=>{ manual=$('#i-bt',b).value.trim()!==''; });
-    $('#i-L',b).addEventListener('input',()=>{ Lman=$('#i-L',b).value.trim()!==''; });
     $('#fi',b).oninput=e=>{ if(e.target&&e.target.name==='impI') return; okImp=false;okEcc=false;okDup=false;okPz=false;$('#msg',b).textContent='';$('#fi button.pri',b).textContent='Salva';calc();};
     $('#fi',b).onchange=calc; calc();
     $('#fi',b).onsubmit=e=>{e.preventDefault();
-      const vasca=$('#i-v',b).value,L=toL($('#i-L',b).value,$('#i-u',b).value), lotto=$('#i-lot',b).value.trim(), f=fmt();
-      if(!vasca||!L){$('#msg',b).textContent='Scegli la vasca e inserisci la quantità uscita.';return;}
+      if(!getPz()&&getL()&&!svu()) pzDaL(); if(!getL()&&getPz()&&!svu()) LdaPz(); if(svu()&&!getPz()) pzDaL();
+      const vasca=$('#i-v',b).value,L=svu()?cont():toL($('#i-L',b).value,$('#i-u',b).value), lotto=$('#i-lot',b).value.trim(), f=fmt();
+      if(!vasca||!L){$('#msg',b).textContent=svu()&&vasca?'In quella data la vasca risulta già vuota.':'Scegli la vasca e inserisci la quantità uscita.';return;}
+      if(svu()&&!getPz()){$('#msg',b).textContent='Con la vasca svuotata scrivi quanti pezzi hai fatto.';return;}
+      if(svu()&&$('#i-de',b).value==='recupero'&&!$('#i-dw',b).hidden&&!$('#i-fd',b).value){$('#msg',b).textContent='Scegli il contenitore dove vanno le fecce.';return;}
       if(!lotto){$('#msg',b).textContent='Inserisci il lotto (o premi «Proponi»).';return;}
       if(!f){$('#msg',b).textContent='Indica il formato della bottiglia.';return;}
       const data=$('#i-data',b).value||today();
-      const ev={id:uid(),tipo:'imbottigliamento',data,ord:Date.now(),fase:'Affinamento',vasca,L,lotto,formato:f,conf:conf(),bottiglie:num($('#i-bt',b).value)||null,bottiglieManuali:manual,litriManuali:Lman,note:$('#i-note',b).value.trim(),creatoIl:new Date().toISOString()};
+      const ev={id:uid(),tipo:'imbottigliamento',data,ord:Date.now(),fase:'Affinamento',vasca,L,lotto,formato:f,conf:conf(),bottiglie:getPz()||null,bottiglieManuali:drv!=='L'||svu(),litriManuali:drv!=='pz'&&!svu(),note:$('#i-note',b).value.trim(),creatoIl:new Date().toISOString()};
+      if(svu()){ const df=L-(getPz()*f); Object.assign(ev,{svuota:true,diffTipo:df>0.5?$('#i-de',b).value:'',feccDest:df>0.5&&$('#i-de',b).value==='recupero'?$('#i-fd',b).value:''}); }
       if(!tir&&$('#i-dos',b)&&isAuto(vasca)){ const d=$('#i-dos',b).value.trim(); Object.assign(ev,{isobarico:true,dosaggio:d?num(d):null,menzione:$('#i-men',b).value}); }
       if(tir){ const ag=prodRowsRead(b,'i-pr',L); prodSalva(ag); Object.assign(ev,{tiraggio:true,metodo:$('#i-met',b).value,aggiunte:ag,zucchero:zuccDi(ag),posizione:$('#i-pos',b).value.trim(),mesiMin:$('#i-mm',b).value.trim()?Math.round(num($('#i-mm',b).value)):null}); if(p.posizioni) ev.posizioni=p.posizioni; }
       if(corrId){const o=S.eventi.find(x=>x.id===corrId); if(o.data===data) ev.ord=o.ord;}
@@ -4051,7 +4083,7 @@ function formImbottigliamento(p={},corrId){
       if(st1.imp&&!okImp){ okImp=true; $('#msg',b).innerHTML+=`<div class="box warn" style="color:var(--ink);font-weight:400"><b>Vasca in lavorazione.</b> ${impTxt(st1.imp,data)}. La lavorazione è finita?<br><label><input type="radio" name="impI" value="si" checked> Sì, è finita</label> <label><input type="radio" name="impI" value="no"> No, continua</label></div>`; $('#fi button.pri',b).textContent='Conferma e salva'; return; }
       if(st1.imp){ const r=$('input[name=impI]:checked',b); if(!r||r.value==='si') ev.chiudeLav=[vasca]; }
       const disp=st1.L;
-      if(L>disp+1e-6&&!okEcc){ okEcc=true; $('#msg',b).innerHTML+=`<div class="box warn" style="color:var(--ink);font-weight:400"><b>Esce più vino di quello presente.</b> Nella ${esc(vnome(vasca))} risultano ${hL(disp)}, ne escono ${hL(L)}. Se confermi la vasca risulta vuota e i ${hL(L-disp)} in più restano registrati da verificare.</div>`; $('#fi button.pri',b).textContent='Conferma e salva'; return; }
+      if(!svu()&&L>disp+1e-6&&!okEcc){ okEcc=true; $('#msg',b).innerHTML+=`<div class="box warn" style="color:var(--ink);font-weight:400"><b>Esce più vino di quello presente.</b> Nella ${esc(vnome(vasca))} risultano ${hL(disp)}, ne escono ${hL(L)}. Se confermi la vasca risulta vuota e i ${hL(L-disp)} in più restano registrati da verificare.</div>`; $('#fi button.pri',b).textContent='Conferma e salva'; return; }
       storeEvent(ev,corrId); close(); refresh(); toast((corrId?'Correzione salvata':tir?'Tiraggio salvato: il lotto è sui lieviti':'Imbottigliamento salvato')+' · lotto '+lotto); if(corrId&&location.hash==='#lotto-'+corrId) location.hash='lotto-'+ev.id;};
   });
 }
@@ -4193,7 +4225,7 @@ function viewLotto(app,id){
     :e.stato==='annullato'?`<div class="box warn" style="color:var(--ink)"><b>Lotto annullato</b>${e.annullatoIl?' il '+fd(e.annullatoIl.slice(0,10)):''}${e.motivo?': '+esc(e.motivo):''}. Non entra nelle giacenze.</div>`:'';
   const head=`<div><a href="#${e.tiraggio?'lieviti':'imbottigliamenti'}" class="small">← ${e.tiraggio?'Sui lieviti':'Imbottigliamenti'}</a></div>${avv}
   <div class="panel"><div class="spread"><div><h2 style="font-size:1.7rem">${e.tiraggio?'Lotto di tiraggio':'Lotto'} ${esc(e.lotto||'—')}</h2>
-   <div class="muted">${fd(e.data)} · ${esc(vnome(e.vasca))} · ${hL(e.L)}${e.formato?` · ${fmtTxt(e)} · ${nf(bott(e),0)} ${pezzi(e,bott(e))}${e.bottiglieManuali?'':' (calcolati)'}`:''}${e.isobarico?` · isobarico${e.menzione?' · '+esc(e.menzione):''}${e.dosaggio!=null?' (dosaggio '+nf(e.dosaggio,1)+' g/L)':''}`:''}</div></div>
+   <div class="muted">${fd(e.data)} · ${esc(vnome(e.vasca))} · ${hL(e.L)}${e.formato?` · ${fmtTxt(e)} · ${nf(bott(e),0)} ${pezzi(e,bott(e))}${e.bottiglieManuali?'':' (calcolati)'}`:''}${e.svuota?(()=>{ const dc=(RA.diffCalc||{})[e.id+'_imb']; return ` · <b>vasca svuotata</b>${dc&&Math.abs(dc.calc)>0.5?(dc.calc>0?` · differenza ${nf(dc.calc,1)} L: ${esc(DIFF[e.diffTipo]||'—')}${e.diffTipo==='recupero'&&e.feccDest?' in '+esc(vnome(e.feccDest)):''}`:` · ${nf(-dc.calc,1)} L in più del teorico`):''}`; })():''}${e.isobarico?` · isobarico${e.menzione?' · '+esc(e.menzione):''}${e.dosaggio!=null?' (dosaggio '+nf(e.dosaggio,1)+' g/L)':''}`:''}</div></div>
    <div class="row">${lp&&lp.info.pronto?'<span class="chip pronto">Vino pronto all\'imbottigliamento</span>':''}${e.stato&&e.stato!=='attivo'?'':`<button class="btn sm" id="lcorr">Correggi</button>`}</div></div>${e.note?`<p class="nt muted small">${esc(e.note)}</p>`:''}</div>${e.tiraggio?lievPanel(e):''}`;
   if(!lp){ app.innerHTML=head+`<div class="panel empty">${e.stato==='rettificato'?'La provenienza si vede nella versione attuale del lotto.':e.stato==='annullato'?'Il lotto è annullato: nessuna provenienza da mostrare.':e.data>asOf()?'Imbottigliamento programmato: la provenienza sarà disponibile da quella data.':'Provenienza non disponibile.'}</div>`;  lievBind(app,e); }
   else { if(UI.lotFor!==id){ UI.lotFor=id; UI.lotStack=[]; } UI.lotStack=(UI.lotStack||[]).filter(f=>R.nodes[f.p]&&R.nodes[f.c]);
@@ -5783,6 +5815,9 @@ function anomalieQta(){ const out=[]; const evOf=id=>S.eventi.find(e=>e.id===id)
       const ver=(t.diffTipo||'verificare')==='verificare'?Math.max(dc.cls||0,0):0, tot=ver+(dc.resto>1e-6?dc.resto:0);
       if(tot>1e-6) out.push({key:'ver:'+e.id+'_'+i,ev:e,vasca:t.da,L:tot,cosa:'Differenza del travaso con vasca svuotata, lasciata da verificare'}); }
     else if(!t.svuota&&t.diffL>1e-6&&t.diffTipo==='verificare') out.push({key:'ver:'+e.id+'_'+i,ev:e,vasca:t.da,L:t.diffL,cosa:'Uscita in più dalla vasca di partenza, lasciata da verificare'}); }));
+  attivi(S.eventi).forEach(e=>{ if(e.tipo!=='imbottigliamento'||!e.svuota) return; const dc=(RA.diffCalc||{})[e.id+'_imb']; if(!dc) return;
+    if(dc.calc< -0.5) out.push({key:'arr:'+e.id+'_imb',ev:e,vasca:e.vasca,L:-dc.calc,cosa:`${e.tiraggio?'Tirati in bottiglia':'Imbottigliati'} più litri del teorico della vasca svuotata`});
+    else if(dc.calc>0.5&&e.diffTipo==='verificare') out.push({key:'ver:'+e.id+'_imb',ev:e,vasca:e.vasca,L:dc.calc,cosa:'Differenza dell\'imbottigliamento con vasca svuotata, lasciata da verificare'}); });
   attivi(S.eventi).forEach(e=>(e.perdite||[]).forEach((p,k)=>{ if(p.tipo!=='verificare') return; const L=((RA.diffCalc||{})[e.id+'_p'+k]||{}).calc; if(L>1e-6) out.push({key:'ver:'+e.id+'_p'+k,ev:e,vasca:p.vasca,L,cosa:'Perdita in una lavorazione senza movimento, lasciata da verificare'}); }));
   return out.sort((a,b)=>before(a.ev,b.ev)?1:-1); }
 const VER_BREVE={stima:'errore di stima',misura:'controllata con una misura',perdita:'era una perdita'};
