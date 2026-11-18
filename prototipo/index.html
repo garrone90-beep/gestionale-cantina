@@ -245,6 +245,7 @@ details.am-dd .am-pan{position:absolute;z-index:30;left:0;right:0;top:calc(100% 
 .am-r{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:6px;cursor:pointer;font-weight:normal}.am-r:hover{background:var(--bg2,rgba(0,0,0,.04))}.am-pan [data-amxn]{margin:2px 6px 6px}
 .op-dove{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 4px;padding:6px 10px;border-left:4px solid var(--accent);background:var(--bg);border-radius:6px;font-size:1rem}
 .op-vc{display:inline-block;padding:2px 8px;border-radius:6px;background:var(--accent);color:var(--accent-ink);font-weight:700}.op-qd{flex-basis:100%;font-size:.88rem;color:var(--ink);font-weight:600}
+.op-src{padding:6px 10px;background:var(--bg);border-radius:6px;margin:4px 0}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
 <style id="ui2">
@@ -2728,6 +2729,13 @@ function formSegnala(op){ let vs=[];
       if(gia){ l.esec={il:now,da:op,note:'Fatto da chi l\'ha segnalato',comePrevisto:true,diff:'',mov:null,prodotti:null,spunte:null,dichiaratoIl:now}; l.storia.push({il:now,stato:'eseguito',nota:'Fatto — dichiarato da '+op}); }
       if(!OPM()) l.rif=lavSnap(vs);
       lavori().push(l); close(); refresh(); toast('Segnalazione inviata'); }; }); }
+/* movimenti per l'operatore: per ogni vasca di partenza cosa contiene oggi, poi «da X → Y: quantità», e quanto resta */
+function opMovHTML(mv,st){ const gr=[]; mv.forEach(m=>{ let g=gr.find(x=>x.da===m.da); if(!g) gr.push(g={da:m.da,mv:[]}); g.mv.push(m); });
+  return gr.map(g=>{ const s0=st[g.da]||{}, part=/^P:/.test(g.da||''); const nome=part?esc(vlab(g.da)):esc(vkind(g.da).toLowerCase())+' '+esc(vlab(g.da));
+    const tutto=g.mv.some(m=>m.q==='tutto'), dadef=g.mv.some(m=>!(m.q==='tutto'||(m.q==='hL'&&m.L))); const out=g.mv.reduce((a,m)=>a+(m.q==='hL'&&m.L?m.L:0),0);
+    const resta=!part&&s0.vino&&!dadef?(tutto?`<b>${nome}</b> si svuota`:(s0.L-out<-1?`<span style="color:var(--warn)">Escono ${hL(out)} ma oggi ce ne sono ${hL(s0.L)}: senti il responsabile</span>`:`Restano nella ${nome}: <b>circa ${hL(Math.max(0,s0.L-out))}</b>`)):'';
+    return `<div class="op-mv">${!part&&s0.vino?`<div class="op-src"><b>${nome}</b> · ${esc(vName(s0.vino))} · oggi <b>${hL(s0.L)}</b></div>`:part?'':`<div class="op-src"><b>${nome}</b> · <span class="muted">vuota oggi</span></div>`}
+     <ol class="op-list">${g.mv.map(m=>`<li>da <b>${esc(vlab(m.da))}</b> → ${m.a==='?'?'<b>da concordare</b>':'<b>'+esc(vlab(m.a))+'</b>'}: <b>${movQtaTxt(m)}</b></li>`).join('')}</ol>${resta?`<div class="small" style="margin:2px 0 8px">${resta}</div>`:''}</div>`; }).join(''); }
 function opDettaglio(app,l,op,head,bindHead){
   const st=stLav(l), mv=lavMov(l), cs=lavHaMov(l)?[]:(l.vasche||[]), ps=l.prodotti||[], d=lavDiff(l);
   UI.opSpunte=UI.opSpunte||{}; const spunte=UI.opSpunte[l.id]=UI.opSpunte[l.id]||new Set();
@@ -2740,7 +2748,7 @@ function opDettaglio(app,l,op,head,bindHead){
     ${l.istruzioni?`<h3 class="op-h">Istruzioni</h3><div class="box" style="background:var(--surface-2);white-space:pre-wrap">${esc(l.istruzioni)}</div>`:''}
     ${l.imb&&l.imb.vasca?`<h3 class="op-h">Da imbottigliare</h3><div class="box" style="background:var(--surface-2)"><b>${esc(imbTxt(l,st))}</b></div>`:''}
     ${l.arr?`<h3 class="op-h">Vino in arrivo</h3><div class="box" style="background:var(--surface-2)">${arrHTML(l,true)}</div>${mv.filter(m=>isCode(m.a)).map(m=>m.a).filter((c,i,a)=>a.indexOf(c)===i).map(c=>{ const s=st[c]||{}; return s.vino&&s.L>1e-6?`<div class="small" style="color:var(--warn)">${esc(vlab(c))} contiene già ${esc(vName(s.vino))} (${hL(s.L)}): il vino in arrivo si unisce.</div>`:''; }).join('')}`:''}
-    ${mv.length&&!l.arr?`<h3 class="op-h">Movimenti</h3><ol class="op-list">${mv.map(m=>`<li><b>${esc(vlab(m.da))}</b> → ${m.a==='?'?'<b>da concordare</b>':'<b>'+esc(vlab(m.a))+'</b>'}<br><span class="small">${movQtaTxt(m)}${(st[m.da]||{}).vino?' · '+esc(vName(st[m.da].vino))+' (oggi '+hL(st[m.da].L)+')':''}</span></li>`).join('')}</ol>${movNote(mv).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
+    ${mv.length&&!l.arr?`<h3 class="op-h">Movimenti</h3>${opMovHTML(mv,st)}${movNote(mv).filter(x=>!/si divide in/.test(x)).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
     ${cs.length&&!(l.imb&&l.imb.vasca)?`<h3 class="op-h">Contenitori ${cs.length>1?'<span class="muted small">'+cs.length+'</span>':''}</h3>${cs.length>8?`<p class="small">${esc(elencoV(cs))}</p><details><summary class="small">elenco completo</summary><ul class="op-list">${cs.map(contTxt).join('')}</ul></details>`:`<ul class="op-list">${cs.map(contTxt).join('')}</ul>`}`:''}
     ${ps.length?`<h3 class="op-h">Prodotti ${l.stato==='dafare'?'<span class="muted small">spunta ogni prodotto quando l\'hai aggiunto</span>':''}</h3><ul class="op-list${l.stato==='dafare'?' op-chk':''}">${ps.map((p,i)=>`<li>${l.stato==='dafare'?`<label class="op-ck"><input type="checkbox" data-pk="${i}" ${spunte.has(i)?'checked':''} aria-label="Aggiunto ${esc(p.prodotto)}"><span>`:''}<b>${esc(p.prodotto)}</b><br><span class="op-qta">${daAgg(p)?`Da aggiungere <b>${esc(daAgg(p))}</b>`:'<span class="muted">quantità da definire</span>'}</span><span class="op-dove">Aggiungi in ${prodSu(l,p).map(c=>`<b class="op-vc">${esc(vkind(c).toLowerCase())} ${esc(vlab(c))}</b>`).join(' ')||'<b>—</b>'}${mv.length?`<span class="op-qd">${p.quando==='dopo'?'dopo il travaso, nel vino arrivato':'prima del travaso, nel vino che parte'}</span>`:''}</span>${p.dose!=null&&!/ in tutto$/.test(p.udm||'')?`<span class="small muted">dose ${nf(p.dose,3)} ${esc(p.udm)}${p.volL?' su '+hL(p.volL):''}</span>`:''}${prodRipart(l,p)?`<br><span class="small">${esc(prodRipart(l,p))}</span>`:''}${p.note?`<br><span class="small muted">${esc(p.note)}</span>`:''}${l.stato==='dafare'?'</span></label>':''}</li>`).join('')}</ul>`:''}
     ${l.stato==='dafare'?`<div class="op-act"><button type="button" class="btn" id="op-no">Non fatto</button><button type="button" class="btn pri" id="op-ok">Fatto</button></div>`
