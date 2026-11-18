@@ -2586,7 +2586,7 @@ function dichiaraEsec(l,stato,o={}){
   modal(fatto?'Fatto':'Non fatto',`<form id="fex" novalidate>
    <p class="small" style="margin-top:0"><b>${esc(lavTitolo(l))}</b></p>
    ${fatto?`<div class="fg"><label class="f">Quando l'hai fatto<input type="datetime-local" id="x-il" value="${ora}"></label>${o.op?'':`<label class="f">Chi l'ha fatto${assSelHTML('x-da',o.chi||'',!!o.chiEst)}</label>`}</div>
-     ${l.tipo==='Colmatura'&&l.colm&&l.colm.da?`<label class="f" style="margin-top:8px">Litri usati in tutto dalla ${esc(vnome(l.colm.da))} <span class="muted small">(facoltativo)</span><input id="x-cL" inputmode="decimal" placeholder="${l.colm.L?'previsti '+nfIn(l.colm.L,1):'es. 40'}"></label>`:''}
+     ${l.tipo==='Colmatura'?`<label class="f" style="margin-top:8px">Litri usati in tutto${l.colm&&l.colm.da?' dalla '+esc(vnome(l.colm.da)):''} <span class="muted small">(facoltativo)</span><input id="x-cL" inputmode="decimal" placeholder="${l.colm&&l.colm.L?'previsti '+nfIn(l.colm.L,1):'es. 40'}"></label>`:''}
      ${l.imb&&l.imb.vasca?`<label class="row" style="gap:8px;margin:10px 0 0"><input type="checkbox" id="x-ivu" ${l.imb.q==='tutto'?'checked':''}> <span>La vasca <b>${esc(vlab(l.imb.vasca))}</b> è rimasta vuota</span></label>`:''}
      <label class="row" style="gap:8px;margin:10px 0"><input type="checkbox" id="x-dv" ${conc?'checked':''}> <span>Qualcosa è andato diversamente dal previsto</span></label>
      <div id="x-box" ${conc?'':'hidden'}>
@@ -3271,7 +3271,7 @@ function formColmatura(p={},corrId){ const st=stOggi(); const sel=new Set(p.vasc
    <p class="hint">Le botti colmate restano al volume che risulta oggi e con la loro composizione. Se indichi la vasca e i litri usati, quei litri escono dalla vasca: sono il vino evaporato dalle botti.</p>
    <div class="fg"><label class="f">Data<input type="date" id="cm-d" value="${esc(p.data||today())}"></label>
     <label class="f">Vino preso dalla vasca <span class="muted small">(facoltativo)</span><select id="cm-da">${vascaOpts(p.da||'',true)}</select></label>
-    <label class="f">Litri usati in tutto <span class="muted small">(facoltativo)</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input id="cm-L" inputmode="decimal" value="${p.L?nfIn(p.L,1):''}" placeholder="es. 40" style="min-width:0"><span class="muted">L</span></span></label></div>
+    <label class="f">Litri usati in tutto <span class="muted small">(facoltativo)</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input id="cm-L" inputmode="decimal" value="${p.L?nfIn(p.L,1):''}" placeholder="es. 40" style="min-width:0"><span class="muted">L</span></span><span id="cm-Lh" class="small muted" hidden>Nessuna vasca indicata: i litri sono solo annotati, non vengono scaricati.</span></label></div>
    <div class="f wide" style="margin-top:8px"><span>Contenitori colmati <b id="cm-n"></b></span>
     <div class="row" style="gap:6px;flex-wrap:wrap;margin:4px 0">${[['legno','Botti, barrique, tonneau'],...TIPI_CONT.filter(t=>VASCHE.some(v=>v.tipo===t&&st[v.code]&&st[v.code].vino)).map(t=>[t,(PLUR[t]||t).replace(/^./,c=>c.toUpperCase())]),['tutti','Tutti']].filter((x,i,a)=>a.findIndex(y=>y[0]===x[0])===i).map(([k,t])=>`<button type="button" class="btn sm${k===cmTipo0?' pri':''}" data-cmt="${k}">${esc(t)}</button>`).join('')}</div>
     <div class="fg" style="margin:0"><label class="f">Locale<select id="cm-loc"><option value="">Tutti</option>${locs.map(d=>`<option value="${esc(d)}">${esc(locNome(d))}</option>`).join('')}</select></label>
@@ -3295,11 +3295,12 @@ function formColmatura(p={},corrId){ const st=stOggi(); const sel=new Set(p.vasc
    ['#cm-q','#cm-loc','#cm-vin','#cm-sv','#cm-ss','#cm-da'].forEach(q=>{ $(q,b).addEventListener('input',filtra); $(q,b).addEventListener('change',filtra); });
    b.addEventListener('change',e=>{ if(e.target.matches('[data-cm]')&&$('#cm-ss',b).checked) filtra(); });
    filtra();
+   const lh=()=>{ $('#cm-Lh',b).hidden=!($('#cm-L',b).value.trim()&&!$('#cm-da',b).value); }; lh();
+   ['#cm-L','#cm-da'].forEach(q=>{ $(q,b).addEventListener('input',lh); $(q,b).addEventListener('change',lh); });
    $('#fcm',b).onsubmit=ev=>{ ev.preventDefault(); const m=$('#msg',b); m.textContent='';
      const data=$('#cm-d',b).value||today(), vs=$$('[data-cm]',b).filter(x=>x.checked).map(x=>x.dataset.cm), da=$('#cm-da',b).value, L=$('#cm-L',b).value.trim()?num($('#cm-L',b).value):null, tg=$('#cm-tg',b).checked;
      if(!vs.length) return m.textContent='Spunta almeno un contenitore colmato.';
      if(vs.includes(da)) return m.textContent='La vasca da cui prendi il vino non può essere tra quelle colmate.';
-     if(L&&!da) return m.textContent='Indica da quale vasca hai preso i litri usati.';
      if(tg&&!(da&&L>0)) return m.textContent='Per contarla come taglio servono la vasca e i litri usati.';
      const note=$('#cm-no',b).value.trim(), now=new Date().toISOString();
      if(tg){ const s0=stateAt(data,Date.now(),corrId); const tot=vs.reduce((a,c)=>a+Math.max(0,(s0[c]||{}).L||0),0)||vs.length;
@@ -3336,7 +3337,7 @@ function trTxt(ts){ if(ts.length<=4) return ts.map(t=>`${vlab(t.da)}→${vlab(t.
   if(ka.length<=3) return ka.map(k=>`${elencoV(byA[k])}→${vlab(k)}`).join(', ');
   return `${elencoV(ks)} → ${elencoV(ka)}`; }
 function evTitle(e){
-  if(e.tipo==='colmatura') return `Colmatura · ${(e.vasche||[]).length} ${(e.vasche||[]).length===1?'contenitore':'contenitori'}${(e.vasche||[]).length<=4?' ('+elencoV(e.vasche||[])+')':''}${e.da?` · vino dalla ${vnome(e.da)}${e.L?' · '+hL(e.L):''}`:''}`;
+  if(e.tipo==='colmatura') return `Colmatura · ${(e.vasche||[]).length} ${(e.vasche||[]).length===1?'contenitore':'contenitori'}${(e.vasche||[]).length<=4?' ('+elencoV(e.vasche||[])+')':''}${e.da?` · vino dalla ${vnome(e.da)}${e.L?' · '+hL(e.L):''}`:e.L?' · '+hL(e.L)+' annotati':''}`;
   if(e.tipo==='carico') return `${e.apertura?'Giacenza di apertura':(e.prodotto||e.voce)?'Entrata '+voceTxt(e):'Entrata'} · ${vlab(e.vasca)} · ${hL(e.L)}`;
   if(e.tipo==='manutenzione') return `${e.man||'Manutenzione'} · ${elencoV(e.vasche)}`;
   if(e.tipo==='uva') return `Entrata uva · ${uvaLab(e)}`;
