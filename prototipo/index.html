@@ -653,7 +653,7 @@ function elencoV(codes){ const cs=[...new Set((codes||[]).filter(Boolean))]; if(
     if(a) out.push(a.l===b.l?a.l:a.l+'–'+b.l);
     return `${xs.length} ${PLUR[tipo]||'contenitori'}${sg&&sg!=='undefined'?' '+sg:''} (${out.join(', ')})`; }).join(' · '); }
 const posTxt = c=>{ const r=(VMAP[c]||{}).rec||{}; return [r.gruppo?(/^\d/.test(r.gruppo)?'Fila '+r.gruppo:r.gruppo):'',r.posto?'posto '+r.posto:''].filter(Boolean).join(' · '); };
-const usaCont = (e,c)=>e.vasca===c||(e.vasche||[]).includes(c)||(e.dest||[]).some(d=>d.vasca===c)||(e.tratte||[]).some(t=>t.da===c||t.a===c||t.feccDest===c||(t.parti||[]).some(x=>x.feccDest===c))||(e.aggiunte||[]).some(a=>a.vasca===c)||e.liqVasca===c;
+const usaCont = (e,c)=>e.vasca===c||(e.vasche||[]).includes(c)||(e.dest||[]).some(d=>d.vasca===c)||(e.tratte||[]).some(t=>t.da===c||t.a===c||t.feccDest===c||(t.parti||[]).some(x=>x.feccDest===c))||(e.aggiunte||[]).some(a=>a.vasca===c)||e.liqVasca===c||(e.tipo==='colmatura'&&e.da===c);
 /* REG-CONT-06: il locale di un contenitore a una data (gli spostamenti sono registrati nel contenitore).
    VLAB_D = data dell'operazione che si sta mostrando: lo storico legge il locale di allora. */
 let VLAB_D=null;
@@ -1041,6 +1041,14 @@ function replay(events, stop){
       const s=st[ev.liqVasca]; addVin(ev.id,s.vino); imb[ev.id]={i:curI,node:s.node,vino:s.vino,pronto:s.pronto,Lprima:s.L}; s.L-=ev.liqL; touches.push({i:curI,ev:ev.id,vasca:ev.liqVasca,kind:'imb',L:ev.liqL});
       if(s.L < -1e-6){ ecc[ev.id+'_0']={vasca:ev.liqVasca,L:-s.L}; s.L=0; }
       if(Math.abs(s.L)<1e-6){s.L=0;s.vino=null;s.node=null;s.pronto=false;setImps(s,[]);s.ferm=null;s.vinif=null;}
+    } else if(ev.tipo==='colmatura'){
+      /* colmatura: le botti non cambiano volume né composizione; il vino usato esce dalla vasca di partenza (= calo per evaporazione) */
+      const bot=(ev.vasche||[]).filter(c=>st[c]&&st[c].vino), L=+ev.L||0, src=ev.da&&st[ev.da];
+      const tot=bot.reduce((a,c)=>a+Math.max(0,st[c].L),0);
+      if(src&&L>0){ const s=src; addVin(ev.id,s.vino); s.L-=L; touches.push({i:curI,ev:ev.id,vasca:ev.da,kind:'colm',ruolo:'da',L,n:bot.length,vino:s.vino});
+        if(s.L < -1e-6){ ecc[ev.id+'_0']={vasca:ev.da,L:-s.L}; s.L=0; }
+        if(Math.abs(s.L)<1e-6){s.L=0;s.vino=null;s.node=null;s.pronto=false;setImps(s,[]);s.ferm=null;s.vinif=null;} }
+      bot.forEach(c=>{ addVin(ev.id,st[c].vino); touches.push({i:curI,ev:ev.id,vasca:c,kind:'colm',ruolo:'a',L:L>0&&tot>0?L*Math.max(0,st[c].L)/tot:0,da:ev.da||'',vinoDa:src?src.vino:null}); });
     } else if(ev.tipo==='manutenzione'){
       (ev.vasche||[]).forEach(c=>{ if(st[c]) st[c].man={ev:ev.id,lav:ev.man||'Manutenzione',inizio:ev.data,giorni:ev.giorni||0,scad:ev.giorni?addDays(ev.data,ev.giorni):null}; });
     } else if(ev.tipo==='uva'){
@@ -1187,6 +1195,8 @@ function stepText0(st,G,Lnow){
   if(t.kind==='fine') return {title:`Fine lavorazione · ${esc(vnome(t.vasca))}`,body:esc(t.lav||'')};
   if(t.kind==='stato') return {title:t.pronto?`Vino pronto da imbottigliare · ${esc(vnome(t.vasca))}`:`Tolto «vino pronto» · ${esc(vnome(t.vasca))}`,body:''};
   if(t.kind==='mis') return {title:`Misura · ${esc(vnome(t.vasca))}`,body:`misurati <b>${hL(t.L)}</b> (teorico ${hL(t.teorico)}) · ${t.scelta==='accetta'?'misura accettata':'differenza segnalata'}`};
+  if(t.kind==='colm') return t.ruolo==='da'?{title:`Colmatura · esce dalla ${esc(vnome(t.vasca))}`,body:`<b>${hL(t.L)}</b> usati per colmare ${t.n} ${t.n===1?'contenitore':'contenitori'} <span class="muted">(calo per evaporazione delle botti)</span>`}
+    :{title:`Colmatura · ${esc(vnome(t.vasca))}`,body:`colmata${t.da?` con vino della ${esc(vnome(t.da))}${t.L>0?' (circa '+hL(t.L)+')':''}`:''} · volume e composizione invariati`};
   if(t.kind==='imb') return {title:`Imbottigliamento · ${esc(vnome(t.vasca))}`,body:`escono <b>${hL(t.L)}</b>${e.lotto?` · lotto ${esc(e.lotto)}`:''}`};
   if(t.kind==='out'&&G.focusC&&t.i===G.focusC.i&&t.a===G.focusC.vasca) return {title:`Ingresso nel vino seguito`,body:`<b>${hL(t.L)}</b> passano dalla ${esc(vnome(t.vasca))} alla ${esc(vnome(t.a))}: è la porzione aggiunta`};
   if(t.kind==='out') return {title:`Uscita · ${esc(vnome(t.vasca))}`,body:`${t.fecce?'fecce ':''}<b>${hL(t.L)}</b> vanno nella ${esc(vnome(t.a))} <span class="muted">(non fanno parte del vino seguito)</span>`};
@@ -1206,7 +1216,7 @@ function grpStepHTML(g,G,Lnow){ const p=VLAB_D; VLAB_D=g.ev.data; try{ const src
           :`<b>Distribuzione${srcU.length?' da '+esc(elencoV(srcU)):''} in ${esc(elencoV(dst))}</b><div>in tutto <b>${hL(L)}</b> in ${dst.length} contenitori</div>`; })()}
       <details style="margin-top:4px"><summary class="small" style="cursor:pointer">Dettaglio dei ${g.items.length} arrivi</summary><ul class="small">${g.items.map(st=>{ const tx=stepText(st,G,Lnow); return `<li>${tx.body}</li>`; }).join('')}</ul></details>
       ${g.ev.note?`<div class="nt muted small">${esc(g.ev.note)}</div>`:''}</div></li>`; } finally{ VLAB_D=p; } }
-const KIND = {cert:['Certificazione','var(--ok)'],fine:['Fine lavorazione','var(--ok)'],stato:['Stato','var(--ok)'],entrata:['Entrata','var(--ink)'],ingresso:['Ingresso da altra partita','var(--c2)'],assemblaggio:['Assemblaggio','var(--accent)'],nodo:['Travaso','var(--accent)'],agg:['Lavorazione','var(--ok)'],mis:['Misura','var(--steel)'],imb:['Imbottigliamento','var(--warn)'],out:['Uscita','var(--warn)']};
+const KIND = {cert:['Certificazione','var(--ok)'],fine:['Fine lavorazione','var(--ok)'],stato:['Stato','var(--ok)'],entrata:['Entrata','var(--ink)'],ingresso:['Ingresso da altra partita','var(--c2)'],assemblaggio:['Assemblaggio','var(--accent)'],nodo:['Travaso','var(--accent)'],agg:['Lavorazione','var(--ok)'],mis:['Misura','var(--steel)'],imb:['Imbottigliamento','var(--warn)'],out:['Uscita','var(--warn)'],colm:['Colmatura','var(--steel)']};
 function genDiagram(G,fineLab){
   const lanes=[]; G.lin.filter(n=>!n.leaf).sort((a,b)=>a.i-b.i).forEach(n=>{if(!lanes.includes(n.vasca)) lanes.push(n.vasca);});
   const cols=[...new Set(G.steps.map(s=>s.i))].sort((a,b)=>a-b);
@@ -1457,7 +1467,7 @@ function vascaPanel(code){
     <p class="muted small">Ricorda di copiare ogni tanto il backup da <a href="#dati">Dati</a>.</p>
     <div class="actions"><button class="btn pri" data-act="carico">Entrata vino</button></div></div>`;
   if(!code) return `<div class="panel side"><h3>Seleziona una vasca</h3><p class="muted small">Tocca una vasca sulla pianta per vedere contenuto, misure e operazioni. Il riempimento colorato è proporzionale alla capacità nominale; il bordo colorato indica un volume oltre la nominale (consentito).</p>
-    <div class="actions"><button class="btn pri" data-act="lav">Nuova lavorazione</button><button class="btn" data-act="carico">Entrata vino</button></div></div>`;
+    <div class="actions"><button class="btn pri" data-act="lav">Nuova lavorazione</button><button class="btn" data-act="carico">Entrata vino</button><button class="btn" data-act="colm">Colmatura</button></div></div>`;
   const v = VMAP[code], s = R.st[code], ms = R.misure[code]||[], last = ms[ms.length-1];
   const pct = Math.min(100,s.L/(v.cap*100)*100), vi=vino(s.vino);
   const evs = attivi(S.eventi).filter(e=>!e.storico && e.data<=asOf() && (e.vasca===code || (e.tratte||[]).some(t=>t.da===code||t.a===code) || (e.vasche||[]).includes(code) || (e.dest||[]).some(d=>d.vasca===code))).sort((a,b)=>before(a,b)?1:-1).slice(0,5);
@@ -1474,6 +1484,7 @@ function vascaPanel(code){
       ${inVin(s)&&asOf()===today()&&dovuti(code,today()).length?`<dt>Oggi</dt><dd style="font-weight:400">${esc(oggiTxt(code))}${protVasca(code)?' <span class="muted small">· '+esc(protVasca(code).nome)+', giorno '+giornoVin(code,today())+'</span>':''}</dd>`:''}
       <dt>Volume</dt><dd class="num">${hL(s.L)}${kgTxt(s.vino,s.L)} <span class="muted">/ ${nf(v.cap)} hL nominali</span></dd>
       ${inVin(s)?(()=>{ const fl=fermMis(code,vinDal(s)).filter(m=>m.data<=asOf()).slice(-1)[0]; return `<dt>Ultima densità</dt><dd>${fl?`${esc(misTxt(fl))} <span class="muted">${fd(fl.data)}${fl.ora?' '+fl.ora:''}</span>`:'<span class="muted">nessuna</span>'}</dd>`; })():''}
+      ${(()=>{ const t=R.touches.filter(x=>x.kind==='colm'&&x.ruolo==='a'&&x.vasca===code).pop(); const e=t&&S.eventi.find(x=>x.id===t.ev); return e&&e.data<=asOf()?`<dt>Ultima colmatura</dt><dd>${fd(e.data)}</dd>`:''; })()}
       <dt>Ultima misura</dt><dd>${last?`${hL(last.L)} il ${fd(last.data)} ${last.scelta==='segnala'?'<span class="chip warn">differenza aperta</span>':''}`:'<span class="muted">nessuna</span>'}</dd>
     </dl>
     <div class="gauge" aria-hidden="true"><i style="width:${pct}%;background:${vi?`var(--${vi.tipo})`:'transparent'}"></i></div>
@@ -1493,6 +1504,7 @@ function vascaPanel(code){
       <button class="btn" data-act="carico" data-v="${esc(code)}">Entrata vino</button>
       <button class="btn${s.man?' manon':''}" data-act="man" data-v="${esc(code)}">Manutenzione</button>
       <button class="btn" data-act="imb" data-v="${esc(code)}">Imbottiglia</button>
+      <button class="btn" data-act="colm" data-v="${esc(code)}">Colmatura</button>
       <button class="btn" data-act="pronto" data-v="${esc(code)}">Segna come pronto</button>
       <button class="btn" data-act="scheda" data-v="${esc(code)}">Scheda vasca</button>
       <button class="btn" data-act="cartello" data-v="${esc(code)}">Genera cartello</button>
@@ -1500,6 +1512,7 @@ function vascaPanel(code){
       ${s.vino?`<button class="btn pri" data-act="travaso" data-v="${esc(code)}">Travaso da qui</button>
       <button class="btn${s.imp?' lavon':''}" data-act="lavsu" data-v="${esc(code)}">Lavorazione</button>
       <button class="btn" data-act="imb" data-v="${esc(code)}">Imbottiglia</button>
+      <button class="btn" data-act="colm" data-v="${esc(code)}">Colmatura</button>
       ${isAuto(code)&&MOD().spumanti&&MOD().charmat?`<button class="btn pri" data-act="presa" data-v="${esc(code)}">Presa di spuma</button>`:''}
       ${s.imp?`<button class="btn lavoff" data-act="finelav" data-v="${esc(code)}">Fine lavorazione</button>`:''}
       <button class="btn" data-act="${s.pronto?'nopronto':'pronto'}" data-v="${esc(code)}">${s.pronto?'Togli «pronto»':'Segna come pronto'}</button>`:''}
@@ -1986,6 +1999,7 @@ function bindActs(root){
     else if(a==='fineman') formFineMan(c);
     else if(a==='fmis') formFerm(c);
     else if(a==='presa') formPresa(c);
+    else if(a==='colm') formColmatura({vasche:[c]});
     else if(a==='scheda') location.hash='scheda-'+c;
     else if(a==='fferm') formFineFerm(c);
     else if(a==='iferm'){ evPush({id:uid(),tipo:'fermentazione',azione:'inizio',data:asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[c],creatoIl:new Date().toISOString()}); refresh(); toast('Vasca '+vlab(c)+': fermentazione iniziata il '+fd(asOf())); }
@@ -2644,6 +2658,9 @@ function apriRegistrazione(l){
         note:`${note}${ps.length>1?` · partita ${k+1} di ${ps.length}`:''}`,titoloExtra:ps.length>1?`Arrivo vino · partita ${k+1} di ${ps.length}: ${ptNome(p)}`:'Arrivo vino: '+ptNome(p),poi:k+1<ps.length?()=>apri(k+1):null}); };
     if(!ps.length){ UI.pendLav=null; toast('Nessuna partita con una vasca di destinazione'); return; }
     apri(0); return; }
+  if(l.tipo==='Colmatura'){ const mm=(ex.mov&&ex.mov.length?mv.map((r,i)=>({...r,...(ex.mov[i]&&ex.mov[i].a?{a:ex.mov[i].a}:{}),L:(ex.mov[i]&&ex.mov[i].L)||(r.q==='hL'?r.L:null)})):mv.map(r=>({...r,L:r.q==='hL'?r.L:null})));
+    const da=(mm.find(r=>isCode(r.da))||{}).da||'', vs=[...new Set(mm.map(r=>r.a).filter(isCode)),...(l.vasche||[]).filter(isCode)].filter(c=>c!==da), L=mm.reduce((a,r)=>a+(r.L||0),0);
+    formColmatura({vasche:vs,da,L:L||null,data:today(),note}); return; }
   if(mv.length){ const nome=T.reg==='trav'?(l.tipo==='Colmatura'?'Travaso + Colmatura':'Travaso'):l.tipo;
     const fase=T.voce&&lavList('Vinificazione').includes(l.tipo)&&!lavList('Affinamento').includes(l.tipo)?'Vinificazione':undefined;
     formLavorazione({lav:nome,...(T.voce?{lavori:[l.tipo]}:{}),...(fase?{fase}:{}),tratte,aggiunte:agg,note:note+notaPrima,data:today()}); }
@@ -3236,6 +3253,40 @@ const prodSalva = l=>(l||[]).forEach(a=>{ if(a.prodotto&&!S.prodotti.some(x=>x.n
 /* vecchi tiraggi e prese di spuma con solo «zucchero» e «lieviti» scritti */
 const aggDaVecchi = (z,l)=>[...(z!=null?[{prodotto:'Saccarosio',dose:z,udm:'g/L'}]:[]),...(l?[{prodotto:l,dose:null,udm:'g/hL'}]:[])];
 const zuccDi = l=>{ const a=(l||[]).find(x=>/zucchero|saccarosio|mcr|mosto concentrato/i.test(x.prodotto||'')&&x.udm==='g/L'&&x.dose!=null); return a?a.dose:null; };
+/* ===================== Colmatura =====================
+   Le botti restano al volume registrato e con la loro composizione; il vino usato (facoltativo) esce dalla vasca di partenza ed è il calo per evaporazione.
+   Con «Conta come taglio» diventa un travaso vero: le botti crescono dei litri aggiunti e le percentuali cambiano. */
+function formColmatura(p={},corrId){ const st=stOggi(); const sel=new Set(p.vasche||[]);
+  const locs=[...new Set(VASCHE.filter(v=>v.stato==='attivo'&&st[v.code]&&st[v.code].vino).map(v=>v.dep))];
+  const riga=v=>`<label class="row small cm-r" style="gap:6px;flex-wrap:nowrap" data-q="${esc((vlab(v.code)+' '+vName(st[v.code].vino)).toLowerCase())}"><input type="checkbox" data-cm="${esc(v.code)}" ${sel.has(v.code)?'checked':''}> <b>${esc(vlab(v.code))}</b> <span class="muted">${esc(vName(st[v.code].vino))} · ${hL(st[v.code].L)}</span></label>`;
+  modal((corrId?'Correggi colmatura':'Colmatura'),`<form id="fcm" novalidate>
+   <p class="hint">Le botti colmate restano al volume che risulta oggi e con la loro composizione. Se indichi la vasca e i litri usati, quei litri escono dalla vasca: sono il vino evaporato dalle botti.</p>
+   <div class="fg"><label class="f">Data<input type="date" id="cm-d" value="${esc(p.data||today())}"></label>
+    <label class="f">Vino preso dalla vasca <span class="muted small">(facoltativo)</span><select id="cm-da">${vascaOpts(p.da||'',true)}</select></label>
+    <label class="f">Litri usati in tutto <span class="muted small">(facoltativo)</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input id="cm-L" inputmode="decimal" value="${p.L?nfIn(p.L,1):''}" placeholder="es. 40" style="min-width:0"><span class="muted">L</span></span></label></div>
+   <div class="f wide" style="margin-top:8px"><span>Contenitori colmati <b id="cm-n"></b></span>
+    <input id="cm-q" placeholder="Cerca vasca o vino" style="margin:4px 0">
+    <div style="max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 8px">${locs.map(dep=>{ const vs=VASCHE.filter(v=>v.dep===dep&&v.stato==='attivo'&&st[v.code]&&st[v.code].vino); return `<div class="cm-g" style="margin:4px 0 8px"><div class="spread small"><b>${esc(locNome(dep))}</b><button type="button" class="btn sm ghost" data-cmall="${esc(dep)}">tutte</button></div>${vs.map(riga).join('')}</div>`; }).join('')||'<span class="muted small">Nessun contenitore con vino.</span>'}</div></div>
+   <label class="row" style="gap:8px;margin:10px 0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" style="margin-top:3px" id="cm-tg" ${p.taglio?'checked':''}> <span><b>Conta come taglio</b> <span class="muted small">— le botti crescono dei litri aggiunti (divisi in proporzione al volume) e la composizione cambia con le percentuali</span></span></label>
+   <label class="f wide">Note<input id="cm-no" value="${esc(p.note||'')}" placeholder="es. colmatura settimanale barricaia"></label>
+   <div id="msg" class="err"></div>
+   <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Salva</button></div></form>`,(b,close)=>{
+   const cnt=()=>{ const n=$$('[data-cm]',b).filter(x=>x.checked).length; $('#cm-n',b).textContent=n?'· '+n+' selezionat'+(n===1?'o':'i'):''; }; cnt();
+   b.addEventListener('change',e=>{ if(e.target.matches('[data-cm]')) cnt(); });
+   $$('[data-cmall]',b).forEach(x=>x.onclick=()=>{ const g=x.closest('.cm-g'); const bx=$$('[data-cm]',g).filter(c=>!c.closest('.cm-r').hidden); const all=bx.every(c=>c.checked); bx.forEach(c=>c.checked=!all); cnt(); });
+   $('#cm-q',b).oninput=()=>{ const q=$('#cm-q',b).value.trim().toLowerCase(); $$('.cm-r',b).forEach(r=>r.hidden=!!q&&!r.dataset.q.includes(q)); };
+   $('#fcm',b).onsubmit=ev=>{ ev.preventDefault(); const m=$('#msg',b); m.textContent='';
+     const data=$('#cm-d',b).value||today(), vs=$$('[data-cm]',b).filter(x=>x.checked).map(x=>x.dataset.cm), da=$('#cm-da',b).value, L=$('#cm-L',b).value.trim()?num($('#cm-L',b).value):null, tg=$('#cm-tg',b).checked;
+     if(!vs.length) return m.textContent='Spunta almeno un contenitore colmato.';
+     if(vs.includes(da)) return m.textContent='La vasca da cui prendi il vino non può essere tra quelle colmate.';
+     if(L&&!da) return m.textContent='Indica da quale vasca hai preso i litri usati.';
+     if(tg&&!(da&&L>0)) return m.textContent='Per contarla come taglio servono la vasca e i litri usati.';
+     const note=$('#cm-no',b).value.trim(), now=new Date().toISOString();
+     if(tg){ const s0=stateAt(data,Date.now(),corrId); const tot=vs.reduce((a,c)=>a+Math.max(0,(s0[c]||{}).L||0),0)||vs.length;
+       const tratte=vs.map(c=>({da,a:c,L:Math.round(L*Math.max(0,(s0[c]||{}).L||0)/(tot)*1000)/1000||L/vs.length,risultante:(s0[c]||{}).vino||undefined}));
+       storeEvent({id:uid(),tipo:'lavorazione',lav:'Colmatura',lavori:['Colmatura'],data,ord:Date.now(),fase:'Affinamento',tratte,aggiunte:[],note,creatoIl:now},corrId); }
+     else storeEvent({id:uid(),tipo:'colmatura',data,ord:Date.now(),fase:'Affinamento',vasche:vs,da:da||'',L:L||null,note,creatoIl:now},corrId);
+     close(); refresh(); toast('Colmatura registrata · '+vs.length+' contenitor'+(vs.length===1?'e':'i')); }; }); }
 /* Charmat: presa di spuma in autoclave = inizio di una fermentazione con zucchero e lieviti; si seguono zuccheri, temperatura e pressione */
 function formPresa(code){ const s=R.st[code]; const pm=pmaxDi(code);
   modal('Presa di spuma · autoclave '+vlab(code),`<form id="fps" novalidate><p class="hint">${s.vino?esc(vName(s.vino))+' · '+hL(s.L):'Autoclave vuota'}${pm?' · pressione massima '+nf(pm,1)+' bar':''}. Da qui l'autoclave risulta in presa di spuma: con «Densità / temp.» segni zuccheri, temperatura e pressione, con «Fine presa di spuma» la chiudi.</p><div class="fg">
@@ -3265,6 +3316,7 @@ function trTxt(ts){ if(ts.length<=4) return ts.map(t=>`${vlab(t.da)}→${vlab(t.
   if(ka.length<=3) return ka.map(k=>`${elencoV(byA[k])}→${vlab(k)}`).join(', ');
   return `${elencoV(ks)} → ${elencoV(ka)}`; }
 function evTitle(e){
+  if(e.tipo==='colmatura') return `Colmatura · ${(e.vasche||[]).length} ${(e.vasche||[]).length===1?'contenitore':'contenitori'}${(e.vasche||[]).length<=4?' ('+elencoV(e.vasche||[])+')':''}${e.da?` · vino dalla ${vnome(e.da)}${e.L?' · '+hL(e.L):''}`:''}`;
   if(e.tipo==='carico') return `${e.apertura?'Giacenza di apertura':(e.prodotto||e.voce)?'Entrata '+voceTxt(e):'Entrata'} · ${vlab(e.vasca)} · ${hL(e.L)}`;
   if(e.tipo==='manutenzione') return `${e.man||'Manutenzione'} · ${elencoV(e.vasche)}`;
   if(e.tipo==='uva') return `Entrata uva · ${uvaLab(e)}`;
@@ -3362,6 +3414,7 @@ function correggi(id){
   else if(e.tipo==='manutenzione') formManutenzione(p.vasche,p,id);
   else if(e.tipo==='uva') formUva(p,id);
   else if(e.tipo==='pigiatura') formPigiatura(p,id);
+  else if(e.tipo==='colmatura') formColmatura(p,id);
   else if(e.tipo==='sboccatura'&&tirDi(e)) formSbocc(tirDi(e),p,id);
   else if(e.tipo==='lievScarto'&&tirDi(e)) formScarto(tirDi(e),p,id);
   else if(e.tipo==='remuage'&&tirDi(e)) formRemuage(tirDi(e),p,id);
@@ -5072,6 +5125,8 @@ function viewInventario(app){
   const aperte=rows.filter(r=>r.l&&r.l.scelta==='segnala');
   const anom=anomalieQta(), anAp=anom.filter(x=>!verifiche()[x.key]), anCh=anom.filter(x=>verifiche()[x.key]);
   app.innerHTML=`<div class="spread"><h2>Inventario${UI.asOf&&UI.asOf!==today()?' al '+fd(UI.asOf):''}</h2><div class="row"><button class="btn" id="mx">Confronta con Maxidata</button><button class="btn pri" id="nm">Nuova misura</button></div></div>
+  ${(()=>{ const y=String(asOf()).slice(0,4), cs=attivi(S.eventi).filter(e=>e.tipo==='colmatura'&&e.data<=asOf()&&String(e.data).slice(0,4)===y); if(!cs.length) return ''; const L=cs.reduce((a,e)=>a+(+e.L||0),0), nL=cs.filter(e=>+e.L>0).length;
+    return `<p class="small muted" style="margin:0 0 8px">Cali per evaporazione (colmature ${y}): <b>${L?hL(L):'—'}</b> · ${cs.length} colmatur${cs.length===1?'a':'e'}${nL<cs.length?`, di cui ${nL} con i litri indicati: il totale è parziale`:''}</p>`; })()}
   ${aperte.length||anom.length?`<div class="panel"><h3>Differenze aperte <span class="muted small" style="font-weight:400">· ${aperte.length+anAp.length}</span></h3>
    ${anAp.length?`<h4 style="margin:10px 0 4px">Travasi e imbottigliamenti</h4><p class="hint">Litri in più o in meno confermati durante un'operazione e lasciati da verificare. Restano qui finché non li chiudi con un esito: chiudere non cambia i volumi.</p>${anomTableHTML(anAp,false)}`:''}
    ${anCh.length?`<details style="margin-top:8px"><summary class="small" style="cursor:pointer">Già verificate (${anCh.length})</summary>${anomTableHTML(anCh,true)}</details>`:''}
