@@ -1399,7 +1399,7 @@ function route(){
   ({operatore:viewOperatore,prodotti:viewProdotti,locali:viewLocali,vasche:viewVasche,vendemmia:viewVendemmia,lavori:viewLavori,vini:viewVini,inventario:viewInventario,imbottigliamenti:viewImb,lieviti:viewLieviti,registro:viewRegistro,dati:viewDati}[h]||viewVasche)(app);
 }
 window.addEventListener('hashchange',e=>{ const da=(e.oldURL||'').split('#')[1]||'', a=(location.hash||'').slice(1); if(a==='locali'&&da!=='locali'){ UI.locAperti=new Set(); UI.locOpen=null; UI.archOpen=null; }
-  const inVini=h=>h==='vini'||h.startsWith('vino-'); if(inVini(da)&&!inVini(a)) UI.vf={}; if(da==='inventario'&&a!=='inventario') UI.vfInv={}; route(); });
+  const inVini=h=>h==='vini'||h.startsWith('vino-'); if(inVini(da)&&!inVini(a)) UI.vf={}; if(da==='inventario'&&a!=='inventario') UI.vfInv={}; route(); if(da!==a) window.scrollTo(0,0); });
 function refresh(){ lavCheckPend(); try{ lavAttuale(); }catch(e){} save(); route(); }
 
 /* ===================== Vista: vasche ===================== */
