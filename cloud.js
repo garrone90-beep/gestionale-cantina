@@ -148,6 +148,9 @@
           try{ const j=await chiamaOp({azione:'dichiara',id:l.id,stato:l.stato,esec:l.esec,nota}); Object.assign(l,j.lavoro); opSnap[l.id]=JSON.stringify(l); avviso('Inviato al responsabile'); }
           catch(e){ if(e.code==='conflict'&&e.dati&&e.dati.lavoro){ const i=S.lavori.indexOf(l); S.lavori[i]=e.dati.lavoro; opSnap[l.id]=JSON.stringify(e.dati.lavoro); avviso(e.message); try{ window.route(); }catch(x){} }
             else { avviso('Non inviato: riprovo tra poco'+(navigator.onLine?'':' (senza connessione)')); setTimeout(()=>window.save(),10000); } }
+        } else if(prima&&l.stato==='convalidato'&&(l.nascostoDa||[]).length>(prima.nascostoDa||[]).length){ /* l'operatore toglie un lavoro convalidato dal suo elenco */
+          try{ await chiamaOp({azione:'nascondi',id:l.id}); opSnap[l.id]=s; }
+          catch(e){ avviso('Non riesco a toglierlo: riprovo tra poco'+(navigator.onLine?'':' (senza connessione)')); setTimeout(()=>window.save(),10000); }
         } else opSnap[l.id]=s; /* le altre modifiche restano solo su questo telefono */ }
     } finally{ opIn=false; } }
   async function ricaricaOp(){ const S=getS(); if(!S||opT||opIn||document.querySelector('.ov')) return;

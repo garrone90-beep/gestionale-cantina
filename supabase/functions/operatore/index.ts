@@ -87,8 +87,12 @@ Deno.serve(async (req: Request) => {
     if (error) return out({ code: "db_error", message: error.message }, 500);
     const da = new Date(Date.now() - 8 * 864e5).toISOString();
     const da30 = new Date(Date.now() - 30 * 864e5).toISOString();
+    /* convalidati: 3 giorni dalla convalida, oppure finché l'operatore non li toglie dal suo elenco */
+    const da3 = new Date(Date.now() - 3 * 864e5).toISOString();
+    const tolto = (l: any) => Array.isArray(l.nascostoDa) && l.nascostoDa.some((x: unknown) => norm(x) === nome);
     const lavori = (rec ?? []).map((r: any) => r.data).filter((l: any) => l && ((suo(l) &&
-      (APERTI.includes(l.stato) || (["eseguito", "noneseguito", "convalidato"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da))) ||
+      (APERTI.includes(l.stato) || (["eseguito", "noneseguito"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da) ||
+        (l.stato === "convalidato" && !tolto(l) && String(l.convalida?.il ?? l.esec?.dichiaratoIl ?? "") >= da3))) ||
       (l.segnalazione && norm(l.segnalazione.da) === nome && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30) ||
       (mostrata(l) && (l.stato === "segnalato" || String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30))));
     const { data: imp } = await adm.from("impostazioni").select("chiave,valore").in("chiave", IMP);
@@ -137,6 +141,22 @@ Deno.serve(async (req: Request) => {
     const { error: ie } = await adm.from("record").insert({ tipo: "lavoro", id, data: l });
     if (ie) return out({ code: "db_error", message: ie.message }, 500);
     return out({ ok: true, lavoro: l });
+  }
+
+  /* l'operatore toglie dal suo elenco un lavoro già convalidato (solo per sé; il lavoro non cambia) */
+  if (az === "nascondi") {
+    const id = String(body.id ?? "");
+    const { data: r, error } = await adm.from("record").select("data").eq("tipo", "lavoro").eq("id", id).maybeSingle();
+    if (error) return out({ code: "db_error", message: error.message }, 500);
+    const l: any = r?.data;
+    if (!l || !suo(l)) return out({ code: "not_found", message: "Lavoro non trovato o non assegnato a te" }, 404);
+    if (l.stato !== "convalidato") return out({ code: "bad_request", message: "Si possono togliere solo i lavori convalidati" }, 400);
+    const ns = Array.isArray(l.nascostoDa) ? l.nascostoDa.slice(0, 50) : [];
+    if (!ns.some((x: unknown) => norm(x) === nome)) ns.push(prof.nome);
+    l.nascostoDa = ns;
+    const { error: ue } = await adm.from("record").update({ data: l }).eq("tipo", "lavoro").eq("id", id);
+    if (ue) return out({ code: "db_error", message: ue.message }, 500);
+    return out({ ok: true });
   }
 
   if (az === "dichiara") {
