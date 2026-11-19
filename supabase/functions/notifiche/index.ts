@@ -14,7 +14,7 @@ const out = (body: unknown, status = 200) => new Response(JSON.stringify(body), 
 const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
 const txt = (s: unknown, n = 300) => String(s ?? "").slice(0, n);
 const APERTI = ["dafare", "incorso"];
-const CAMPI = ["data", "ora", "mov", "vasche", "prodotti", "arr", "imb", "istruzioni", "titolo", "tipo"];
+const CAMPI = ["data", "ora", "mov", "vasche", "prodotti", "arr", "imb", "istruzioni", "tipo", "priorita", "colm"];
 
 function titolo(l: any) {
   if (l.titolo) return txt(l.titolo, 80);
@@ -67,11 +67,11 @@ Deno.serve(async (req: Request) => {
     const di = (ns: string[]) => togli(P.filter((p) => ns.includes(norm(p.nome))).map((p) => p.id));
     const opUrl = (id: string) => P.find((p) => p.id === id)?.ruolo === "operatore" ? "/#operatore" : "/#lavori";
     const inviati: string[] = [];
-    const a = async (ids: string[], title: string, corpo: string) => {
+    const a = async (ids: string[], title: string, corpo: string, corpoOp = "Apri l'app per vedere i dettagli") => {
       /* agli operatori nessuna anteprima: solo il titolo dell'avviso (es. «Nuovo lavoro per te») */
       for (const id of ids) {
         const op = P.find((p) => p.id === id)?.ruolo === "operatore";
-        await manda([id], { title, body: op ? "Apri l'app per vedere i dettagli" : corpo, url: opUrl(id), tag: "lav-" + n.id }); inviati.push(title);
+        await manda([id], { title, body: op ? corpoOp : corpo, url: opUrl(id), tag: "lav-" + n.id }); inviati.push(title);
       }
     };
     if (APERTI.includes(n.stato)) {
@@ -80,6 +80,9 @@ Deno.serve(async (req: Request) => {
       if (nuovi.length) await a(di(nuovi), (n.priorita === "alta" ? "Urgente · " : "") + "Nuovo lavoro per te", `${titolo(n)} · ${quando(n)}`);
       if (restano.length && CAMPI.some((k) => JSON.stringify(o[k] ?? null) !== JSON.stringify(n[k] ?? null)))
         await a(di(restano), "Lavoro modificato", `${titolo(n)} · ${quando(n)}`);
+      /* chi è stato tolto dal lavoro */
+      const tolti = prima.filter((x) => !ora.includes(x));
+      if (tolti.length) await a(di(tolti), "Un lavoro non è più assegnato a te", `${titolo(n)} · ${quando(n)}`, "Il responsabile ha tolto un lavoro dal tuo elenco");
     }
     if (o && APERTI.includes(o.stato) && ["eseguito", "noneseguito"].includes(n.stato)) {
       const chi = txt(n.esec?.da || "L'operatore", 40);

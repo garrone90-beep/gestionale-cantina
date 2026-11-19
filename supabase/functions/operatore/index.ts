@@ -159,6 +159,21 @@ Deno.serve(async (req: Request) => {
     return out({ ok: true });
   }
 
+  /* l'operatore ha aperto un lavoro modificato dal responsabile: sparisce l'etichetta «Modificato» (solo per lui) */
+  if (az === "visto") {
+    const id = String(body.id ?? "");
+    const { data: r, error } = await adm.from("record").select("data").eq("tipo", "lavoro").eq("id", id).maybeSingle();
+    if (error) return out({ code: "db_error", message: error.message }, 500);
+    const l: any = r?.data;
+    if (!l || !suo(l)) return out({ code: "not_found", message: "Lavoro non trovato o non assegnato a te" }, 404);
+    const vs = (Array.isArray(l.visto) ? l.visto : []).filter((x: any) => x && norm(x.n) !== nome).slice(0, 50);
+    vs.push({ n: prof.nome, il: new Date().toISOString() });
+    l.visto = vs;
+    const { error: ue } = await adm.from("record").update({ data: l }).eq("tipo", "lavoro").eq("id", id);
+    if (ue) return out({ code: "db_error", message: ue.message }, 500);
+    return out({ ok: true, visto: vs });
+  }
+
   if (az === "dichiara") {
     const id = String(body.id ?? ""), stato = String(body.stato ?? "");
     if (!id || !["eseguito", "noneseguito"].includes(stato)) return out({ code: "bad_request", message: "Richiesta non valida" }, 400);
