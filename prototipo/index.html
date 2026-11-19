@@ -5190,7 +5190,7 @@ function invFiltra(rows,F){ const q=(F.q||'').toLowerCase().trim(); const ultima
   const by={loc:(a,b)=>natCmp(locNome(a.v.dep),locNome(b.v.dep))||natCmp(a.v.label,b.v.label),vino:(a,b)=>(a.s.vino?vName(a.s.vino):'~').localeCompare(b.s.vino?vName(b.s.vino):'~')||natCmp(a.v.label,b.v.label),vol:(a,b)=>b.s.L-a.s.L}[F.ord];
   if(by) out.sort(by); return out; }
 function viewInventario(app){
-  const tutteRows=VASCHE.filter(v=>R.st[v.code].vino||(R.misure[v.code]||[]).length||(UI.vfInv&&UI.vfInv.stato==='vuota')).map(v=>{const s=R.st[v.code],ms=R.misure[v.code]||[],l=ms[ms.length-1];return {v,s,l}});
+  const tutteRows=VASCHE.filter(v=>R.st[v.code].vino||((R.misure[v.code]||[]).slice(-1)[0]||{}).scelta==='segnala'||(UI.vfInv&&UI.vfInv.stato==='vuota')).map(v=>{const s=R.st[v.code],ms=R.misure[v.code]||[],l=ms[ms.length-1];return {v,s,l}});
   UI.vfInv=UI.vfInv||{}; const FI=UI.vfInv, nF=vfAttivi(FI); const rows=nF?invFiltra(tutteRows,FI):(FI.ord?invFiltra(tutteRows,FI):tutteRows);
   const quotaConto=c=>{ if(!FI.conto) return ''; const f=(contoVasca(c).find(([ct])=>ct===FI.conto)||[])[1]||0; return f<0.999?` <span class="small muted">di cui ${nf(f*100,0)}% ${FI.conto===NOSTRO?esc(nostroLab()):'conto '+esc(FI.conto)}</span>`:''; };
   const aperte=rows.filter(r=>r.l&&r.l.scelta==='segnala');
