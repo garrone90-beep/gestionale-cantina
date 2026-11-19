@@ -2625,7 +2625,7 @@ function formConvalida(l){
    ${l.stato!=='eseguito'?'<div class="box warn small">Nessuno ha ancora dichiarato il lavoro come fatto: convalidi direttamente tu.</div>':''}
    ${esecHTML(l)}
    ${lavDiffHTML(l)}
-   <p>La convalida chiude il lavoro. ${T.reg?'Per aggiornare giacenze e storico apri il modulo dell\'operazione vera, già compilato con i dati del lavoro (e con quelli dichiarati, se diversi): controllalo e salvalo. Il lavoro risulta convalidato solo dopo il salvataggio.':'Questa tipologia di solito non produce movimenti di vino.'}</p>
+   <p>${T.reg?'La convalida chiude il lavoro. ':''}${T.reg?'Per aggiornare giacenze e storico apri il modulo dell\'operazione vera, già compilato con i dati del lavoro (e con quelli dichiarati, se diversi): controllalo e salvalo. Il lavoro risulta convalidato solo dopo il salvataggio.':'Convalidando chiudi il lavoro. Giacenze e registro non cambiano: se hai spostato vino o aggiunto prodotti, registralo a parte dalla vasca.'}</p>
    <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn" id="cv-no">Convalida senza registrare</button>${T.reg?`<button class="btn pri" id="cv-reg">Registra ${T.reg==='an'?'l\'analisi':'l\'operazione'}…</button>`:''}</div>`,(b,close)=>{
     const chiudi=()=>{ l.convalida={il:new Date().toISOString(),ev:null}; lavLog(l,'convalidato','Convalidato senza registrare operazioni'); refresh(); toast('Lavoro convalidato'); };
     $('#cv-no',b).onclick=()=>{ const mv=lavMov(l), ps=(l.prodotti||[]).filter(p=>p.prodotto);
