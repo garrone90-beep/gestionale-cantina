@@ -2696,6 +2696,9 @@ function apriRegistrazione(l){
   const nonAgg=(l.prodotti||[]).filter((p,i)=>/^non aggiunt/i.test((ex.prodotti||[])[i]||'')||(ex.spunte&&ex.spunte[i]===false)).map(p=>p.prodotto);
   const avvisoNonAgg=()=>{ if(!nonAgg.length) return; setTimeout(()=>{ const a=document.querySelector('#aggs')||document.querySelector('.lprod')&&document.querySelector('.lprod').parentNode; if(a&&!document.querySelector('#cv-nonagg')) a.insertAdjacentHTML('beforebegin',`<div class="box warn small" id="cv-nonagg" style="color:var(--ink);margin:6px 0">${esc(ex.da||'L\'operatore')} <b>non ha aggiunto</b>: ${esc(nonAgg.join(', '))}. ${nonAgg.length>1?'Non sono':'Non è'} tra i prodotti qui sotto. Se al suo posto è stato messo altro, aggiungilo come riga nuova.</div>`); },0); };
   const agg=[]; (l.prodotti||[]).forEach((p,i)=>{ const su=prodSu(l,p); const reale=(ex.prodotti||[])[i]||''; if(nonAgg.includes(p.prodotto)&&(/^non aggiunt/i.test(reale)||(ex.spunte&&ex.spunte[i]===false))) return;
+    /* l'operatore l'ha aggiunto solo in alcune vasche: si registra solo in quelle */
+    const pz=/^aggiunto solo in (.+?) \(non in /.exec(reale), suOk=pz?su.filter(c=>pz[1].split(', ').includes(vlab(c))):null;
+    if(suOk&&suOk.length){ suOk.forEach((c,k)=>agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:c,volL:null,volManual:false,reale:k?'':reale})); return; }
     const tutti=mv.length?(p.quando==='dopo'&&trattati.every(c=>su.includes(c))):trattati.every(c=>su.includes(c));
     if(tutti||!su.length) agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:'',volL:null,volManual:false,reale});
     else su.forEach((c,k)=>agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:mv.length&&p.quando!=='dopo'?'':c,volL:null,volManual:false,reale:k?'':reale})); });
