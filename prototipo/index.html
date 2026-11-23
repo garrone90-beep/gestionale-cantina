@@ -569,6 +569,8 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 .op-list{padding-left:20px;margin:4px 0}.op-qta{font-size:1.05rem}.op-qta b{font-size:1.2rem}.op-list li{margin:6px 0}
 .op-chk{list-style:none;padding-left:0}.op-ck{display:flex;gap:12px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
 .op-ck input{width:26px;height:26px;flex:none;margin:0;accent-color:var(--accent)}
+.op-vg{margin:14px 0 4px;padding:8px 10px;border-left:4px solid var(--accent);background:var(--bg);border-radius:6px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}.op-vg .op-vc{font-size:1.05rem}
+.op-vg+ul.op-chk{margin-top:4px}.op-pq{font-size:1.15rem;font-weight:700}
 .op-ck:has(input:checked){border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--surface))}
 .op-act .btn.dim{opacity:.55}
 body.op-only .top{display:none!important}
@@ -2570,7 +2572,7 @@ function movTab(l,conEsec){ const mv=lavMov(l); if(!mv.length) return ''; const 
   return `<div class="tbl-wrap"><table><thead><tr><th>Da</th><th>A</th><th class="r">Previsto</th>${ex?'<th class="r">Dichiarato</th>':''}</tr></thead><tbody>${mv.map((m,i)=>{ const x=ex&&ex[i]||{}; const dA=x.a&&x.a!==m.a; return `<tr><td><b>${esc(vlab(m.da))}</b>${r[m.da]&&r[m.da].vino?`<div class="small muted">${esc(vName(r[m.da].vino))} · ${hL(r[m.da].L)}</div>`:''}</td><td>${movArr(m.a)}</td><td class="r">${movQtaTxt(m)}</td>${ex?`<td class="r">${dA?'→ <b>'+esc(vlab(x.a))+'</b> ':''}${x.L?hL(x.L):dA?'':'<span class="muted">come previsto</span>'}</td>`:''}</tr>`; }).join('')}</tbody></table></div>
     ${movNote(mv).map(x=>`<div class="small">${x}</div>`).join('')}`; }
 function prodTab(l,conEsec){ const ps=l.prodotti||[]; if(!ps.length) return ''; const ex=conEsec&&l.esec&&l.esec.prodotti, mv=lavMov(l).length;
-  return `<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Dose</th><th>Su</th><th class="r">Quantità calcolata</th><th class="r">Da aggiungere</th>${ex?'<th class="r">Usata davvero</th>':''}</tr></thead><tbody>${ps.map((p,i)=>{ const su=prodSu(l,p); return `<tr><td>${esc(p.prodotto)}${p.note?`<div class="small muted">${esc(p.note)}</div>`:''}</td><td class="r">${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):'—'}</td><td class="small">${esc(elencoV(su))||'—'}${mv?`<div class="muted">${p.quando==='dopo'?'negli arrivi, dopo il trasferimento':'prima del trasferimento'}</div>`:''}</td><td class="r">${(x=>x?esc(x.q)+(x.pr?`<div class="small muted">= ${esc(x.pr)}</div>`:''):esc(p.qta||'—'))(qtaParti(p.dose,p.udm,p.volL,p.prodotto))}${p.volL&&!/ in tutto$/.test(p.udm||'')?`<div class="small muted">su ${hL(p.volL)}${p.volMan?' (scritto a mano)':''}</div>`:''}${prodRipart(l,p)?`<div class="small muted">${esc(prodRipart(l,p))}</div>`:''}</td><td class="r"><b>${esc(daAgg(p)||'—')}</b>${p.qtaTot?'<div class="small muted">indicata a mano</div>':''}</td>${ex?`<td class="r">${esc(ex[i]||'')}</td>`:''}</tr>`; }).join('')}</tbody></table></div>`; }
+  return `<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Dose</th><th>Su</th><th class="r">Quantità calcolata</th><th class="r">Da aggiungere</th>${ex?'<th class="r">Usata davvero</th>':''}</tr></thead><tbody>${ps.map((p,i)=>{ const su=prodSu(l,p); return `<tr><td>${esc(p.prodotto)}${p.note?`<div class="small muted">${esc(p.note)}</div>`:''}</td><td class="r">${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):'—'}</td><td class="small">${(pm=>pm?su.map(c=>`${esc(vlab(c))} <b>${esc(pm[c]||'da calcolare')}</b>`).join(' · '):esc(elencoV(su))||'—')(prodPartiMap(l,p))}${mv?`<div class="muted">${p.quando==='dopo'?'negli arrivi, dopo il trasferimento':'prima del trasferimento'}</div>`:''}</td><td class="r">${(x=>x?esc(x.q)+(x.pr?`<div class="small muted">= ${esc(x.pr)}</div>`:''):esc(p.qta||'—'))(qtaParti(p.dose,p.udm,p.volL,p.prodotto))}${p.volL&&!/ in tutto$/.test(p.udm||'')?`<div class="small muted">su ${hL(p.volL)}${p.volMan?' (scritto a mano)':''}</div>`:''}</td><td class="r"><b>${esc(daAgg(p)||'—')}</b>${p.qtaTot?'<div class="small muted">indicata a mano</div>':''}</td>${ex?`<td class="r">${esc(ex[i]||'')}</td>`:''}</tr>`; }).join('')}</tbody></table></div>`; }
 const esecHTML = l=>{ const ex=l.esec||{}; if(!ex.il) return '';
   const nf_=l.stato==='noneseguito'; const quando=new Date(ex.il).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'});
   return `<div class="box ${nf_?'warn':'ok'} small" style="color:var(--ink)"><b>${nf_?'Non fatto':'Fatto'}</b> · ${quando}${ex.da?' · '+esc(ex.da):''}${!nf_?(ex.comePrevisto===false?' · <b>con differenze</b>':' · come previsto'):''}${ex.note?`<div>${nf_?'Motivo':'Note'}: ${esc(ex.note)}</div>`:''}${ex.diff?`<div><b>Cosa è cambiato:</b> ${esc(ex.diff)}</div>`:''}${ex.volL?`<div>Volume movimentato ${hL(ex.volL)}</div>`:''}${ex.spunte&&ex.spunte.length?`<div>Prodotti spuntati dall'operatore: ${ex.spunte.every(Boolean)?'tutti':`${ex.spunte.filter(Boolean).length} su ${ex.spunte.length}, <b>non spuntati: ${esc((l.prodotti||[]).filter((p,i)=>!ex.spunte[i]).map(p=>p.prodotto).join(', '))}</b>`}</div>`:''}</div>`; };
@@ -2817,9 +2819,20 @@ function opMovHTML(mv,st){ const gr=[]; mv.forEach(m=>{ let g=gr.find(x=>x.da===
     const resta=!part&&s0.vino&&!dadef?(tutto?`<b>${nome}</b> si svuota`:(s0.L-out<-1?`<span style="color:var(--warn)">Escono ${hL(out)} ma oggi ce ne sono ${hL(s0.L)}: senti il responsabile</span>`:`Restano nella ${nome}: <b>circa ${hL(Math.max(0,s0.L-out))}</b>`)):'';
     return `<div class="op-mv">${!part&&s0.vino?`<div class="op-src"><b>${nome}</b> · ${esc(vName(s0.vino))} · oggi <b>${hL(s0.L)}</b></div>`:part?'':`<div class="op-src"><b>${nome}</b> · <span class="muted">vuota oggi</span></div>`}
      <ol class="op-list">${g.mv.map(m=>`<li>da <b>${esc(vlab(m.da))}</b> → ${m.a==='?'?'<b>da concordare</b>':'<b>'+esc(vlab(m.a))+'</b>'}: <b>${movQtaTxt(m)}</b></li>`).join('')}</ol>${resta?`<div class="small" style="margin:2px 0 8px">${resta}</div>`:''}</div>`; }).join(''); }
+/* prodotti raggruppati per vasca: una riga per prodotto in quella vasca, con la quantità di quella vasca */
+function opProdGruppi(l){ const mv=lavMov(l), ps=l.prodotti||[], G=[], idx={};
+  ps.forEach((p,i)=>{ const su=prodSu(l,p), pm=prodPartiMap(l,p), q=mv.length?(p.quando==='dopo'?'dopo':'prima'):'';
+    (su.length?su:['']).forEach(c=>{ const k=q+'|'+c; if(!(k in idx)){ idx[k]=G.length; G.push({c,q,righe:[]}); }
+      let qta, nota='';
+      if(su.length<=1) qta=daAgg(p)||'';
+      else if(pm) qta=pm[c]||'';
+      else { qta=''; nota=daAgg(p)?`${daAgg(p)} da dividere tra ${elencoV(su)}`:''; }
+      G[idx[k]].righe.push({i,c,key:i+'|'+c,p,qta,nota}); }); });
+  return G.map((g,n)=>({g,n})).sort((x,y)=>((x.g.q==='dopo')-(y.g.q==='dopo'))||x.n-y.n).map(x=>x.g); }
+const opRigheDi=(G,i)=>G.flatMap(g=>g.righe).filter(x=>x.i===i);
 function opDettaglio(app,l,op,head,bindHead){
   const st=stLav(l), mv=lavMov(l), cs=lavHaMov(l)?[]:(l.vasche||[]), ps=l.prodotti||[], d=lavDiff(l);
-  UI.opSpunte=UI.opSpunte||{}; const spunte=UI.opSpunte[l.id]=UI.opSpunte[l.id]||new Set();
+  UI.opSpunte=UI.opSpunte||{}; const spunte=UI.opSpunte[l.id]=UI.opSpunte[l.id]||new Set(); const G=opProdGruppi(l), nR=G.reduce((a,g)=>a+g.righe.length,0);
   const ms=opMods(l,op), mk=new Set(ms.length?(ms[ms.length-1].cosa||[]).map(x=>x.k):[]), cm=k=>mk.has(k)?' <span class="chip mod">cambiato</span>':'';
   const contTxt=c=>{ const s=st[c]||{}; return `<li><b>${esc(vlab(c))}</b> <span class="muted">${esc(locNome(locDi(c)))}</span><br>${s.vino?esc(vName(s.vino))+' · '+hL(s.L):'vuota'}</li>`; };
   app.innerHTML=`<div class="opv">${head}
@@ -2834,19 +2847,28 @@ function opDettaglio(app,l,op,head,bindHead){
     ${l.arr?`<h3 class="op-h">Vino in arrivo${cm('arr')}</h3><div class="box" style="background:var(--surface-2)">${arrHTML(l,true)}</div>${mv.filter(m=>isCode(m.a)).map(m=>m.a).filter((c,i,a)=>a.indexOf(c)===i).map(c=>{ const s=st[c]||{}; return s.vino&&s.L>1e-6?`<div class="small" style="color:var(--warn)">${esc(vlab(c))} contiene già ${esc(vName(s.vino))} (${hL(s.L)}): il vino in arrivo si unisce.</div>`:''; }).join('')}`:''}
     ${mv.length&&!l.arr?`<h3 class="op-h">Movimenti${cm('mov')}</h3>${opMovHTML(mv,st)}${movNote(mv).filter(x=>!/si divide in/.test(x)).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
     ${cs.length&&!(l.imb&&l.imb.vasca)?`<h3 class="op-h">Contenitori${cm('vasche')} ${cs.length>1?'<span class="muted small">'+cs.length+'</span>':''}</h3>${cs.length>8?`<p class="small">${esc(elencoV(cs))}</p><details><summary class="small">elenco completo</summary><ul class="op-list">${cs.map(contTxt).join('')}</ul></details>`:`<ul class="op-list">${cs.map(contTxt).join('')}</ul>`}`:''}
-    ${ps.length?`<h3 class="op-h">Prodotti${cm('prod')} ${l.stato==='dafare'?'<span class="muted small">spunta ogni prodotto quando l\'hai aggiunto</span>':''}</h3><ul class="op-list${l.stato==='dafare'?' op-chk':''}">${ps.map((p,i)=>`<li>${l.stato==='dafare'?`<label class="op-ck"><input type="checkbox" data-pk="${i}" ${spunte.has(i)?'checked':''} aria-label="Aggiunto ${esc(p.prodotto)}"><span>`:''}<b>${esc(p.prodotto)}</b><br>${prodPartiMap(l,p)?'':`<span class="op-qta">${daAgg(p)?`Da aggiungere <b>${esc(daAgg(p))}</b>`:'<span class="muted">quantità da definire</span>'}</span>`}<span class="op-dove">Aggiungi in ${(pm=>prodSu(l,p).map(c=>`<b class="op-vc">${esc(vkind(c).toLowerCase())} ${esc(vlab(c))}${pm?` · ${pm[c]?esc(pm[c]):'<span style="font-weight:400">da calcolare</span>'}`:''}</b>`).join(' '))(prodPartiMap(l,p))||'<b>—</b>'}${mv.length?`<span class="op-qd">${p.quando==='dopo'?'dopo il travaso, nel vino arrivato':'prima del travaso, nel vino che parte'}</span>`:''}</span>${p.dose!=null&&!/ in tutto$/.test(p.udm||'')?`<span class="small muted">dose ${nf(p.dose,3)} ${esc(p.udm)}${p.volL&&!prodPartiMap(l,p)?' su '+hL(p.volL):''}</span>`:''}${p.note?`<br><span class="small muted">${esc(p.note)}</span>`:''}${l.stato==='dafare'?'</span></label>':''}</li>`).join('')}</ul>`:''}
+    ${ps.length?`<h3 class="op-h">Prodotti${cm('prod')} ${l.stato==='dafare'?'<span class="muted small">spunta ogni prodotto quando l\'hai aggiunto</span>':''}</h3>${G.map(g=>`<div class="op-vg">${g.c?`<b class="op-vc">${esc(vkind(g.c).toLowerCase())} ${esc(vlab(g.c))}</b>`:'<b>Contenitore non indicato</b>'}${g.q?`<span class="op-qd" style="flex-basis:auto">${g.q==='dopo'?'dopo il travaso, nel vino arrivato':'prima del travaso, nel vino che parte'}</span>`:''}</div>
+      <ul class="op-list${l.stato==='dafare'?' op-chk':''}">${g.righe.map(x=>{ const p=x.p, dose=p.dose!=null&&!/ in tutto$/.test(p.udm||'')?`dose ${nf(p.dose,3)} ${esc(p.udm)}`:'';
+        return `<li>${l.stato==='dafare'?`<label class="op-ck"><input type="checkbox" data-pk="${esc(x.key)}" ${spunte.has(x.key)?'checked':''} aria-label="Aggiunto ${esc(p.prodotto)}${g.c?' in '+esc(vlab(g.c)):''}"><span>`:''}<b>${esc(p.prodotto)}</b><br>${x.qta?`<span class="op-pq">${esc(x.qta)}</span>`:x.nota?`<span>${esc(x.nota)}</span>`:`<span class="muted">${dose?'da calcolare: '+dose+(p.quando==='dopo'&&mv.length?' sul vino arrivato':''):'quantità da definire'}</span>`}${dose&&x.qta?` <span class="small muted">· ${dose}</span>`:''}${p.note?`<br><span class="small muted">${esc(p.note)}</span>`:''}${l.stato==='dafare'?'</span></label>':''}</li>`; }).join('')}</ul>`).join('')}`:''}
     ${l.stato==='dafare'?`<div class="op-act"><button type="button" class="btn" id="op-no">Non fatto</button><button type="button" class="btn pri" id="op-ok">Fatto</button></div>`
       :`<div class="box small">${l.stato==='eseguito'?'Hai segnato questo lavoro come <b>fatto</b>: ora lo controlla il responsabile.':l.stato==='noneseguito'?'Hai segnato questo lavoro come <b>non fatto</b>: il responsabile deciderà come procedere.':esc(LSTATI[l.stato])}</div>`}</div>`;
   bindHead(); $('#op-back',app).onclick=()=>{ UI.opSel=null; viewOperatore(app); };
   if(opModNuova(l,op)){ l.visto=[...(l.visto||[]).filter(x=>nrm(x.n)!==nrm(op)),{n:op,il:new Date().toISOString()}]; save(); }
   const back=()=>{ UI.opSel=null; };
-  $$('[data-pk]',app).forEach(x=>x.onchange=()=>{ const i=+x.dataset.pk; x.checked?spunte.add(i):spunte.delete(i); const ok=$('#op-ok',app); if(ok) ok.classList.toggle('dim',spunte.size<ps.length); });
-  const ok=$('#op-ok',app); if(ok){ if(spunte.size<ps.length) ok.classList.add('dim');
-    ok.onclick=()=>{ const manca=ps.map((p,i)=>i).filter(i=>!spunte.has(i)); const sp=ps.map((p,i)=>spunte.has(i));
-      if(!manca.length) return dichiaraEsec(l,'eseguito',{op,prima:back,spunte:sp});
-      modal('Prodotti non spuntati',`<p>Non hai spuntato:</p><ul>${manca.map(i=>`<li><b>${esc(ps[i].prodotto)}</b></li>`).join('')}</ul><p>Spunta ogni prodotto che hai aggiunto. Se non l'hai aggiunto, dillo: il responsabile lo vedrà.</p>
+  const nSp=()=>G.flatMap(g=>g.righe).filter(x=>spunte.has(x.key)).length;
+  $$('[data-pk]',app).forEach(x=>x.onchange=()=>{ const k=x.dataset.pk; x.checked?spunte.add(k):spunte.delete(k); const ok=$('#op-ok',app); if(ok) ok.classList.toggle('dim',nSp()<nR); });
+  const ok=$('#op-ok',app); if(ok){ if(nSp()<nR) ok.classList.add('dim');
+    ok.onclick=()=>{ const righe=G.flatMap(g=>g.righe), mancaR=righe.filter(x=>!spunte.has(x.key));
+      /* un prodotto è aggiunto se è spuntato in tutte le sue vasche; se solo in alcune lo si dice */
+      const stato=ps.map((p,i)=>{ const rr=opRigheDi(G,i), fatte=rr.filter(x=>spunte.has(x.key)); return {rr,fatte}; });
+      const sp=stato.map(x=>x.fatte.length>0);
+      if(!mancaR.length) return dichiaraEsec(l,'eseguito',{op,prima:back,spunte:sp});
+      const vtx=x=>x.c?' in '+vlab(x.c):'';
+      modal('Prodotti non spuntati',`<p>Non hai spuntato:</p><ul>${mancaR.map(x=>`<li><b>${esc(x.p.prodotto)}</b>${esc(vtx(x))}</li>`).join('')}</ul><p>Spunta ogni prodotto che hai aggiunto. Se non l'hai aggiunto, dillo: il responsabile lo vedrà.</p>
         <div class="foot"><button class="btn" data-close>Torna a spuntare</button><button class="btn pri" id="np-no">Non l'ho aggiunto</button></div>`,(b2,close2)=>{
-        $('#np-no',b2).onclick=()=>{ close2(); const prodX=ps.map((p,i)=>spunte.has(i)?'':'non aggiunto'); dichiaraEsec(l,'eseguito',{op,prima:back,spunte:sp,diverso:true,prodX,diff:'Prodotti non aggiunti: '+manca.map(i=>ps[i].prodotto).join(', ')}); }; }); }; }
+        $('#np-no',b2).onclick=()=>{ close2();
+          const prodX=stato.map(({rr,fatte})=>fatte.length===rr.length?'':!fatte.length?'non aggiunto':'aggiunto solo in '+fatte.map(x=>vlab(x.c)).join(', ')+' (non in '+rr.filter(x=>!spunte.has(x.key)).map(x=>vlab(x.c)).join(', ')+')');
+          dichiaraEsec(l,'eseguito',{op,prima:back,spunte:sp,diverso:true,prodX,diff:'Prodotti non aggiunti: '+mancaR.map(x=>x.p.prodotto+vtx(x)).join(', ')}); }; }); }; }
   const no=$('#op-no',app); if(no) no.onclick=()=>dichiaraEsec(l,'noneseguito',{op,prima:back});
 }
 
