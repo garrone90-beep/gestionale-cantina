@@ -557,6 +557,7 @@ tr.gsub td{background:var(--surface-2);font-size:.86rem}tr.gsub td:first-child{p
 @media (max-width:700px){.mrow{grid-template-columns:1fr 1fr;padding:8px;border:1px solid var(--line);border-radius:10px}.mrow .m-ar{display:none}}
 .lprod.lprod2{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-items:end;padding:8px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
 .lprod2 .wide{grid-column:1/-1}
+.lprod2:has(.p-md[value=man]:checked) .dnv,.lprod2:has(.p-md[value=man]:checked) .dmax{display:none}
 .lprod2 .f>span{display:block}
 .sm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;max-height:min(46vh,380px);overflow:auto;padding:4px}
 .sm-grid .fpost.sel::after{content:'✓';position:absolute;top:2px;right:4px;font-weight:800;font-size:.8rem;color:var(--accent)}
@@ -2140,8 +2141,15 @@ function imbTxt(l,st){ const i=l.imb; if(!i||!i.vasca) return ''; const s=imbSti
   return `${vlab(i.vasca)}${v?' ('+vName(v)+')':''}: ${i.q==='pz'?`${nf(i.pz||0,0)} ${imbPzN(i)}`:i.q==='hL'?hL(i.L||0):'tutto il contenuto'}${s.pz&&i.q!=='pz'?` · circa ${nf(s.pz,0)} ${imbPzN(i)}`:''}${s.L&&i.q==='pz'?` · circa ${hL(s.L)}`:''} da ${nf(i.formato||0.75,3)} L${i.lotto?' · lotto '+i.lotto:''}`; }
 /* quanto prodotto in ciascun contenitore (con i volumi della programmazione) */
 /* quantità per contenitore: {codice: '300 g' | null se il volume di quel contenitore non è noto}; null se non si divide */
-function prodPartiMap(l,p){ const su=prodSu(l,p); if(su.length<2||su.length>12||p.qtaTot||p.dose==null||/ in tutto$/.test(p.udm||'')||p.volMan) return null;
+/* quantità scritta a mano (o «in tutto»): numero e unità */
+function qtaManuale(p){ if(p.qtaTot){ const m=/^\s*([\d.,]+)\s*([a-zA-Zµ]*)\s*$/.exec(p.qtaTot); return m?{n:num(m[1]),u:m[2]||''}:null; }
+  if(p.dose!=null&&/ in tutto$/.test(p.udm||'')) return {n:p.dose,u:p.udm.replace(' in tutto','')}; return null; }
+function prodPartiMap(l,p){ const su=prodSu(l,p); if(su.length<2||su.length>12) return null;
   const r=rifSt(l), st={}; Object.entries(r).forEach(([c,x])=>st[c]={L:x.L}); const o={};
+  const man=qtaManuale(p);
+  if(man||p.qtaTot){ if(!man||!(man.n>0)) return null; const vv=su.map(c=>prodVolRif(l,{...p,su:[c],volMan:null},st)); if(vv.some(v=>!(v>0))) return null;
+    const tot=vv.reduce((a,v)=>a+v,0); su.forEach((c,k)=>{ const x=man.n*vv[k]/tot; o[c]=nf(x,x<1?2:x<10?1:0)+(man.u?' '+man.u:''); }); return o; }
+  if(p.dose==null||p.volMan) return null;
   su.forEach(c=>{ const v=prodVolRif(l,{...p,su:[c]},st); const q=v?qtaTeorica(p.dose,p.udm,v,p.prodotto):null; o[c]=q?q.split(' = ')[0].replace(/ di .*$/,''):null; }); return o; }
 function prodRipart(l,p){ const su=prodSu(l,p); if(su.length<2||su.length>12||p.qtaTot||p.dose==null||/ in tutto$/.test(p.udm||'')||p.volMan) return '';
   const r=rifSt(l), st={}; Object.entries(r).forEach(([c,x])=>st[c]={L:x.L});
@@ -2391,7 +2399,7 @@ function formLavoro(ed,preset){
    <fieldset class="lvf" id="w-prw"><legend>Prodotti</legend>
     <datalist id="w-prl">${prodVisibili().map(x=>`<option value="${esc(x.nome)}">${esc(x.categoria||'')}</option>`).join('')}</datalist>
     <div id="w-prs"></div><button type="button" class="btn sm" id="w-padd">+ Aggiungi prodotto</button>
-    <p class="hint" style="margin:6px 0 0">Quantità teorica = dose × volume da trattare, con le regole delle aggiunte. Se scrivi tu la quantità da aggiungere resta quella: non viene ricalcolata. È solo programmato: nessuna aggiunta entra nello storico finché non convalidi.</p>
+    <p class="hint" style="margin:6px 0 0">Con la dose: quantità calcolata = dose × volume da trattare, con le regole delle aggiunte. Con «Scrivo io la quantità» vale quella che scrivi, divisa tra i contenitori in proporzione al vino. È solo programmato: nessuna aggiunta entra nello storico finché non convalidi.</p>
    </fieldset>
    <label class="f wide">Descrizione e istruzioni operative<textarea id="w-ist" placeholder="es. travasare dal basso, lasciare 1 hL di fondo">${esc(l.istruzioni||'')}</textarea></label>
    <div id="w-sovr"></div>
@@ -2458,23 +2466,30 @@ function formLavoro(ed,preset){
       sceltaMulti({titolo:'Partenze verso '+(a==='?'?'arrivo da concordare':vlab(a)),escludi:isCode(a)?[a]:[],vino:'+',onOk:cs=>{ if(!cs.length) return; cs.forEach(c=>{ const u=ultima(); if(u.a===a&&!u.da) u.da=c; else mv.push({da:c,a,q:'tutto',L:null}); }); renderRows(); upd(); }}); };
     $$('[data-trf]',b).forEach(x=>x.onclick=()=>{ conT=x.dataset.trf==='1'; if(conT&&!mv.length){ mv=vs.length?vs.map(c=>({da:c,a:'',q:'tutto',L:null})):[{da:'',a:'',q:'dadef',L:null}]; renderRows(); } upd(); });
     /* prodotti */
+    let prSeq=0; const unitaBase=u=>{ const x=String(u||'').split(/[\/ ]/)[0]; return ['g','kg','mg','mL','L'].includes(x)?x:'g'; };
     const prLine=(p={})=>{ const pr=S.prodotti.find(x=>x.nome===p.prodotto)||{}; const d=document.createElement('div'); d.className='line lprod lprod2';
       d._su=Array.isArray(p.su)?[...p.su]:null;
       d.innerHTML=`<label class="f">Prodotto<input class="p-n" list="w-prl" value="${esc(p.prodotto||'')}"></label>
        <label class="f">Tipo<select class="p-c"><option value="">—</option><option value="generico" ${(p.classe||pr.classe)==='generico'?'selected':''}>generico</option><option value="commerciale" ${(p.classe||pr.classe)==='commerciale'?'selected':''}>commerciale</option></select></label>
-       <label class="f">Dose<input class="p-d" inputmode="decimal" value="${p.dose!=null?nfIn(p.dose,3):''}"></label>
-       <label class="f">Unità<select class="p-u">${UDM.map(u=>`<option ${(p.udm||pr.udm||'g/hL')===u?'selected':''}>${u}</option>`).join('')}</select></label>
+       <div class="f wide"><span>Come vuoi indicare la quantità?</span><div class="row" style="gap:14px;flex-wrap:wrap"><label class="row" style="gap:6px;cursor:pointer"><input type="radio" class="p-md" name="pmd${++prSeq}" value="dose" ${p.qtaTot?'':'checked'}> Con la dose</label><label class="row" style="gap:6px;cursor:pointer"><input type="radio" class="p-md" name="pmd${prSeq}" value="man" ${p.qtaTot?'checked':''}> Scrivo io la quantità</label></div></div>
+       <label class="f p-dm">Dose<input class="p-d" inputmode="decimal" value="${p.dose!=null?nfIn(p.dose,3):''}"></label>
+       <label class="f p-dm">Unità<select class="p-u">${UDM.map(u=>`<option ${(p.udm||pr.udm||'g/hL')===u?'selected':''}>${u}</option>`).join('')}</select></label>
        <label class="f p-ww">Su quale vino<select class="p-w"><option value="prima" ${p.quando!=='dopo'?'selected':''}>quello che parte, prima del trasferimento</option><option value="dopo" ${p.quando==='dopo'?'selected':''}>negli arrivi, dopo il trasferimento</option></select></label>
-       <label class="f">Volume da trattare (hL)<input class="p-v" inputmode="decimal" value="${p.volMan&&p.volL?nfIn(p.volL/100,3):''}" placeholder="auto"></label>
-       <div class="f"><span>Quantità teorica</span><b class="p-q">—</b></div>
-       <label class="f">Quantità da aggiungere<input class="p-t" value="${esc(p.qtaTot||'')}" placeholder="facoltativa: se la scrivi vale questa, es. 2 kg"></label>
+       <label class="f p-dm">Volume da trattare (hL)<input class="p-v" inputmode="decimal" value="${p.volMan&&p.volL?nfIn(p.volL/100,3):''}" placeholder="auto"></label>
+       <div class="f p-dm"><span>Quantità calcolata</span><b class="p-q">—</b></div>
+       <label class="f p-mm">Quantità<input class="p-t" inputmode="decimal" value="${esc((qtaManuale({qtaTot:p.qtaTot})||{}).n!=null&&p.qtaTot?nfIn(qtaManuale({qtaTot:p.qtaTot}).n,3):'')}" placeholder="es. 500"></label>
+       <label class="f p-mm">Unità<select class="p-tu">${['g','kg','mg','mL','L'].map(u=>`<option ${(((qtaManuale({qtaTot:p.qtaTot})||{}).u)||unitaBase(p.udm||pr.udm))===u?'selected':''}>${u}</option>`).join('')}</select></label>
+       <div class="f wide p-mm small muted p-mq"></div>
        <div class="f wide p-suw"><span>Contenitori</span><div class="row p-su" style="gap:4px;flex-wrap:wrap"></div><div class="p-sw small" style="color:var(--warn)"></div></div>
        <label class="f wide">Istruzioni per questo prodotto<input class="p-no" value="${esc(p.note||'')}" placeholder="facoltative, es. sciogliere in acqua"></label>
        <button type="button" class="btn sm ghost p-x">Togli</button>`;
       $('.p-n',d).onchange=()=>{const q=S.prodotti.find(x=>x.nome===$('.p-n',d).value); if(q){ if(q.udm) $('.p-u',d).value=q.udm; if(q.classe) $('.p-c',d).value=q.classe; } upd();};
       $('.p-x',d).onclick=()=>{d.remove();upd();}; d.addEventListener('input',e=>{ if(!e.target.matches('[data-su]')) upd(); }); d.addEventListener('change',e=>{ if(e.target.matches('[data-su]')){ const ch=$$('[data-su]',d); const on=ch.filter(x=>x.checked).map(x=>x.dataset.su); d._su=on.length===ch.length?null:on; upd(); } else upd(); });
       $('#w-prs',b).append(d); };
-    const prodDa=d=>({prodotto:$('.p-n',d).value.trim(),classe:$('.p-c',d).value,dose:num($('.p-d',d).value),udm:$('.p-u',d).value,quando:inMov()?$('.p-w',d).value:'',su:d._su,volMan:toL($('.p-v',d).value,'hL'),qtaTot:$('.p-t',d).value.trim(),note:$('.p-no',d).value.trim()});
+    const manDi=d=>($('.p-md:checked',d)||{}).value==='man';
+    const prodDa=d=>{ const man=manDi(d), n=num($('.p-t',d).value);
+      return {prodotto:$('.p-n',d).value.trim(),classe:$('.p-c',d).value,dose:man?null:num($('.p-d',d).value),udm:man?'':$('.p-u',d).value,quando:inMov()?$('.p-w',d).value:'',su:d._su,volMan:man?null:toL($('.p-v',d).value,'hL'),
+        qtaTot:man&&n>0?nf(n,3)+' '+$('.p-tu',d).value:'',note:$('.p-no',d).value.trim()}; };
     const seme=ty=>{ if(ty==='Mantenimento botti') MAN_PROD[MAN_TIPI[0]].forEach(x=>prLine(x)); else if(T().prod) prLine(ty==='Aggiunta di SO₂'?{prodotto:'SO₂',udm:'mg/L'}:{}); };
     const upd=()=>{ const t=T(), mode=LMOV(tipo()), im=inMov(), L=cur();
       $('#w-trf',b).hidden=mode!=='opz'; $$('[data-trf]',b).forEach(x=>x.setAttribute('aria-pressed',String((x.dataset.trf==='1')===conT)));
@@ -2501,6 +2516,9 @@ function formLavoro(ed,preset){
         $('#w-mnote',b).innerHTML=[...movNote(mv).map(x=>`<div>${x}</div>`),...w.map(x=>`<div style="color:var(--warn)">${esc(x)}</div>`),nC?`<div class="muted">${nC} arriv${nC===1?'o':'i'} da concordare.</div>`:'',nD?`<div class="muted">${nD} quantità da definire.</div>`:''].join(''); }
       /* prodotti */
       $$('.lprod2',b).forEach(d=>{ const p=prodDa(d); $('.p-ww',d).hidden=!im; const base=prodBase(L,p.quando);
+        { const man=manDi(d); $$('.p-dm',d).forEach(x=>x.hidden=man); $$('.p-mm',d).forEach(x=>x.hidden=!man);
+          if(man){ const pm=prodPartiMap({...L,rif:{vasche:st}},{...p,su:d._su}); const su=prodSu(L,{...p,su:d._su});
+            $('.p-mq',d).textContent=!p.qtaTot?'Scrivi la quantità totale da aggiungere.':su.length<2?'':pm?'Divisa in proporzione al vino: '+su.map(c=>vlab(c)+' '+pm[c]).join(' · '):'Da dividere tra '+elencoV(su)+' (il vino di qualche vasca non è ancora noto).'; } }
         $('.p-suw',d).hidden=base.length<2&&!(d._su||[]).some(c=>!base.includes(c));
         const on=c=>!Array.isArray(d._su)||d._su.includes(c);
         $('.p-su',d).innerHTML=base.map(c=>`<label class="chip" style="cursor:pointer"><input type="checkbox" data-su="${esc(c)}" ${on(c)?'checked':''}> ${esc(vlab(c))}</label>`).join('')||'<span class="muted small">nessun contenitore</span>';
@@ -2529,7 +2547,7 @@ function formLavoro(ed,preset){
         if(mov.some(r=>!r.da)){ m.textContent=isArr()?'Scegli la partita di ogni destinazione.':'Ogni movimento ha bisogno della partenza.'; return; }
         if(mov.some(r=>!r.a)){ m.textContent='Scegli l\'arrivo di ogni movimento, o «da concordare».'; return; }
         if(mov.some(r=>r.q==='hL'&&!r.L)){ m.textContent='Scrivi gli hL del movimento o scegli «da definire».'; return; }
-        if(prodotti.some(p=>p.dose==null&&!p.qtaTot)){ m.textContent='Scrivi la dose (o la quantità da aggiungere) di ogni prodotto.'; return; } }
+        if(prodotti.some(p=>p.dose==null&&!p.qtaTot)){ m.textContent='Per ogni prodotto scrivi la dose oppure, con «Scrivo io la quantità», la quantità.'; return; } }
       const imb=isImb()?imbDa():null;
       const tmp={tipo:ty,vasche:im?[]:imb?(imb.vasca?[imb.vasca]:[]):[...vs],mov,conTrasf:LMOV(ty)==='opz'&&conT};
       const codes=lavCodes(tmp), rif=lavSnap(codes), sr={}; Object.entries(rif.vasche).forEach(([c,r])=>sr[c]={L:r.L});
