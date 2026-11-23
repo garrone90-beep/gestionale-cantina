@@ -1032,8 +1032,10 @@ function replay(events, stop){
       { const tr=ev.tratte||[]; const treated=tr.length?[...new Set(tr.map(t=>t.a))]:(ev.vasche||[]);
         const ag=ev.aggiunte||[]; const all=new Set([...treated,...ag.filter(a=>a.vasca).map(a=>a.vasca)]);
         const LtrT=treated.reduce((a,x)=>a+Math.max(0,(st[x]||{}).L||0),0);
-        all.forEach(v=>{ const aggs=ag.filter(a=>a.vasca?a.vasca===v:treated.includes(v)); if(aggs.length||perdOf[v]||(!tr.length&&treated.includes(v))||(ev.pronto&&treated.includes(v))) touches.push({i:curI,ev:ev.id,vasca:v,kind:'agg',aggs,perd:perdOf[v],ctx:{Lv:Math.max(0,(st[v]||{}).L||0),n:treated.length,Ltot:LtrT}}); });
-        if(ev.pronto) treated.forEach(v=>{ if(st[v].vino) st[v].pronto=true; });
+        /* vino pronto: tutte le vasche trattate, oppure solo quelle scelte */
+        const prV=!ev.pronto?[]:Array.isArray(ev.pronto)?ev.pronto.filter(c=>treated.includes(c)):treated;
+        all.forEach(v=>{ const aggs=ag.filter(a=>a.vasca?a.vasca===v:treated.includes(v)); if(aggs.length||perdOf[v]||(!tr.length&&treated.includes(v))||(prV.includes(v))) touches.push({i:curI,ev:ev.id,vasca:v,kind:'agg',aggs,perd:perdOf[v],ctx:{Lv:Math.max(0,(st[v]||{}).L||0),n:treated.length,Ltot:LtrT}}); });
+        prV.forEach(v=>{ if(st[v].vino) st[v].pronto=true; });
         if(ev.giorni>0){ const ops=[...(ev.lavori||[]),...(ev.altro?[ev.altro.charAt(0).toUpperCase()+ev.altro.slice(1)]:[])]; const list=ops.length?ops:[ev.lav];
           treated.forEach(v=>{ if(st[v].vino){ const ns=list.map(op=>({id:list.length>1?ev.id+'#'+op:ev.id,ev:ev.id,lav:op,inizio:ev.data,giorni:ev.giorni,scad:addDays(ev.data,ev.giorni),motivo:ev.motivoSosta||''}));
             setImps(st[v],[...(st[v].imps||[]).filter(x=>!ns.some(n=>n.lav.toLowerCase()===x.lav.toLowerCase())),...ns]); } }); } }
@@ -3493,7 +3495,7 @@ function evBody(e){
   if(e.giorni>0&&e.tipo==='lavorazione') out.push(`<li><span class="chip warn">Vasca impegnata ${e.giorni} giorni · fino al ${fd(addDays(e.data,e.giorni))}</span></li>`);
   (RA.manChiuse[e.id]||[]).forEach(m=>out.push(`<li class="muted">Chiusa la manutenzione in corso in ${esc(vlab(m.c))}: ${esc(m.lav)} dal ${fd(m.inizio)} al ${fd(e.data)} (vino entrato)</li>`));
   if((e.chiudeLav||[]).length) out.push(`<li class="muted">Chiusa la lavorazione in corso nella ${e.chiudeLav.length>1?'vasche':'vasca'} ${e.chiudeLav.map(c=>esc(vlab(c))).join(', ')}</li>`);
-  if(e.pronto&&e.tipo==='lavorazione') out.push('<li><span class="chip pronto">Vino pronto da imbottigliare</span></li>');
+  if(e.pronto&&e.tipo==='lavorazione') out.push(`<li><span class="chip pronto">Vino pronto da imbottigliare</span>${Array.isArray(e.pronto)?' '+esc(elencoV(e.pronto)):''}</li>`);
   if((e.aggiunte||[]).length) out.push(`<li>${aggLine(e.aggiunte)}${e.storico&&e.aggiunte.every(a=>!a.volL)?' <span class="muted">(volume trattato non registrato)</span>':''}</li>`);
   Object.entries(RA.ecc).filter(([k])=>k.startsWith(e.id+'_')).forEach(([k,x])=>out.push(`<li><span class="chip warn">Confermato</span> Usciti ${hL(x.L)} più del teorico dalla ${esc(vnome(x.vasca))}: vasca considerata vuota${verTxt('ecc:'+k)||', eccedenza da verificare (Inventario → Differenze aperte)'}</li>`));
 
@@ -3655,6 +3657,7 @@ function formLavorazione(p={},corrId){
      <fieldset style="margin-top:8px"><legend>Misure di fermentazione</legend><div id="vin-mis"></div></fieldset>
    </div>
    <label class="pronto-box"><input type="checkbox" id="l-pronto" ${p.pronto?'checked':''}> <span><b>Vino pronto da imbottigliare</b><br><span class="hint">Per le aggiunte finali. Le vasche trattate (o di arrivo) diventano verdi sulla pianta. Se poi ci arriva vino non pronto, la vasca torna «in lavorazione».</span></span></label>
+   <div id="l-prv" class="small" style="margin:6px 0 0 4px" hidden></div>
    <label class="f wide">Note<textarea id="l-note" placeholder="Testo libero, come nell'Excel">${esc(p.note||'')}</textarea></label>
    ${corrId?`<label class="f wide">Motivo della correzione<input id="l-mc" placeholder="es. quantità sbagliata"></label>`:''}
    <div id="vin-c" hidden></div>
@@ -3829,6 +3832,17 @@ function formLavorazione(p={},corrId){
     function readBlocks(){ return $$('#tratte .blk',b).map(d=>{const u=$('.t-u',d).value; const sv=$('.t-svu',d).checked;
       const dests=$$('.dst',d).map(r=>({a:$('.t-a',r).value,L:toL($('.t-L',r).value,u),nv:$('.t-nvs',r).value==='1',nvf:pickerRead(r,r.dataset.px),nvId:r.dataset.nv,ris:r.dataset.ris})).filter(x=>x.a||x.L);
       return {d,u,da:$('.t-da',d).value,stima:$('.t-s',d).value,sv,diffL:sv?toL($('.t-svQ',d).value,u):(toL($('.t-dL',d).value,u)||0),diffTipo:sv?$('.t-svT',d).value:$('.t-dT',d).value,feccDest:$('.t-fd',d).value,fvId:d.dataset.fv,parti:sv?$$('.t-pr',d).map(r=>({L:toL($('.p-L',r).value,u)||null,tipo:$('.p-T',r).value,feccDest:$('.p-T',r).value==='recupero'?$('.p-fd',r).value:''})):[],dests};}); }
+    /* vino pronto: con più vasche trattate si sceglie quali */
+    let prOn=Array.isArray(p.pronto)?new Set(p.pronto):null;
+    const trattateLive=()=>{ let t=[]; try{ t=[...new Set(readTratte().map(x=>x.a).filter(c=>c&&VMAP[c]))]; }catch(e){} if(!t.length) t=$('#fsV',b).hidden?[]:$$('#vch input:checked',b).map(x=>x.value); return t; };
+    const updPr=()=>{ const el=$('#l-prv',b); if(!el) return; const t=trattateLive(), on=$('#l-pronto',b).checked&&!$('.pronto-box',b).hidden;
+      el.hidden=!(on&&t.length>1); if(el.hidden) return;
+      el.innerHTML=`<div style="margin-bottom:4px"><b>Quali vasche sono pronte?</b></div><div class="row" style="gap:6px;flex-wrap:wrap">${t.map(c=>`<label class="chip" style="cursor:pointer"><input type="checkbox" data-prv="${esc(c)}" ${!prOn||prOn.has(c)?'checked':''}> ${esc(vlab(c))}</label>`).join('')}</div>`; };
+    const prontoVal=(tr,vasche)=>{ if(!$('#l-pronto',b).checked) return false; const t=tr.length?[...new Set(tr.map(x=>x.a))]:vasche; if(t.length<2||!prOn) return true;
+      const sel=t.filter(c=>prOn.has(c)); return sel.length===t.length?true:sel; };
+    b.addEventListener('change',e=>{ if(e.target.matches&&e.target.matches('[data-prv]')){ prOn=new Set($$('[data-prv]:checked',b).map(x=>x.dataset.prv)); return; } updPr(); });
+    b.addEventListener('input',e=>{ if(!(e.target.matches&&e.target.matches('[data-prv]'))) updPr(); });
+    setTimeout(updPr,0);
     function readTratte(){ const out=[]; readBlocks().forEach(bk=>{ const ds=bk.dests.length?bk.dests:[{a:'',L:null}];
       ds.forEach((x,j)=>{ const last=j===ds.length-1;
         out.push({da:bk.da,a:x.a,L:x.L,stima:bk.stima,svuota:last&&bk.sv,diffL:last?bk.diffL:0,diffTipo:last?bk.diffTipo:'',feccDest:last?bk.feccDest:'',fvId:last?bk.fvId:'',parti:last?bk.parti:[],nv:x.nv,nvf:x.nvf,nvId:x.nvId,ris:x.ris}); }); }); return out; }
@@ -4007,11 +4021,12 @@ function formLavorazione(p={},corrId){
       // conferma assemblaggi
       if(pending){ let bad=false; $$('#conf fieldset[data-ci]',b).forEach(fs=>{const r=$('input:checked',fs); if(r.value==='__new'){ const f=pickerRead(fs,'rs'+fs.dataset.ci); if(pickerErr(f)){bad=pickerErr(f);return;} tr[+fs.dataset.ci].ris={nuovo:f}; } else tr[+fs.dataset.ci].ris=r.value;});
         if(bad){msg.textContent='Per il nuovo vino del taglio '+bad+'.';return;} }
+      if($('#l-pronto',b).checked&&prOn&&!$('#l-prv',b).hidden&&!$$('[data-prv]:checked',b).length){ msg.textContent='Vino pronto: spunta almeno una vasca, oppure togli «Vino pronto da imbottigliare».'; return; }
       const evId=uid();
       const tmpVini=[];
       const resNew=(f,nota)=>{ const ex=findVino(f); if(ex) return ex.id; const k=[f.categoria,isDop(f.categoria)?f.denominazione:'',f.colore,f.fantasia,f.annata].join('|').toLowerCase();
         let id=nvCache[k]; if(!id) id=nvCache[k]='nv'+uid(); if(!tmpVini.some(v=>v.id===id)){ const nv=pickerResolve(f).nuovo; tmpVini.push({...nv,id,note:nota}); } return id; };
-      const ev={id:evId,tipo:'lavorazione',giorni:num($('#l-gg',b).value)||0,pronto:$('#l-pronto',b).checked,lavori,altro,data,ord:corrId?(S.eventi.find(x=>x.id===corrId).data===data?S.eventi.find(x=>x.id===corrId).ord:Date.now()):Date.now(),fase:$('#l-fase',b).value,lav:composeLav(tr.length>0,lavori,altro,aggiunte.length>0),vasche,aggiunte,note:$('#l-note',b).value.trim(),creatoIl:new Date().toISOString(),
+      const ev={id:evId,tipo:'lavorazione',giorni:num($('#l-gg',b).value)||0,pronto:prontoVal(tr,vasche),lavori,altro,data,ord:corrId?(S.eventi.find(x=>x.id===corrId).data===data?S.eventi.find(x=>x.id===corrId).ord:Date.now()):Date.now(),fase:$('#l-fase',b).value,lav:composeLav(tr.length>0,lavori,altro,aggiunte.length>0),vasche,aggiunte,note:$('#l-note',b).value.trim(),creatoIl:new Date().toISOString(),
         tratte:tr.map(t=>{let nv=null; if(t.nv){ const srcV=stNow()[t.da].vino; nv=resNew(t.nvf,'Creato da una porzione di '+vName(srcV)); if(nv===srcV) nv=null; }
           let fv=null, fd=(t.diffTipo==='recupero'&&(t.svuota||t.diffL))?t.feccDest:'';
           if(fd&&VMAP[fd]) fv=FECCE_ID;
