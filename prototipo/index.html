@@ -325,6 +325,8 @@ nav a[aria-current="page"] svg{stroke:var(--accent)}
   .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 }
 
+/* telefono/tablet: sotto i 16px l'iPhone ingrandisce la pagina quando si tocca un campo e poi resta ingrandita */
+@media (max-width:999px),(pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}}
 /* ---------- Superfici ---------- */
 main{max-width:1320px;gap:20px}
 .panel{border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px;box-shadow:var(--shadow-1)}
