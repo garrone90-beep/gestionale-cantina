@@ -6261,10 +6261,13 @@ const postoCls = (code,s)=>{ s=s||R.st[code]||{}; const v=VMAP[code]; return (v&
     document.body.appendChild(pop); place();
     hi=items.findIndex(o=>o.v===inp.value); if(hi>=0){ const el=pop.children[hi]; el.scrollIntoView({block:'nearest'}); }
     pop.addEventListener('mousedown',e=>{ e.preventDefault(); const it=e.target.closest('.cb-it'); if(it) scegli(+it.dataset.i); }); }
-  function place(){ if(!pop||!cur) return; const r=cur.getBoundingClientRect(); const below=window.innerHeight-r.bottom;
+  /* iPad/iPhone: la tastiera copre il fondo dello schermo senza cambiare innerHeight: si usa la parte visibile (visualViewport) */
+  function place(){ if(!pop||!cur) return; const r=cur.getBoundingClientRect(), vv=window.visualViewport;
+    const vTop=vv?vv.offsetTop:0, vBot=vv?vv.offsetTop+vv.height:window.innerHeight;
+    const below=vBot-r.bottom, above=r.top-vTop;
     pop.style.left=Math.max(4,r.left)+'px'; pop.style.minWidth=r.width+'px'; pop.style.maxWidth=Math.max(r.width,320)+'px';
-    if(below<200&&r.top>below){ pop.style.top=''; pop.style.bottom=(window.innerHeight-r.top+2)+'px'; pop.style.maxHeight=Math.min(280,r.top-8)+'px'; }
-    else { pop.style.bottom=''; pop.style.top=(r.bottom+2)+'px'; pop.style.maxHeight=Math.min(280,below-8)+'px'; } }
+    if(below<200&&above>below){ pop.style.top=''; pop.style.bottom=(window.innerHeight-r.top+2)+'px'; pop.style.maxHeight=Math.max(80,Math.min(280,above-8))+'px'; }
+    else { pop.style.bottom=''; pop.style.top=(r.bottom+2)+'px'; pop.style.maxHeight=Math.max(80,Math.min(280,below-8))+'px'; } }
   function scegli(i){ const inp=cur, o=items[i]; if(!inp||!o) return; inp.value=o.v; close();
     inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true})); }
   function evid(i){ if(!pop) return; hi=Math.max(0,Math.min(items.length-1,i)); [...pop.children].forEach((c,k)=>c.classList.toggle('hi',k===hi)); pop.children[hi].scrollIntoView({block:'nearest'}); }
@@ -6283,7 +6286,8 @@ const postoCls = (code,s)=>{ s=s||R.st[code]||{}; const v=VMAP[code]; return (v&
   const scan=root=>{ if(root.querySelectorAll) root.querySelectorAll('input[list]').forEach(migliora); };
   new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1){ if(n.matches&&n.matches('input[list]')) migliora(n); scan(n); } }))).observe(document.body,{childList:true,subtree:true});
   scan(document.body);
-  window.addEventListener('scroll',()=>place(),true); window.addEventListener('resize',close);
+  window.addEventListener('scroll',()=>place(),true); window.addEventListener('resize',()=>place());
+  if(window.visualViewport){ visualViewport.addEventListener('resize',()=>place()); visualViewport.addEventListener('scroll',()=>place()); }
   document.addEventListener('mousedown',e=>{ if(pop&&!e.target.closest('.cb-pop')&&!e.target.closest('.cb-w')) close(); });
 })();
 
