@@ -90,11 +90,12 @@ Deno.serve(async (req: Request) => {
     /* convalidati: 3 giorni dalla convalida, oppure finché l'operatore non li toglie dal suo elenco */
     const da3 = new Date(Date.now() - 3 * 864e5).toISOString();
     const tolto = (l: any) => Array.isArray(l.nascostoDa) && l.nascostoDa.some((x: unknown) => norm(x) === nome);
+    const chiusa = (l: any) => l.stato === "convalidato" || l.stato === "annullato";
     const lavori = (rec ?? []).map((r: any) => r.data).filter((l: any) => l && ((suo(l) &&
       (APERTI.includes(l.stato) || (["eseguito", "noneseguito"].includes(l.stato) && String(l.esec?.dichiaratoIl ?? "") >= da) ||
         (l.stato === "convalidato" && !tolto(l) && String(l.convalida?.il ?? l.esec?.dichiaratoIl ?? "") >= da3))) ||
-      (l.segnalazione && norm(l.segnalazione.da) === nome && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30) ||
-      (mostrata(l) && (l.stato === "segnalato" || String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30))));
+      (l.segnalazione && norm(l.segnalazione.da) === nome && !(chiusa(l) && tolto(l)) && String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30) ||
+      (mostrata(l) && !(chiusa(l) && tolto(l)) && (l.stato === "segnalato" || String(l.segnalazione.il ?? l.creatoIl ?? "") >= da30))));
     const { data: imp } = await adm.from("impostazioni").select("chiave,valore").in("chiave", IMP);
     const ids = new Set<string>();
     lavori.filter((l: any) => suo(l) && APERTI.includes(l.stato)).forEach((l: any) => [l.rif?.vasche, l.attuale?.vasche].forEach((o: any) => Object.values(o ?? {}).forEach((x: any) => { if (x?.vino) ids.add(String(x.vino)); })));
@@ -149,8 +150,10 @@ Deno.serve(async (req: Request) => {
     const { data: r, error } = await adm.from("record").select("data").eq("tipo", "lavoro").eq("id", id).maybeSingle();
     if (error) return out({ code: "db_error", message: error.message }, 500);
     const l: any = r?.data;
-    if (!l || !suo(l)) return out({ code: "not_found", message: "Lavoro non trovato o non assegnato a te" }, 404);
-    if (l.stato !== "convalidato") return out({ code: "bad_request", message: "Si possono togliere solo i lavori convalidati" }, 400);
+    /* lavori convalidati assegnati a lui, oppure segnalazioni (sue o mostrate a lui) già chiuse dal responsabile */
+    const segn = !!l?.segnalazione && (norm(l.segnalazione.da) === nome || mostrata(l));
+    if (!l || !(suo(l) || segn)) return out({ code: "not_found", message: "Lavoro non trovato o non assegnato a te" }, 404);
+    if (!(l.stato === "convalidato" || (segn && l.stato === "annullato"))) return out({ code: "bad_request", message: "Si possono togliere solo i lavori e le segnalazioni già chiusi" }, 400);
     const ns = Array.isArray(l.nascostoDa) ? l.nascostoDa.slice(0, 50) : [];
     if (!ns.some((x: unknown) => norm(x) === nome)) ns.push(prof.nome);
     l.nascostoDa = ns;
