@@ -197,6 +197,8 @@ Deno.serve(async (req: Request) => {
       prodotti: arr(e.prodotti, 100)?.map((x: any) => txt(x, 200)) ?? null,
       spunte: arr(e.spunte, 100)?.map((x: any) => !!x) ?? null,
       imb: e.imb && typeof e.imb === "object" ? { pz: Number.isFinite(e.imb.pz) ? Math.floor(e.imb.pz) : null, L: Number.isFinite(e.imb.L) ? e.imb.L : null, vuota: e.imb.vuota === true ? true : undefined } : null,
+      /* imbottigliamento da più vasche: una dichiarazione per riga */
+      imbs: Array.isArray(e.imbs) ? e.imbs.slice(0, 30).map((x: any) => ({ fatto: x?.fatto !== false, pz: Number.isFinite(x?.pz) ? Math.floor(x.pz) : null, L: Number.isFinite(x?.L) ? x.L : null, vuota: x?.vuota === true ? true : undefined })) : undefined,
       colmL: typeof e.colmL === "number" && isFinite(e.colmL) && e.colmL > 0 ? e.colmL : null,
       dichiaratoIl: now,
     };

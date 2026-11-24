@@ -14,7 +14,7 @@ const out = (body: unknown, status = 200) => new Response(JSON.stringify(body), 
 const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
 const txt = (s: unknown, n = 300) => String(s ?? "").slice(0, n);
 const APERTI = ["dafare", "incorso"];
-const CAMPI = ["data", "ora", "mov", "vasche", "prodotti", "arr", "imb", "istruzioni", "tipo", "priorita", "colm"];
+const CAMPI = ["data", "ora", "mov", "vasche", "prodotti", "arr", "imb", "imbs", "istruzioni", "tipo", "priorita", "colm"];
 
 function titolo(l: any) {
   if (l.titolo) return txt(l.titolo, 80);
