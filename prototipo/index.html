@@ -583,7 +583,7 @@ body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 .chip.mod{background:#FFF1B8;color:#6B5200;border-color:transparent}
 .vp-sel{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:30px}.vp-sel .chip{padding:3px 8px}
 .vp-dd>summary{list-style:none;display:inline-flex;cursor:pointer;margin-top:6px}.vp-dd>summary::-webkit-details-marker{display:none}
-.vp-dd[open]>summary{margin-bottom:6px}.vp-q{max-width:320px;margin-bottom:4px}
+.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.vp-loc{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.vp-loc .chip{cursor:pointer;font:inherit;font-size:13px}.vp-loc .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}.vp-q{max-width:320px;margin-bottom:4px}
 .vp-g{padding:6px 0;border-top:1px solid var(--line)}.vp-gh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.9rem}
 .vp-gc{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.vp-c{padding:4px 9px;font-size:.88rem;cursor:pointer}.vp-c:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .op-mod{border-left:4px solid #E0B400;background:#FFFBE6;color:var(--ink);border-radius:8px;padding:8px 12px;margin:10px 0}
@@ -2842,8 +2842,10 @@ function vPicker(box,o){ if(!box) return; const st=o.st||R.st, sel=new Set(o.sel
   const G=new Map(); codes.forEach(c=>{ const k=(st[c]||{}).vino||''; if(!G.has(k)) G.set(k,[]); G.get(k).push(c); });
   const gs=[...G.entries()].sort((a,b2)=>(!a[0])-(!b2[0])||natCmp(vName(a[0]||'')||'',vName(b2[0]||'')||''));
   const nome=k=>k?vName(k):'Vuote';
+  const locs=[...new Set(codes.map(c=>VMAP[c].dep))].filter(Boolean).sort((x,y)=>natCmp(locNome(x)||'',locNome(y)||'')); if(box._loc&&!locs.includes(box._loc)) box._loc='';
   box.innerHTML=`<div class="vp-sel"></div>
-   <details class="vp-dd" ${box._open?'open':''}><summary class="btn sm">+ Scegli vasche</summary>
+   <details class="vp-dd" ${box._open?'open':''}><summary class="btn sm"><span class="vp-ap">+ Scegli vasche</span><span class="vp-ch">− Chiudi elenco</span></summary>
+    ${locs.length>1?`<div class="vp-loc" role="group" aria-label="Filtra per locale"><button type="button" class="chip${!box._loc?' on':''}" data-vploc="">Tutti i locali</button>${locs.map(d=>`<button type="button" class="chip${box._loc===d?' on':''}" data-vploc="${esc(d)}">${esc(locNome(d))}</button>`).join('')}</div>`:''}
     <input class="vp-q" type="search" placeholder="Cerca numero o vino…" value="${esc(box._q||'')}">
     ${gs.map(([k,cs])=>`<div class="vp-g"><div class="vp-gh"><b>${esc(nome(k))}</b> <span class="muted small">${cs.length} · ${hL(cs.reduce((a,c)=>a+((st[c]||{}).L||0),0))}</span>${cs.length>1?'<button type="button" class="btn sm ghost" data-vpall>tutte</button>':''}</div>
       <div class="vp-gc">${cs.map(c=>`<label class="chip vch-c vp-c" data-dep="${esc(VMAP[c].dep)}" data-q="${esc((vlab(c)+' '+nome(k)).toLowerCase())}" title="${esc(Vnome(c))}${(st[c]||{}).vino?' · '+esc(vName(st[c].vino))+' · '+hL(st[c].L):' · vuota'}"><input type="checkbox" value="${esc(c)}" ${sel.has(c)?'checked':''}> <b>${esc(vlabS(c))}</b>${(st[c]||{}).L?` <span class="muted small">${hL(st[c].L)}</span>`:''}</label>`).join('')}</div></div>`).join('')||`<p class="hint">${esc(o.vuoto||'Nessun contenitore.')}</p>`}
@@ -2858,9 +2860,10 @@ function vPicker(box,o){ if(!box) return; const st=o.st||R.st, sel=new Set(o.sel
     $$('[data-vpx]',box).forEach(x=>x.onclick=()=>{ const i=$(`.vp-gc input[value="${CSS.escape(x.dataset.vpx)}"]`,box); if(i) i.checked=false; cambia(); });
     const nn=$('[data-vpnone]',box); if(nn) nn.onclick=()=>{ $$('.vp-gc input',box).forEach(i=>i.checked=false); cambia(); }; };
   const cambia=()=>{ top(); if(o.onChange) o.onChange(leggi()); };
-  const filtra=()=>{ const q=($('.vp-q',box).value||'').trim().toLowerCase(); box._q=q; $$('.vp-c',box).forEach(l=>l.hidden=!!q&&!l.dataset.q.includes(q)); $$('.vp-g',box).forEach(g=>g.hidden=!$$('.vp-c',g).some(l=>!l.hidden)); };
+  const filtra=()=>{ const q=($('.vp-q',box).value||'').trim().toLowerCase(); box._q=q; const lo=box._loc||''; $$('.vp-c',box).forEach(l=>l.hidden=(!!q&&!l.dataset.q.includes(q))||(!!lo&&l.dataset.dep!==lo)); $$('.vp-g',box).forEach(g=>g.hidden=!$$('.vp-c',g).some(l=>!l.hidden)); };
   $$('.vp-gc input',box).forEach(i=>i.onchange=cambia);
   $$('[data-vpall]',box).forEach(bt=>bt.onclick=()=>{ const is=$$('.vp-c',bt.closest('.vp-g')).filter(l=>!l.hidden).map(l=>$('input',l)); const tutte=is.every(i=>i.checked); is.forEach(i=>i.checked=!tutte); cambia(); });
+  $$('[data-vploc]',box).forEach(bt=>bt.onclick=()=>{ box._loc=bt.dataset.vploc; $$('[data-vploc]',box).forEach(x=>x.classList.toggle('on',x===bt)); filtra(); });
   $('.vp-q',box).oninput=filtra; $('.vp-dd',box).ontoggle=e=>{ box._open=e.target.open; };
   top(); filtra(); return {leggi}; }
 /* modifiche fatte dal responsabile a un lavoro che l'operatore aveva già: «Modificato» finché non lo apre, il riquadro resta finché il lavoro è da fare */
