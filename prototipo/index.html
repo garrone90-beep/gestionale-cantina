@@ -2406,7 +2406,6 @@ function formLavoro(ed,preset){
    <fieldset class="lvf" id="w-imb"><legend>Cosa imbottigliare</legend>
     <div id="w-irows"></div>
     <button type="button" class="btn sm" id="w-iadd">+ Aggiungi vasca</button>
-    ${ilHTML(l.inLinea,!l.num&&!l.inLinea,null,true)}
    </fieldset>
    <fieldset class="lvf" id="w-prw"><legend id="w-prl">Prodotti</legend>
     <datalist id="w-prl">${prodVisibili().map(x=>`<option value="${esc(x.nome)}">${esc(x.categoria||'')}</option>`).join('')}</datalist>
@@ -2444,7 +2443,8 @@ function formLavoro(ed,preset){
     const daOpt=sel=>isArr()?`<option value="">—</option>`+pt.map((p,i)=>`<option value="P:${esc(p.id)}" ${sel==='P:'+p.id?'selected':''}>${String.fromCharCode(65+i)} · ${esc(ptNome(p))}</option>`).join(''):vOpt(sel);
     /* righe di imbottigliamento: una per vasca */
     const fmtOpts=`<optgroup label="Bottiglia">${FORMATI.filter(x=>x.t==='Bottiglia').map(x=>`<option value="${x.k}">Bottiglia ${nf(x.L,3)} L</option>`).join('')}</optgroup><optgroup label="Bag in box">${FORMATI.filter(x=>x.t==='Bag in box').map(x=>`<option value="${x.k}">Bag in box ${nf(x.L,3)} L</option>`).join('')}</optgroup><option value="altro">Altro formato…</option>`;
-    const imbRowAdd=(i={})=>{ const d=document.createElement('div'); d.className='irow'; d.style.cssText='border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 8px';
+    let iSeq=0;
+    const imbRowAdd=(i={},before)=>{ const d=document.createElement('div'); d.className='irow'; d.style.cssText='border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 8px';
       d.innerHTML=`<div class="spread"><b class="i-n small"></b><button type="button" class="btn sm ghost i-rm">Togli</button></div><div class="fg">
        <label class="f">Vasca<select class="i-v">${vOpt(i.vasca||'')}</select></label>
        <label class="f">Quantità<select class="i-q"><option value="tutto" ${!i.q||i.q==='tutto'?'selected':''}>tutto il contenuto</option><option value="hL" ${i.q==='hL'?'selected':''}>hL indicati</option><option value="pz" ${i.q==='pz'?'selected':''}>numero di pezzi</option></select></label>
@@ -2453,23 +2453,30 @@ function formLavoro(ed,preset){
        <label class="f">Formato<select class="i-fmt">${fmtOpts}</select></label>
        <label class="f i-fow">Formato (L)<input class="i-fo" inputmode="decimal"></label>
        <label class="f">Lotto<span class="row" style="gap:6px;flex-wrap:nowrap"><input class="i-lot" value="${esc(i.lotto||'')}" placeholder="facoltativo"><button type="button" class="btn sm i-lp" title="Proponi il lotto dalla data prevista">Proponi</button></span></label></div>
-       <div class="hint i-info"></div>`;
+       <div class="hint i-info"></div>
+       ${ilHTML(i.inLinea,!i.inLinea,null,true,prodRowsHTML('ipr'+(++iSeq),i.prodotti||[],'Prodotti in linea <span class="muted small">— sul vino di questa vasca</span>'),(i.prodotti||[]).length)}
+       <button type="button" class="btn sm ghost i-cp" hidden>Copia la lavorazione in linea dalla vasca sopra</button>`;
+      d.dataset.pr='ipr'+iSeq;
       const fk=i.formato?FORMATI.find(x=>x.L===i.formato&&x.t===imbConf(i)):FORMATI.find(x=>x.k==='b0.75'); $('.i-fmt',d).value=i.formato&&!fk?'altro':(fk?fk.k:'b0.75'); if(i.formato&&!fk) $('.i-fo',d).value=nfIn(i.formato,3);
       ['.i-v','.i-q','.i-fmt'].forEach(x=>$(x,d).addEventListener('change',()=>{ updImb(); upd(); })); ['.i-L','.i-pz','.i-fo'].forEach(x=>$(x,d).addEventListener('input',updImb));
       $('.i-lp',d).onclick=()=>{ $('.i-lot',d).value=propLotto($('#w-data',b).value||today()); };
       $('.i-rm',d).onclick=()=>{ d.remove(); updImb(); upd(); };
-      $('#w-irows',b).appendChild(d); };
+      $('.i-cp',d).onclick=()=>{ const pr=d.previousElementSibling; if(!pr) return; const a=imbRowDa(pr), me=imbRowDa(d); imbRowAdd({...me,inLinea:a.inLinea,prodotti:a.prodotti},d); d.remove(); updImb(); upd(); };
+      if(before) $('#w-irows',b).insertBefore(d,before); else $('#w-irows',b).appendChild(d);
+      prodRowsBind(b,d.dataset.pr,()=>imbStima(imbRowDa(d),st).L||0); ilBind(d); $('.il-f',d).open=$('.il-f',d).open||!!before;
+      return d; };
     const imbRowDa=d=>{ const k=$('.i-fmt',d).value, f=FORMATI.find(x=>x.k===k); const q=$('.i-q',d).value;
-      return {vasca:$('.i-v',d).value,q,L:q==='hL'?toL($('.i-L',d).value,'hL'):null,pz:q==='pz'?(Math.floor(num($('.i-pz',d).value)||0)||null):null,formato:k==='altro'?num($('.i-fo',d).value):f.L,conf:k==='altro'?'Altro':f.t,lotto:$('.i-lot',d).value.trim()}; };
+      return {vasca:$('.i-v',d).value,q,L:q==='hL'?toL($('.i-L',d).value,'hL'):null,pz:q==='pz'?(Math.floor(num($('.i-pz',d).value)||0)||null):null,formato:k==='altro'?num($('.i-fo',d).value):f.L,conf:k==='altro'?'Altro':f.t,lotto:$('.i-lot',d).value.trim(),
+        inLinea:ilRead(d),prodotti:prodRowsRead(b,d.dataset.pr).map(a=>({prodotto:a.prodotto,dose:a.dose,udm:a.udm}))}; };
     const imbsDa=()=>$$('#w-irows .irow',b).map(imbRowDa);
     const imbDa=()=>imbsDa()[0]||{};
     const updImb=()=>{ const rows=$$('#w-irows .irow',b), usate={};
-      rows.forEach((d,k)=>{ const i=imbRowDa(d); $('.i-n',d).textContent=rows.length>1?'Vasca '+(k+1)+' di '+rows.length:''; $('.i-rm',d).hidden=rows.length<2;
+      rows.forEach((d,k)=>{ const i=imbRowDa(d); $('.i-n',d).textContent=rows.length>1?'Vasca '+(k+1)+' di '+rows.length:''; $('.i-rm',d).hidden=rows.length<2; $('.i-cp',d).hidden=k===0;
         $('.i-Lw',d).hidden=i.q!=='hL'; $('.i-pzw',d).hidden=i.q!=='pz'; $('.i-fow',d).hidden=$('.i-fmt',d).value!=='altro';
         const s=st[i.vasca]||{}; const e=imbStima(i,st); const dup=i.vasca&&usate[i.vasca]; if(i.vasca) usate[i.vasca]=1;
         $('.i-info',d).innerHTML=!i.vasca?'Scegli la vasca.':`${s.vino?esc(vName(s.vino))+' · '+hL(s.L)+' registrati oggi':'<span style="color:var(--warn)">la vasca oggi è vuota</span>'}${e.pz?` → circa <b>${nf(e.pz,0)} ${imbPzN(i)}</b> da ${nf(i.formato||0,3)} L`:''}${e.L&&i.q==='pz'?` (circa ${hL(e.L)})`:''}${e.L&&s.L&&e.L>s.L+1e-6?' <span style="color:var(--warn)">— più di quanto c\'è in vasca</span>':''}${dup?' <span style="color:var(--warn)">— questa vasca è già in un\'altra riga</span>':''}`; }); };
-    imbRighe(l).forEach(i=>imbRowAdd(i)); if(!$$('#w-irows .irow',b).length) imbRowAdd({vasca:(l.vasche||[])[0]||''});
-    ilBind($('#w-imb',b));
+    imbRighe(l).forEach(i=>imbRowAdd({...i,inLinea:ilDi(l,i),prodotti:(l.prodotti||[]).filter(p=>prodSu(l,p).includes(i.vasca)).map(p=>prodPerVasca(l,p,i.vasca))}));
+    if(!$$('#w-irows .irow',b).length) imbRowAdd({vasca:(l.vasche||[])[0]||''});
     $('#w-iadd',b).onclick=()=>{ const prev=imbsDa().pop()||{}; imbRowAdd({q:'tutto',formato:prev.formato,conf:prev.conf}); updImb(); upd(); };
     const inMov=()=>{ const m=LMOV(tipo()); return m==='si'||(m==='opz'&&conT); };
     const cur=()=>({imbs:isImb()?imbsDa():undefined,tipo:tipo(),vasche:inMov()?[]:isImb()?[...new Set(imbsDa().map(i=>i.vasca).filter(Boolean))]:vs,mov:inMov()?mv:[],conTrasf:LMOV(tipo())==='opz'&&conT,arr:isArr()?{partite:pt}:undefined});
@@ -2527,7 +2534,7 @@ function formLavoro(ed,preset){
     const upd=()=>{ const t=T(), mode=LMOV(tipo()), im=inMov(), L=cur();
       $('#w-trf',b).hidden=mode!=='opz'; $$('[data-trf]',b).forEach(x=>x.setAttribute('aria-pressed',String((x.dataset.trf==='1')===conT)));
       $('#w-mf',b).hidden=!im; $('#w-cf',b).hidden=im||isImb(); $('#w-arr',b).hidden=!isArr(); $('#w-rsrc',b).hidden=isArr();
-      $('#w-mflab',b).textContent=isArr()?'Destinazioni: in quali vasche va ogni partita':'Movimenti previsti'; if(isArr()) ptReg(); $('#w-imb',b).hidden=!isImb(); if(isImb()) updImb(); $('#w-prl',b).textContent=isImb()?'Prodotti in linea (durante l\'imbottigliamento)':'Prodotti'; $('#w-colm',b).hidden=tipo()!=='Colmatura'; $('#w-vlab',b).textContent=t.vas&&!/^Da vasca|^Vasca da cui/.test(t.vas)?t.vas.replace(/^Vasche/,'Contenitori').replace('(facoltative)','(facoltativi)'):'Contenitori';
+      $('#w-mflab',b).textContent=isArr()?'Destinazioni: in quali vasche va ogni partita':'Movimenti previsti'; if(isArr()) ptReg(); $('#w-imb',b).hidden=!isImb(); if(isImb()) updImb(); $('#w-prw',b).hidden=isImb(); $('#w-colm',b).hidden=tipo()!=='Colmatura'; $('#w-vlab',b).textContent=t.vas&&!/^Da vasca|^Vasca da cui/.test(t.vas)?t.vas.replace(/^Vasche/,'Contenitori').replace('(facoltative)','(facoltativi)'):'Contenitori';
       if(im&&isArr()&&mv.some(m=>m.da&&!/^P:/.test(m.da))){ mv=[]; }
       /* arrivo vino: ogni riga senza partita (o con una partita tolta) prende la partita A */
       if(im&&isArr()&&pt[0]&&mv.some(m=>!pt.some(p=>'P:'+p.id===m.da))){ mv.forEach(m=>{ if(!pt.some(p=>'P:'+p.id===m.da)){ m.da='P:'+pt[0].id; if(m.q==='dadef') m.q='tutto'; } }); renderRows(); }
@@ -2571,9 +2578,10 @@ function formLavoro(ed,preset){
     renderPt(); renderVs(); renderRows(); upd();
     const salva=bz=>{ const m=$('#msg',b); m.textContent=''; const t=T(), ty=tipo(), im=inMov();
       const mov=im?mv.filter(r=>r.da||r.a).map(r=>({da:r.da,a:r.a,q:r.q||'dadef',L:r.q==='hL'?r.L:null})):[];
-      const prodotti=$$('.lprod2',b).map(prodDa).filter(p=>p.prodotto);
+      const prodotti=isImb()?imbsDa().flatMap(i=>(i.prodotti||[]).filter(a=>a.prodotto).map(a=>({prodotto:a.prodotto,classe:'',dose:a.dose,udm:a.udm,quando:'',su:i.vasca?[i.vasca]:null,volMan:null,qtaTot:'',note:''}))):$$('.lprod2',b).map(prodDa).filter(p=>p.prodotto);
       if(!bz){
         if(isImb()){ const rr=imbsDa(), n=rr.length>1; for(let k=0;k<rr.length;k++){ const i=rr[k], dove=n?' (vasca '+(k+1)+')':'';
+            const pd=(i.prodotti||[]).find(a=>a.prodotto&&a.dose==null); if(pd){ m.textContent='Scrivi la dose di '+pd.prodotto+dove+' (per una quantità fissa usa le unità «in tutto»).'; return; }
             if(!i.vasca){ m.textContent='Scegli la vasca da imbottigliare'+dove+', oppure salva come bozza.'; return; } if(i.q==='hL'&&!i.L){ m.textContent='Scrivi gli hL da imbottigliare'+dove+'.'; return; } if(i.q==='pz'&&!i.pz){ m.textContent='Scrivi il numero di pezzi'+dove+'.'; return; } if(!(i.formato>0)){ m.textContent='Scrivi il formato in litri'+dove+'.'; return; } } }
         else if(!im&&!t.opt&&!vs.length){ m.textContent='Scegli almeno un contenitore (per un lavoro senza contenitori usa «Operazione generica» o «Pulizia»), oppure salva come bozza.'; return; }
         if(im&&!mov.length){ m.textContent='Aggiungi almeno un movimento, oppure salva come bozza.'; return; }
@@ -2582,7 +2590,7 @@ function formLavoro(ed,preset){
         if(mov.some(r=>!r.a)){ m.textContent='Scegli l\'arrivo di ogni movimento, o «da concordare».'; return; }
         if(mov.some(r=>r.q==='hL'&&!r.L)){ m.textContent='Scrivi gli hL del movimento o scegli «da definire».'; return; }
         if(prodotti.some(p=>p.dose==null&&!p.qtaTot)){ m.textContent='Per ogni prodotto scrivi la dose oppure, con «Scrivo io la quantità», la quantità.'; return; } }
-      const imbs=isImb()?imbsDa().filter(i=>i.vasca||imbsDa().length===1):null, imb=imbs?imbs[0]||null:null;
+      const imbs=isImb()?imbsDa().filter(i=>i.vasca||imbsDa().length===1).map(i=>{ const {prodotti:_p,...x}=i; if(!x.inLinea.length) delete x.inLinea; return x; }):null, imb=imbs?imbs[0]||null:null;
       const tmp={imbs:imbs||undefined,tipo:ty,vasche:im?[]:imbs?[...new Set(imbs.map(i=>i.vasca).filter(Boolean))]:[...vs],mov,conTrasf:LMOV(ty)==='opz'&&conT};
       const codes=lavCodes(tmp), rif=lavSnap(codes), sr={}; Object.entries(rif.vasche).forEach(([c,r])=>sr[c]={L:r.L});
       prodotti.forEach(p=>{ const base=prodBase(tmp,p.quando); if(Array.isArray(p.su)){ p.su=p.su.filter(c=>base.includes(c)); }
@@ -2601,7 +2609,7 @@ function formLavoro(ed,preset){
           av.nomi.filter(n=>!isUtente(n)).forEach(n=>amb.push(`«${n}» non è tra gli utenti: non lo vede sul telefono.`)); } }
       const go=()=>{
         const now=new Date().toISOString();
-        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,colm:ty==='Colmatura'?{da:$('#w-cda',b).value||'',L:$('#w-cL',b).value.trim()?num($('#w-cL',b).value):null}:undefined,assegnato:assTxt,assegnati:av.nomi,esterno:av.est,assegnatoEsterno:false,imb:imb||undefined,imbs:imbs&&imbs.length?imbs:undefined,inLinea:isImb()&&ilRead($('#w-imb',b)).length?ilRead($('#w-imb',b)):undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
+        const o={titolo:$('#w-tit',b).value.trim(),tipo:ty,data:$('#w-data',b).value||'',ora:$('#w-ora',b).value||'',priorita:$('#w-prio',b).value,colm:ty==='Colmatura'?{da:$('#w-cda',b).value||'',L:$('#w-cL',b).value.trim()?num($('#w-cL',b).value):null}:undefined,assegnato:assTxt,assegnati:av.nomi,esterno:av.est,assegnatoEsterno:false,imb:imb||undefined,imbs:imbs&&imbs.length?imbs:undefined,inLinea:undefined,arr:isArr()?{fornitore:$('#w-afor',b).value.trim(),partite:pt.map((p,i)=>({id:p.id,vino:p.vino||'',desc:p.vino?'':(p.desc||'').trim(),L:p.L||null,da:i>0&&p.da!=null&&p.da.trim()!==$('#w-afor',b).value.trim()?p.da.trim():''}))}:undefined,vasche:tmp.vasche,mov,conTrasf:tmp.conTrasf,dest:'',volL:null,prodotti,istruzioni:$('#w-ist',b).value.trim(),rif,modificatoIl:now,_v:2};
         if(ed){ const x=lavori().find(z=>z.id===ed.id); const prima=x.assegnato||'';
           if((x.stato==='bozza'||x.stato==='segnalato')&&!bz){ const sg=x.stato==='segnalato'; Object.assign(x,o); lavLog(x,'dafare',sg?'Programmato dalla segnalazione':'Programmato'); }
           else if(x.stato==='segnalato'&&bz){ Object.assign(x,o); lavLog(x,'bozza','Segnalazione trasformata in bozza'); }
@@ -2641,9 +2649,8 @@ function lavDettaglio(id){
     <dt>Assegnato a</dt><dd>${assTutti(l).length?[...assNomi(l).map(n=>esc(n)+(isUtente(n)?'':' <span class="small" style="color:var(--warn)">— non è tra gli utenti: nessuno lo vede sul telefono</span>')),...(assEst(l)?[esc(assEst(l))+' <span class="muted small">(senza accesso: da avvisare a voce)</span>']:[])].join(', '):'<span class="muted">nessuno</span>'}</dd>
     ${cs.length&&!imbRighe(l).length?`<dt>Contenitori</dt><dd>${cs.length>6?`<div class="small">${esc(elencoV(cs))}</div><details><summary class="small">dettaglio (alla programmazione)</summary><ul style="margin:0;padding-left:18px">${vsTxt}</ul></details>`:`<ul style="margin:0;padding-left:18px">${vsTxt}</ul><span class="small muted">alla programmazione (${fd((l.rif||{}).data||today())})</span>`}</dd>`:''}
    </dl>
-   ${imbRighe(l).length&&(l.inLinea||[]).length?`<p class="small" style="margin:8px 0 0"><b>In linea:</b> ${esc(ilElenco(l.inLinea))}</p>`:''}
    ${imbRighe(l).length?`<h3 style="margin:10px 0 4px">Da imbottigliare</h3><ol style="margin:0;padding-left:20px">${imbRighe(l).map((i,k)=>{ const x=imbEsec(l,k), reg=(l.imbReg||{})[k];
-     return `<li>${esc(imbTxtR(i,rifSt(l)))}${x.fatto===false?' <span class="chip scad">non fatto</span>':''}${x.pz||x.L?`<br><span class="small">Dichiarato: <b>${x.pz?nf(x.pz,0)+' '+imbPzN(i):''}${x.pz&&x.L?' · ':''}${x.L?hL(x.L):''}</b></span>`:''}${x.vuota?' <span class="small">· vasca svuotata</span>':''}${reg?` <span class="chip ok">${reg==='saltato'?'saltato':'registrato'}</span>`:''}</li>`; }).join('')}</ol>`:''}
+     return `<li>${esc(imbTxtR(i,rifSt(l)))}${ilDi(l,i).length?`<br><span class="small">In linea: ${esc(ilElenco(ilDi(l,i)))}</span>`:''}${(l.prodotti||[]).some(p=>prodSu(l,p).includes(i.vasca))?`<br><span class="small">Prodotti in linea: ${esc((l.prodotti||[]).filter(p=>prodSu(l,p).includes(i.vasca)).map(p=>p.prodotto).join(', '))}</span>`:''}${x.fatto===false?' <span class="chip scad">non fatto</span>':''}${x.pz||x.L?`<br><span class="small">Dichiarato: <b>${x.pz?nf(x.pz,0)+' '+imbPzN(i):''}${x.pz&&x.L?' · ':''}${x.L?hL(x.L):''}</b></span>`:''}${x.vuota?' <span class="small">· vasca svuotata</span>':''}${reg?` <span class="chip ok">${reg==='saltato'?'saltato':'registrato'}</span>`:''}</li>`; }).join('')}</ol>`:''}
    ${l.arr?`<h3 style="margin:10px 0 4px">Vino in arrivo</h3>${arrHTML(l)}`:''}
    ${lavHaMov(l)&&(!l.arr||(l.esec&&l.esec.mov))?`<h3 style="margin:10px 0 4px">${l.arr?'Previsto e scaricato davvero':'Movimenti previsti'}</h3>${movTab(l,true)}`:''}
    ${(l.prodotti||[]).length?`<h3 style="margin:10px 0 4px">Prodotti</h3>${prodTab(l,true)}`:''}
@@ -2784,19 +2791,23 @@ function apriRegistrazione(l){
   else if(T.reg==='imb'&&imbRighe(l).length>1){ apriImbRiga(l,{note,tir:!!T.tir}); }
   else if(T.reg==='imb'){ const i=l.imb, x=ex.imb||{};
     if(i&&i.vasca){ const e=imbStima(i,st); const pz=x.pz||(i.q==='pz'?i.pz:null); const L=x.L||(x.pz?x.pz*(i.formato||0.75):null)||(i.q==='pz'?null:e.L);
-      formImbottigliamento({vasca:i.vasca,L:L||null,litriManuali:!!L,bottiglie:pz||undefined,bottiglieManuali:!!pz,formato:i.formato,conf:imbConf(i),lotto:i.lotto||'',data:today(),note,tiraggio:!!T.tir,svuota:!!x.vuota,inLinea:l.inLinea||[],aggiunte:T.tir?undefined:aggImbDi(l,i.vasca)}); }
+      formImbottigliamento({vasca:i.vasca,L:L||null,litriManuali:!!L,bottiglie:pz||undefined,bottiglieManuali:!!pz,formato:i.formato,conf:imbConf(i),lotto:i.lotto||'',data:today(),note,tiraggio:!!T.tir,svuota:!!x.vuota,inLinea:ilDi(l,i),aggiunte:T.tir?undefined:aggImbDi(l,i.vasca)}); }
     else formImbottigliamento({vasca:(l.vasche||[])[0],L:lavVolBase(l)||null,data:today(),note,tiraggio:!!T.tir}); }
   else if(T.reg==='an'){ const v=(st[(l.vasche||[])[0]]||{}).vino; if(!v){ UI.pendLav=null; toast('La vasca non contiene vino: impossibile registrare l\'analisi'); return; } formAnalisi(v,null,{ambito:'vasca',vasche:l.vasche.filter(c=>(st[c]||{}).vino===v),data:today()}); }
 }
 /* chiamata da refresh(): se la registrazione aperta dal lavoro è stata salvata, il lavoro diventa convalidato */
+/* un prodotto del lavoro scritto per la sola vasca c (dose, oppure la sua parte di quantità fissa) */
+function prodPerVasca(l,p,c){ const man=qtaManuale(p); if(!man) return {prodotto:p.prodotto,dose:p.dose,udm:p.udm};
+  let n=man.n,u=man.u; const pm=prodPartiMap(l,p); if(pm&&pm[c]){ const mm=/^([\d.,]+)\s*(\S*)$/.exec(pm[c]); if(mm){ n=num(mm[1]); u=mm[2]||u; } }
+  return {prodotto:p.prodotto,dose:n,udm:UDM.includes(u+' in tutto')?u+' in tutto':'g in tutto'}; }
 /* prodotti in linea del lavoro per la vasca c, tolti quelli che l'operatore non ha aggiunto lì */
 function aggImbDi(l,c){ const ex=l.esec||{};
   return (l.prodotti||[]).map((p,i)=>({p,i})).filter(({p})=>prodSu(l,p).includes(c)).filter(({i})=>{ const rx=(ex.prodotti||[])[i]||'';
       if(/^non aggiunt/i.test(rx)) return false; const pz=/^aggiunto solo in (.+?) \(non in /.exec(rx); if(pz){ const xs=pz[1].split(', '); return xs.includes(vlab(c))||xs.includes(vlabS(c)); }
       return !(ex.spunte&&ex.spunte[i]===false); })
-    .map(({p})=>{ const man=qtaManuale(p); if(!man) return {prodotto:p.prodotto,dose:p.dose,udm:p.udm};
-      let n=man.n,u=man.u; const pm=prodPartiMap(l,p); if(pm&&pm[c]){ const mm=/^([\d.,]+)\s*(\S*)$/.exec(pm[c]); if(mm){ n=num(mm[1]); u=mm[2]||u; } }
-      return {prodotto:p.prodotto,dose:n,udm:UDM.includes(u+' in tutto')?u+' in tutto':'g in tutto'}; }); }
+    .map(({p})=>prodPerVasca(l,p,c)); }
+/* trattamenti in linea della riga (i lavori di ieri li avevano per tutto il lavoro) */
+const ilDi=(l,i)=>Array.isArray(i&&i.inLinea)?i.inLinea:(l.inLinea||[]);
 /* imbottigliamento da più vasche: un imbottigliamento per riga, uno dopo l'altro; il lavoro si convalida quando sono tutte registrate (o saltate) */
 function apriImbRiga(l,o){ const IR=imbRighe(l), reg=l.imbReg||{};
   const todo=IR.map((i,k)=>k).filter(k=>!reg[k]&&imbEsec(l,k).fatto!==false);
@@ -2806,7 +2817,7 @@ function apriImbRiga(l,o){ const IR=imbRighe(l), reg=l.imbReg||{};
   const k=todo[0], i=IR[k], x=imbEsec(l,k), st=stOggi(), e=imbStima(i,st);
   const pz=x.pz||(i.q==='pz'?i.pz:null), L=x.L||(x.pz?x.pz*(i.formato||0.75):null)||(i.q==='pz'?null:e.L);
   UI.pendLav={id:l.id,nEv:S.eventi.length,nAn:S.analisi.length,imbK:k};
-  formImbottigliamento({vasca:i.vasca,L:L||null,litriManuali:!!L,bottiglie:pz||undefined,bottiglieManuali:!!pz,formato:i.formato,conf:imbConf(i),lotto:i.lotto||'',data:today(),note:o.note||'',tiraggio:o.tir,svuota:!!x.vuota,inLinea:l.inLinea||[],aggiunte:o.tir?undefined:aggImbDi(l,i.vasca),
+  formImbottigliamento({vasca:i.vasca,L:L||null,litriManuali:!!L,bottiglie:pz||undefined,bottiglieManuali:!!pz,formato:i.formato,conf:imbConf(i),lotto:i.lotto||'',data:today(),note:o.note||'',tiraggio:o.tir,svuota:!!x.vuota,inLinea:ilDi(l,i),aggiunte:o.tir?undefined:aggImbDi(l,i.vasca),
     titoloExtra:`vasca ${k+1} di ${IR.length}`,poi:()=>apriImbRiga(l,o),salta:()=>{ (l.imbReg=l.imbReg||{})[k]='saltato'; UI.pendLav=null; save(); apriImbRiga(l,o); }}); }
 function lavCheckPend(){ const p=UI.pendLav; if(!p) return; const l=lavori().find(x=>x.id===p.id); if(!l){UI.pendLav=null;return;}
   if(p.imbK!=null){ if(S.eventi.length>p.nEv){ const ev=S.eventi[S.eventi.length-1]; (l.imbReg=l.imbReg||{})[p.imbK]=ev.id; (l.storia=l.storia||[]).push({il:new Date().toISOString(),stato:l.stato,nota:'Registrato: '+evTitle(ev)}); UI.pendLav=null; } return; }
@@ -2928,7 +2939,7 @@ function opDettaglio(app,l,op,head,bindHead){
     ${d?`<div class="box warn small" style="color:var(--ink)"><b>Attenzione:</b> nei contenitori la situazione è cambiata da quando il lavoro è stato programmato. Senti il responsabile prima di procedere.<ul style="margin:4px 0 0;padding-left:18px">${d.righe.map(r=>`<li>${esc(r.txt)}</li>`).join('')}</ul></div>`:''}
     ${l.istruzioni?`<h3 class="op-h">Istruzioni${cm('ist')}</h3><div class="box" style="background:var(--surface-2);white-space:pre-wrap">${esc(l.istruzioni)}</div>`:''}
     ${l.tipo==='Colmatura'?`<h3 class="op-h">Colmatura${cm('colm')}</h3><div class="box" style="background:var(--surface-2)">${l.colm&&l.colm.da?`Prendi il vino dalla <b>${esc(vnome(l.colm.da))}</b>${(st[l.colm.da]||{}).vino?' ('+esc(vName(st[l.colm.da].vino))+')':''}${l.colm.L?` · circa <b>${nf(l.colm.L,0)} L</b> in tutto`:''}.`:'Colma i contenitori qui sotto.'} Quando segni «Fatto» puoi scrivere i litri usati.</div>`:''}
-    ${imbRighe(l).length?`<h3 class="op-h">Da imbottigliare${cm('imb')}</h3>${imbRighe(l).map(i=>`<div class="box" style="background:var(--surface-2);margin-bottom:6px"><b>${esc(imbTxtR(i,st))}</b></div>`).join('')}${(l.inLinea||[]).length?`<div class="op-dove" style="display:block"><b>In linea:</b> ${esc(ilElenco(l.inLinea))}</div>`:''}`:''}
+    ${imbRighe(l).length?`<h3 class="op-h">Da imbottigliare${cm('imb')}</h3>${imbRighe(l).map(i=>`<div class="box" style="background:var(--surface-2);margin-bottom:6px"><b>${esc(imbTxtR(i,st))}</b>${ilDi(l,i).length?`<div class="small" style="margin-top:4px"><b>In linea:</b> ${esc(ilElenco(ilDi(l,i)))}</div>`:''}</div>`).join('')}`:''}
     ${l.arr?`<h3 class="op-h">Vino in arrivo${cm('arr')}</h3><div class="box" style="background:var(--surface-2)">${arrHTML(l,true)}</div>${mv.filter(m=>isCode(m.a)).map(m=>m.a).filter((c,i,a)=>a.indexOf(c)===i).map(c=>{ const s=st[c]||{}; return s.vino&&s.L>1e-6?`<div class="small" style="color:var(--warn)">${esc(vlab(c))} contiene già ${esc(vName(s.vino))} (${hL(s.L)}): il vino in arrivo si unisce.</div>`:''; }).join('')}`:''}
     ${mv.length&&!l.arr?`<h3 class="op-h">Movimenti${cm('mov')}</h3>${opMovHTML(mv,st)}${movNote(mv).filter(x=>!/si divide in/.test(x)).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
     ${cs.length&&!imbRighe(l).length?`<h3 class="op-h">Contenitori${cm('vasche')} ${cs.length>1?'<span class="muted small">'+cs.length+'</span>':''}</h3>${cs.length>8?`<p class="small">${esc(elencoV(cs))}</p><details><summary class="small">elenco completo</summary><ul class="op-list">${cs.map(contTxt).join('')}</ul></details>`:`<ul class="op-list">${cs.map(contTxt).join('')}</ul>`}`:''}
@@ -4254,7 +4265,7 @@ function ilHTML(sel,nuovo,perdita,noP,extra,apri){ const L=ilList().filter(x=>x.
   return `<details class="lvf il-f" ${open?'open':''} style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:8px 0"><summary style="cursor:pointer"><b>Lavorazione in linea</b> <span class="il-sm muted small"></span></summary>
     <div style="margin-top:6px">${righe}${extra||''}
     ${noP?'':`<label class="f" style="margin-top:6px;max-width:260px">Perdita nei filtri e nei tubi (L) <span class="muted small">facoltativa</span><input class="il-p" inputmode="decimal" value="${perdita?nfIn(perdita,1):''}" placeholder="es. 15"></label>`}
-    <p class="hint" style="margin:4px 0 0">Facoltativa. L'elenco si cambia in Dati → Imbottigliamento.${noP?' Vale per tutte le vasche del lavoro.':' La perdita esce dalla vasca insieme al vino imbottigliato.'}</p></div></details>`; }
+    <p class="hint" style="margin:4px 0 0">Facoltativa. L'elenco si cambia in Dati → Imbottigliamento.${noP?' La perdita nei filtri si scrive alla registrazione.':' La perdita esce dalla vasca insieme al vino imbottigliato.'}</p></div></details>`; }
 /* riassunto sulla riga chiusa: «Filtrazione membrana · 2 prodotti» */
 function ilBind(box){ const f=$('.il-f',box); if(!f) return; const up=()=>{ const a=ilRead(f), np=$$('.pr-r .pr-p',f).filter(x=>x.value.trim()).length, pl=ilPerdita(f);
     $('.il-sm',f).textContent=[a.length?'· '+ilElenco(a):'',np?'· '+np+(np>1?' prodotti':' prodotto'):'',pl?'· perdita '+nf(pl,1)+' L':''].filter(Boolean).join(' ')||'· niente'; };
