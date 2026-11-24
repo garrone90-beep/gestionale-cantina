@@ -680,6 +680,16 @@ const isAuto = c=>!!(VMAP[c]&&VMAP[c].tipo==='autoclave');
 const pmaxDi = c=>{ const v=VMAP[c]; return v&&v.rec&&+v.rec.pmax>0?+v.rec.pmax:null; };
 const contNome = dep=>{ const vs=VASCHE.filter(v=>v.dep===dep&&v.stato==='attivo'); const ts=[...new Set(vs.map(v=>v.tipo))]; return ts.length===1?(PLUR[ts[0]]||'contenitori'):vs.length&&vs.every(v=>v.kind==='botte')?'botti':'vasche'; };
 function applyLayout(){ const L=(S&&S.layout)||{}; VASCHE.forEach(v=>{ const p=L[v.code]; v.x=p?p.x:v.x0; v.y=p?p.y:v.y0; v.r=p&&p.r?p.r:v.r0; }); }
+/* unità «per pezzo»: solo dove si lavora sulle bottiglie (imbottigliamento, tiraggio, sboccatura); la quantità è dose × pezzi */
+const UDM_PZ=['mg/pz','g/pz','mL/pz'];
+const isPz=u=>/\/pz$/.test(u||'');
+const pzSing=conf=>conf==='Bag in box'?'bag in box':conf==='Altro'?'confezione':'bottiglia';
+const pzPl=n=>n==='confezione'?'confezioni':n==='bag in box'?'bag in box':'bottiglie';
+const udmLab=(u,n)=>isPz(u)?u.replace('/pz',' per '+(n||'bottiglia')):(u||'');
+function qtaPz(dose,udm,pz){ if(dose==null||!(pz>0)) return null; let x=dose*pz, u=udm.split('/')[0];
+  if(u==='mg'&&x>=1000){x/=1000;u='g';} if(u==='g'&&x>=1000){x/=1000;u='kg';} if(u==='mL'&&x>=1000){x/=1000;u='L';} return nf(x,x<10?2:x<100?1:0)+' '+u; }
+/* equivalente per hL (per confrontarlo con le dosi solite) */
+function pzEqHL(dose,udm,pz,L){ if(dose==null||!(pz>0)||!(L>0)) return ''; const u=udm.split('/')[0]; const perHL=dose*pz/(L/100); return `pari a ${nf(perHL,perHL<10?2:1)} ${u}/hL`; }
 const UDM = ['mg/L','g/hL','mL/hL','kg/10hL','kg/hL','g/L','mL/L','g in tutto','kg in tutto','mL in tutto','L in tutto'];
 /* ===================== Catalogo prodotti enologici =====================
    Elenco generico di partenza (senza dosi: dipendono dalla scheda tecnica e alcune hanno limiti di legge).
@@ -801,7 +811,8 @@ const lavList = fase=>((S&&S.lavorazioni&&S.lavorazioni[fase])||LAV_DEFAULT[fase
 const lavAll = ()=>[...new Set([...lavList('Vinificazione'),...lavList('Affinamento')])];
 function composeLav(hasTratte,lavori,altro,hasAgg){ const parts=[...(hasTratte?['travaso']:[]),...lavori.map(x=>x.toLowerCase()),...(altro?[altro.toLowerCase()]:[])];
   if(!parts.length) return hasAgg?'Aggiunte':'Lavorazione'; const t=parts.join(' + '); return t.charAt(0).toUpperCase()+t.slice(1); }
-function aggLine(list){ if(!list||!list.length) return ''; return 'Aggiunte: '+list.map(a=>{const q=a.volL?qtaTeorica(a.dose,a.udm,a.volL,a.prodotto):(/ in tutto$/.test(a.udm||'')?qtaTeorica(a.dose,a.udm,0,a.prodotto):null); return `<b>${esc(a.prodotto)}</b> ${a.dose!=null?nf(a.dose,3):''} ${esc(a.udm||'')}${a.vasca?` in ${esc(vlab(a.vasca))}`:''}${q?` <span class="muted">(${q} su ${hL(a.volL)})</span>`:''}${a.reale?` · usata ${esc(a.reale)}`:''}`}).join(' · '); }
+function aggLine(list){ if(!list||!list.length) return ''; return 'Aggiunte: '+list.map(a=>{ if(isPz(a.udm)){ const q=qtaPz(a.dose,a.udm,a.pz); return `<b>${esc(a.prodotto)}</b> ${a.dose!=null?nf(a.dose,3):''} ${esc(udmLab(a.udm,a.pzN))}${q?` <span class="muted">(${q} su ${nf(a.pz,0)} ${pzPl(a.pzN)})</span>`:''}${a.reale?` · usata ${esc(a.reale)}`:''}`; }
+    const q=a.volL?qtaTeorica(a.dose,a.udm,a.volL,a.prodotto):(/ in tutto$/.test(a.udm||'')?qtaTeorica(a.dose,a.udm,0,a.prodotto):null); return `<b>${esc(a.prodotto)}</b> ${a.dose!=null?nf(a.dose,3):''} ${esc(a.udm||'')}${a.vasca?` in ${esc(vlab(a.vasca))}`:''}${q?` <span class="muted">(${q} su ${hL(a.volL)})</span>`:''}${a.reale?` · usata ${esc(a.reale)}`:''}`}).join(' · '); }
 function partiCalc(calc,cls,parti){ parti=parti||[]; const E=parti.reduce((a,x)=>a+(x.L!=null?x.L:0),0); const nulls=parti.filter(x=>x.L==null).length; const fill=nulls?Math.max(calc-cls-E,0)/nulls:0;
   const out=parti.map(x=>({...x,L:x.L!=null?x.L:fill})); return {parti:out,resto:calc-cls-out.reduce((a,x)=>a+x.L,0)}; }
 const DIFF = {resta:'fecce/residuo restano in vasca',eliminate:'fecce eliminate',recupero:'fecce separate per recupero',perdita:'perdita',verificare:'da verificare'};
@@ -943,9 +954,9 @@ function num(s){ if(s==null) return null; if(typeof s==='number') return isNaN(s
   if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.'); else if(/^[-+]?[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,'');
   const n=parseFloat(s); return isNaN(n)?null:n; }
 function toL(v,u){ const n=num(v); return n==null?null:(u==='hL'?n*100:n); }
-function qtaTeorica(dose,udm,L,prod){
+function qtaTeorica(dose,udm,L,prod,pz){
   /* la dose è del prodotto scelto: se il prodotto ha un titolo, si indica anche quanto principio attivo (es. SO₂ pura) si aggiunge */
-  if(dose==null) return null; const pr=prodOf(prod);
+  if(dose==null) return null; if(isPz(udm)) return qtaPz(dose,udm,pz); const pr=prodOf(prod);
   const fmt=(v,u)=>{ if(u==='g'&&v>=1000){v/=1000;u='kg'} if(u==='mL'&&v>=1000){v/=1000;u='L'} return nf(v,v<10?2:1)+' '+u; };
   const princ=(v,u)=>{ if(!(pr&&pr.titolo>0&&pr.principio)) return ''; const pu={mL:'g',L:'kg'}[u]||u; return ` di ${pr.nome} = ${fmt(v*pr.titolo/100,pu)} di ${pr.principio}`; };
   if(/ in tutto$/.test(udm||'')){ const u=udm.replace(' in tutto',''); return fmt(dose,u)+princ(dose,u); }
@@ -2454,7 +2465,7 @@ function formLavoro(ed,preset){
        <label class="f i-fow">Formato (L)<input class="i-fo" inputmode="decimal"></label>
        <label class="f">Lotto<span class="row" style="gap:6px;flex-wrap:nowrap"><input class="i-lot" value="${esc(i.lotto||'')}" placeholder="facoltativo"><button type="button" class="btn sm i-lp" title="Proponi il lotto dalla data prevista">Proponi</button></span></label></div>
        <div class="hint i-info"></div>
-       ${ilHTML(i.inLinea,!i.inLinea,null,true,prodRowsHTML('ipr'+(++iSeq),i.prodotti||[],'Prodotti in linea <span class="muted small">— sul vino di questa vasca</span>'),(i.prodotti||[]).length)}
+       ${ilHTML(i.inLinea,!i.inLinea,null,true,prodRowsHTML('ipr'+(++iSeq),i.prodotti||[],'Prodotti in linea <span class="muted small">— sul vino di questa vasca</span>',{pz:true,pzN:pzSing(i.conf)}),(i.prodotti||[]).length)}
        <button type="button" class="btn sm ghost i-cp" hidden>Copia la lavorazione in linea dalla vasca sopra</button>`;
       d.dataset.pr='ipr'+iSeq;
       const fk=i.formato?FORMATI.find(x=>x.L===i.formato&&x.t===imbConf(i)):FORMATI.find(x=>x.k==='b0.75'); $('.i-fmt',d).value=i.formato&&!fk?'altro':(fk?fk.k:'b0.75'); if(i.formato&&!fk) $('.i-fo',d).value=nfIn(i.formato,3);
@@ -2463,7 +2474,7 @@ function formLavoro(ed,preset){
       $('.i-rm',d).onclick=()=>{ d.remove(); updImb(); upd(); };
       $('.i-cp',d).onclick=()=>{ const pr=d.previousElementSibling; if(!pr) return; const a=imbRowDa(pr), me=imbRowDa(d); imbRowAdd({...me,inLinea:a.inLinea,prodotti:a.prodotti},d); d.remove(); updImb(); upd(); };
       if(before) $('#w-irows',b).insertBefore(d,before); else $('#w-irows',b).appendChild(d);
-      prodRowsBind(b,d.dataset.pr,()=>imbStima(imbRowDa(d),st).L||0); ilBind(d); $('.il-f',d).open=$('.il-f',d).open||!!before;
+      prodRowsBind(b,d.dataset.pr,()=>imbStima(imbRowDa(d),st).L||0,()=>imbStima(imbRowDa(d),st).pz||0,()=>pzSing(imbRowDa(d).conf)); ilBind(d); $('.il-f',d).open=$('.il-f',d).open||!!before;
       return d; };
     const imbRowDa=d=>{ const k=$('.i-fmt',d).value, f=FORMATI.find(x=>x.k===k); const q=$('.i-q',d).value;
       return {vasca:$('.i-v',d).value,q,L:q==='hL'?toL($('.i-L',d).value,'hL'):null,pz:q==='pz'?(Math.floor(num($('.i-pz',d).value)||0)||null):null,formato:k==='altro'?num($('.i-fo',d).value):f.L,conf:k==='altro'?'Altro':f.t,lotto:$('.i-lot',d).value.trim(),
@@ -2578,7 +2589,7 @@ function formLavoro(ed,preset){
     renderPt(); renderVs(); renderRows(); upd();
     const salva=bz=>{ const m=$('#msg',b); m.textContent=''; const t=T(), ty=tipo(), im=inMov();
       const mov=im?mv.filter(r=>r.da||r.a).map(r=>({da:r.da,a:r.a,q:r.q||'dadef',L:r.q==='hL'?r.L:null})):[];
-      const prodotti=isImb()?imbsDa().flatMap(i=>(i.prodotti||[]).filter(a=>a.prodotto).map(a=>({prodotto:a.prodotto,classe:'',dose:a.dose,udm:a.udm,quando:'',su:i.vasca?[i.vasca]:null,volMan:null,qtaTot:'',note:''}))):$$('.lprod2',b).map(prodDa).filter(p=>p.prodotto);
+      const prodotti=isImb()?imbsDa().flatMap(i=>(i.prodotti||[]).filter(a=>a.prodotto).map(a=>({prodotto:a.prodotto,classe:'',dose:a.dose,udm:a.udm,quando:'',su:i.vasca?[i.vasca]:null,volMan:null,qtaTot:'',note:'',...(isPz(a.udm)?{pz:imbStima(i,st).pz||null,pzN:pzSing(i.conf)}:{})}))):$$('.lprod2',b).map(prodDa).filter(p=>p.prodotto);
       if(!bz){
         if(isImb()){ const rr=imbsDa(), n=rr.length>1; for(let k=0;k<rr.length;k++){ const i=rr[k], dove=n?' (vasca '+(k+1)+')':'';
             const pd=(i.prodotti||[]).find(a=>a.prodotto&&a.dose==null); if(pd){ m.textContent='Scrivi la dose di '+pd.prodotto+dove+' (per una quantità fissa usa le unità «in tutto»).'; return; }
@@ -2594,7 +2605,7 @@ function formLavoro(ed,preset){
       const tmp={imbs:imbs||undefined,tipo:ty,vasche:im?[]:imbs?[...new Set(imbs.map(i=>i.vasca).filter(Boolean))]:[...vs],mov,conTrasf:LMOV(ty)==='opz'&&conT};
       const codes=lavCodes(tmp), rif=lavSnap(codes), sr={}; Object.entries(rif.vasche).forEach(([c,r])=>sr[c]={L:r.L});
       prodotti.forEach(p=>{ const base=prodBase(tmp,p.quando); if(Array.isArray(p.su)){ p.su=p.su.filter(c=>base.includes(c)); }
-        const vol=p.volMan||prodVolRif(tmp,p,sr); p.volL=vol||null; p.volMan=!!p.volMan; p.qta=qtaTeorica(p.dose,p.udm,vol,p.prodotto);
+        const vol=p.volMan||prodVolRif(tmp,p,sr); p.volL=vol||null; p.volMan=!!p.volMan; p.qta=qtaTeorica(p.dose,p.udm,vol,p.prodotto,p.pz);
         if(!p.note) delete p.note; if(!p.qtaTot) delete p.qtaTot;
         const c=S.prodotti.find(x=>x.nome.toLowerCase()===p.prodotto.toLowerCase()); if(!c) S.prodotti.push({nome:p.prodotto,udm:p.udm,classe:p.classe||'',daUso:true}); else if(p.classe&&!c.classe) c.classe=p.classe; });
       const av=assMultiVal(b,'w-ass'); const assTxt=[...av.nomi,...(av.est?[av.est]:[])].join(', '), ass=assTxt;
@@ -2632,7 +2643,7 @@ function movTab(l,conEsec){ const mv=lavMov(l); if(!mv.length) return ''; const 
   return `<div class="tbl-wrap"><table><thead><tr><th>Da</th><th>A</th><th class="r">Previsto</th>${ex?'<th class="r">Dichiarato</th>':''}</tr></thead><tbody>${mv.map((m,i)=>{ const x=ex&&ex[i]||{}; const dA=x.a&&x.a!==m.a; return `<tr><td><b>${esc(vlab(m.da))}</b>${r[m.da]&&r[m.da].vino?`<div class="small muted">${esc(vName(r[m.da].vino))} · ${hL(r[m.da].L)}</div>`:''}</td><td>${movArr(m.a)}</td><td class="r">${movQtaTxt(m)}</td>${ex?`<td class="r">${dA?'→ <b>'+esc(vlab(x.a))+'</b> ':''}${x.L?hL(x.L):dA?'':'<span class="muted">come previsto</span>'}</td>`:''}</tr>`; }).join('')}</tbody></table></div>
     ${movNote(mv).map(x=>`<div class="small">${x}</div>`).join('')}`; }
 function prodTab(l,conEsec){ const ps=l.prodotti||[]; if(!ps.length) return ''; const ex=conEsec&&l.esec&&l.esec.prodotti, mv=lavMov(l).length;
-  return `<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Dose</th><th>Su</th><th class="r">Quantità calcolata</th><th class="r">Da aggiungere</th>${ex?'<th class="r">Usata davvero</th>':''}</tr></thead><tbody>${ps.map((p,i)=>{ const su=prodSu(l,p); return `<tr><td>${esc(p.prodotto)}${p.note?`<div class="small muted">${esc(p.note)}</div>`:''}</td><td class="r">${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):'—'}</td><td class="small">${(pm=>pm?su.map(c=>`${esc(vlab(c))} <b>${esc(pm[c]||'da calcolare')}</b>`).join(' · '):esc(elencoV(su))||'—')(prodPartiMap(l,p))}${mv?`<div class="muted">${p.quando==='dopo'?'negli arrivi, dopo il trasferimento':'prima del trasferimento'}</div>`:''}</td><td class="r">${(x=>x?esc(x.q)+(x.pr?`<div class="small muted">= ${esc(x.pr)}</div>`:''):esc(p.qta||'—'))(qtaParti(p.dose,p.udm,p.volL,p.prodotto))}${p.volL&&!/ in tutto$/.test(p.udm||'')?`<div class="small muted">su ${hL(p.volL)}${p.volMan?' (scritto a mano)':''}</div>`:''}</td><td class="r"><b>${esc(daAgg(p)||'—')}</b>${p.qtaTot?'<div class="small muted">indicata a mano</div>':''}</td>${ex?`<td class="r">${esc(ex[i]||'')}</td>`:''}</tr>`; }).join('')}</tbody></table></div>`; }
+  return `<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Dose</th><th>Su</th><th class="r">Quantità calcolata</th><th class="r">Da aggiungere</th>${ex?'<th class="r">Usata davvero</th>':''}</tr></thead><tbody>${ps.map((p,i)=>{ const su=prodSu(l,p); return `<tr><td>${esc(p.prodotto)}${p.note?`<div class="small muted">${esc(p.note)}</div>`:''}</td><td class="r">${p.dose!=null?nf(p.dose,3)+' '+esc(udmLab(p.udm,p.pzN)):'—'}</td><td class="small">${(pm=>pm?su.map(c=>`${esc(vlab(c))} <b>${esc(pm[c]||'da calcolare')}</b>`).join(' · '):esc(elencoV(su))||'—')(prodPartiMap(l,p))}${mv?`<div class="muted">${p.quando==='dopo'?'negli arrivi, dopo il trasferimento':'prima del trasferimento'}</div>`:''}</td><td class="r">${(x=>x?esc(x.q)+(x.pr?`<div class="small muted">= ${esc(x.pr)}</div>`:''):esc(p.qta||'—'))(qtaParti(p.dose,p.udm,p.volL,p.prodotto))}${p.volL&&!/ in tutto$/.test(p.udm||'')?`<div class="small muted">su ${hL(p.volL)}${p.volMan?' (scritto a mano)':''}</div>`:''}</td><td class="r"><b>${esc(daAgg(p)||'—')}</b>${p.qtaTot?'<div class="small muted">indicata a mano</div>':''}</td>${ex?`<td class="r">${esc(ex[i]||'')}</td>`:''}</tr>`; }).join('')}</tbody></table></div>`; }
 const esecHTML = l=>{ const ex=l.esec||{}; if(!ex.il) return '';
   const nf_=l.stato==='noneseguito'; const quando=new Date(ex.il).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'});
   return `<div class="box ${nf_?'warn':'ok'} small" style="color:var(--ink)"><b>${nf_?'Non fatto':'Fatto'}</b> · ${quando}${ex.da?' · '+esc(ex.da):''}${!nf_?(ex.comePrevisto===false?' · <b>con differenze</b>':' · come previsto'):''}${ex.note?`<div>${nf_?'Motivo':'Note'}: ${esc(ex.note)}</div>`:''}${ex.diff?`<div><b>Cosa è cambiato:</b> ${esc(ex.diff)}</div>`:''}${ex.volL?`<div>Volume movimentato ${hL(ex.volL)}</div>`:''}${ex.spunte&&ex.spunte.length?`<div>Prodotti spuntati dall'operatore: ${ex.spunte.every(Boolean)?'tutti':`${ex.spunte.filter(Boolean).length} su ${ex.spunte.length}, <b>non spuntati: ${esc((l.prodotti||[]).filter((p,i)=>!ex.spunte[i]).map(p=>p.prodotto).join(', '))}</b>`}</div>`:''}</div>`; };
@@ -2944,7 +2955,7 @@ function opDettaglio(app,l,op,head,bindHead){
     ${mv.length&&!l.arr?`<h3 class="op-h">Movimenti${cm('mov')}</h3>${opMovHTML(mv,st)}${movNote(mv).filter(x=>!/si divide in/.test(x)).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
     ${cs.length&&!imbRighe(l).length?`<h3 class="op-h">Contenitori${cm('vasche')} ${cs.length>1?'<span class="muted small">'+cs.length+'</span>':''}</h3>${cs.length>8?`<p class="small">${esc(elencoV(cs))}</p><details><summary class="small">elenco completo</summary><ul class="op-list">${cs.map(contTxt).join('')}</ul></details>`:`<ul class="op-list">${cs.map(contTxt).join('')}</ul>`}`:''}
     ${ps.length?`<h3 class="op-h">${imbRighe(l).length?'Prodotti in linea':'Prodotti'}${cm('prod')} ${l.stato==='dafare'?'<span class="muted small">spunta ogni prodotto quando l\'hai aggiunto</span>':''}</h3>${G.map(g=>`<div class="op-vg">${g.c?`<b class="op-vc">${esc(vkind(g.c).toLowerCase())} ${esc(vlabS(g.c))}</b>`:'<b>Contenitore non indicato</b>'}${g.q?`<span class="op-qd" style="flex-basis:auto">${g.q==='dopo'?'dopo il travaso, nel vino arrivato':'prima del travaso, nel vino che parte'}</span>`:''}</div>
-      <ul class="op-list${l.stato==='dafare'?' op-chk':''}">${g.righe.map(x=>{ const p=x.p, dose=p.dose!=null&&!/ in tutto$/.test(p.udm||'')?`dose ${nf(p.dose,3)} ${esc(p.udm)}`:'';
+      <ul class="op-list${l.stato==='dafare'?' op-chk':''}">${g.righe.map(x=>{ const p=x.p, dose=p.dose!=null&&!/ in tutto$/.test(p.udm||'')?`dose ${nf(p.dose,3)} ${esc(udmLab(p.udm,p.pzN))}`:'';
         return `<li>${l.stato==='dafare'?`<label class="op-ck"><input type="checkbox" data-pk="${esc(x.key)}" ${spunte.has(x.key)?'checked':''} aria-label="Aggiunto ${esc(p.prodotto)}${g.c?' in '+esc(vlab(g.c)):''}"><span>`:''}<b>${esc(p.prodotto)}</b><br>${x.qta?`<span class="op-pq">${esc(x.qta)}</span>`:x.nota?`<span>${esc(x.nota)}</span>`:`<span class="muted">${dose?'da calcolare: '+dose+(p.quando==='dopo'&&mv.length?' sul vino arrivato':''):'quantità da definire'}</span>`}${dose&&x.qta?` <span class="small muted">· ${dose}</span>`:''}${p.note?`<br><span class="small muted">${esc(p.note)}</span>`:''}${l.stato==='dafare'?'</span></label>':''}</li>`; }).join('')}</ul>`).join('')}`:''}
     ${l.stato==='dafare'?`<div class="op-act"><button type="button" class="btn" id="op-no">Non fatto</button><button type="button" class="btn pri" id="op-ok">Fatto</button></div>`
       :`<div class="box small">${l.stato==='eseguito'?'Hai segnato questo lavoro come <b>fatto</b>: ora lo controlla il responsabile.':l.stato==='noneseguito'?'Hai segnato questo lavoro come <b>non fatto</b>: il responsabile deciderà come procedere.':esc(LSTATI[l.stato])}</div>`}</div>`;
@@ -3418,13 +3429,15 @@ function formFerm(code){
   });
 }
 /* righe «prodotto · dose · unità» per liqueur di tiraggio, presa di spuma e liqueur d'expédition: finiscono in e.aggiunte (catalogo prodotti, storico trattamenti) */
-const prodRow = a=>`<div class="row pr-r" style="gap:6px;flex-wrap:nowrap;margin:4px 0"><input class="pr-p" list="prodlist" value="${esc(a.prodotto||'')}" placeholder="prodotto" style="flex:2;min-width:0"><input class="pr-d" inputmode="decimal" value="${a.dose!=null?nfIn(a.dose,3):''}" placeholder="dose" style="flex:1;min-width:0"><select class="pr-u" style="flex:1;min-width:0">${UDM.map(u=>`<option ${u===(a.udm||'g/hL')?'selected':''}>${u}</option>`).join('')}</select><button type="button" class="btn sm ghost" data-prx title="Togli">×</button></div>`;
-const prodRowsHTML = (id,list,lab)=>`<div class="f wide" style="grid-column:1/-1;display:grid;gap:4px"><span>${lab}</span><div id="${id}">${(list||[]).map(prodRow).join('')}</div><button type="button" class="btn sm" data-pradd="${id}" style="justify-self:start">+ Prodotto</button><div class="hint" id="${id}-q"></div>
+const prodRow = (a,o)=>`<div class="row pr-r" style="gap:6px;flex-wrap:nowrap;margin:4px 0"><input class="pr-p" list="prodlist" value="${esc(a.prodotto||'')}" placeholder="prodotto" style="flex:2;min-width:0"><input class="pr-d" inputmode="decimal" value="${a.dose!=null?nfIn(a.dose,3):''}" placeholder="dose" style="flex:1;min-width:0"><select class="pr-u" style="flex:1;min-width:0">${[...UDM,...(o&&o.pz?UDM_PZ:[])].map(u=>`<option value="${u}" ${u===(a.udm||'g/hL')?'selected':''}>${esc(udmLab(u,o&&o.pzN))}</option>`).join('')}</select><button type="button" class="btn sm ghost" data-prx title="Togli">×</button></div>`;
+const prodRowsHTML = (id,list,lab,o)=>`<div class="f wide" style="grid-column:1/-1;display:grid;gap:4px"${o&&o.pz?' data-pz="1"':''}><span>${lab}</span><div id="${id}">${(list||[]).map(a=>prodRow(a,o)).join('')}</div><button type="button" class="btn sm" data-pradd="${id}" style="justify-self:start">+ Prodotto</button><div class="hint" id="${id}-q"></div>
   <datalist id="prodlist">${prodVisibili().map(x=>`<option value="${esc(x.nome)}">${esc(x.categoria||'')}</option>`).join('')}</datalist></div>`;
-function prodRowsRead(b,id,volL){ return $$('#'+id+' .pr-r',b).map(r=>({prodotto:$('.pr-p',r).value.trim(),dose:$('.pr-d',r).value.trim()===''?null:num($('.pr-d',r).value),udm:$('.pr-u',r).value,volL:volL||null})).filter(a=>a.prodotto); }
-function prodRowsBind(b,id,volFn){ const box=$('#'+id,b); const q=()=>{ const v=volFn?volFn():0; const l=prodRowsRead(b,id,v).filter(a=>a.dose!=null); $('#'+id+'-q',b).innerHTML=l.length&&v?'Quantità: '+l.map(a=>{ const t=qtaTeorica(a.dose,a.udm,v,a.prodotto); return '<b>'+esc(a.prodotto)+'</b> '+esc(t||'—'); }).join(' · ')+` <span class="muted">(su ${hL(v)})</span>`:''; };
+function prodRowsRead(b,id,volL,pz){ return $$('#'+id+' .pr-r',b).map(r=>{ const u=$('.pr-u',r).value; return {prodotto:$('.pr-p',r).value.trim(),dose:$('.pr-d',r).value.trim()===''?null:num($('.pr-d',r).value),udm:u,volL:volL||null,...(isPz(u)&&pz>0?{pz}:{})}; }).filter(a=>a.prodotto); }
+function prodRowsBind(b,id,volFn,pzFn,pzNFn){ const box=$('#'+id,b); const q=()=>{ const v=volFn?volFn():0, pz=pzFn?pzFn():0; const l=prodRowsRead(b,id,v,pz).filter(a=>a.dose!=null);
+    if(pzNFn){ const n=pzNFn(); $$('.pr-u option',box).forEach(o=>{ if(isPz(o.value)) o.textContent=udmLab(o.value,n); }); }
+    $('#'+id+'-q',b).innerHTML=l.length&&(v||pz)?'Quantità: '+l.map(a=>{ const t=qtaTeorica(a.dose,a.udm,v,a.prodotto,pz); return '<b>'+esc(a.prodotto)+'</b> '+esc(t||'—')+(isPz(a.udm)&&t?` <span class="muted">(${nf(pz,0)} ${pzPl(pzNFn?pzNFn():'')}${v?', '+pzEqHL(a.dose,a.udm,pz,v):''})</span>`:''); }).join(' · ')+(v?` <span class="muted">(su ${hL(v)})</span>`:''):''; };
   const bx=()=>$$('[data-prx]',box).forEach(x=>x.onclick=()=>{ x.closest('.pr-r').remove(); q(); });
-  $('[data-pradd="'+id+'"]',b).onclick=()=>{ box.insertAdjacentHTML('beforeend',prodRow({})); bx(); $$('.pr-p',box).pop().focus(); };
+  $('[data-pradd="'+id+'"]',b).onclick=()=>{ box.insertAdjacentHTML('beforeend',prodRow({},{pz:!!box.closest('[data-pz]'),pzN:pzNFn?pzNFn():''})); bx(); $$('.pr-p',box).pop().focus(); q(); };
   box.addEventListener('input',q); box.addEventListener('change',q); bx(); q(); return q; }
 const prodSalva = l=>(l||[]).forEach(a=>{ if(a.prodotto&&!S.prodotti.some(x=>x.nome.toLowerCase()===a.prodotto.toLowerCase())) S.prodotti.push({nome:a.prodotto,udm:a.udm,daUso:true}); });
 /* vecchi tiraggi e prese di spuma con solo «zucchero» e «lieviti» scritti */
@@ -4301,10 +4314,10 @@ function formImbottigliamento(p={},corrId){
 
     <label class="f">Posizione in cantina<input id="i-pos" value="${esc(p.posizione||'')}" placeholder="es. catasta 3, gabbie 10-14"></label>
     <label class="f">Mesi minimi sui lieviti<input id="i-mm" inputmode="numeric" value="${p.mesiMin!=null?p.mesiMin:(MOD().mesiMin??'')}" placeholder="es. 18"></label>`:''}
-   ${tir?prodRowsHTML('i-pr',(p.aggiunte&&p.aggiunte.length?p.aggiunte:p.zucchero!=null||p.lieviti?aggDaVecchi(p.zucchero,p.lieviti):[{prodotto:'Saccarosio',udm:'g/L'},{prodotto:'',udm:'g/hL'},{prodotto:'',udm:'g/hL'}]),'Liqueur de tirage: zucchero, lieviti e coadiuvanti'):''}
+   ${tir?prodRowsHTML('i-pr',(p.aggiunte&&p.aggiunte.length?p.aggiunte:p.zucchero!=null||p.lieviti?aggDaVecchi(p.zucchero,p.lieviti):[{prodotto:'Saccarosio',udm:'g/L'},{prodotto:'',udm:'g/hL'},{prodotto:'',udm:'g/hL'}]),'Liqueur de tirage: zucchero, lieviti e coadiuvanti',{pz:true,pzN:pzSing(p.conf)}):''}
    </div>
    <div id="i-calc" class="hint"></div>
-   ${ilHTML(p.inLinea,!corrId&&!p.inLinea,p.perditaL,false,tir?'':prodRowsHTML('il-pr',!tir?(p.aggiunte||[]):[],'Prodotti in linea <span class="muted small">— la quantità si calcola sul vino imbottigliato</span>'),!tir&&(p.aggiunte||[]).length)}
+   ${ilHTML(p.inLinea,!corrId&&!p.inLinea,p.perditaL,false,tir?'':prodRowsHTML('il-pr',!tir?(p.aggiunte||[]):[],'Prodotti in linea <span class="muted small">— la quantità si calcola sul vino imbottigliato</span>',{pz:true,pzN:pzSing(p.conf)}),!tir&&(p.aggiunte||[]).length)}
    <label class="f wide">Note<textarea id="i-note">${esc(p.note||'')}</textarea></label>
    <div id="msg" class="err"></div>
    <div class="foot"><button type="button" class="btn" data-close>Annulla</button>${p.salta?'<button type="button" class="btn ghost" id="i-salta">Salta questa vasca</button>':''}<button class="btn pri">Salva</button></div></form>`,(b,close)=>{
@@ -4351,8 +4364,8 @@ function formImbottigliamento(p={},corrId){
     if(drv==='L'&&p.L!=null&&!p.bottiglie) pzDaL(); else if(drv==='pz'&&p.bottiglie&&p.L==null) LdaPz();
     if($('#i-dos',b)){ let mt=!!p.menzione; const vs=()=>{ const au=isAuto($('#i-v',b).value); $('#i-dosw',b).hidden=!au; $('#i-menw',b).hidden=!au; };
       $('#i-v',b).addEventListener('change',vs); $('#i-men',b).onchange=()=>{mt=true;}; $('#i-dos',b).addEventListener('input',()=>{ if(!mt) $('#i-men',b).value=menzDa($('#i-dos',b).value.trim()===''?null:num($('#i-dos',b).value)); }); }
-    if(tir) prodRowsBind(b,'i-pr',()=>toL($('#i-L',b).value,$('#i-u',b).value)||0);
-    else if($('#il-pr',b)){ const qIl=prodRowsBind(b,'il-pr',()=>toL($('#i-L',b).value,$('#i-u',b).value)||0); b.addEventListener('input',()=>setTimeout(qIl,0)); b.addEventListener('change',()=>setTimeout(qIl,0)); }
+    if(tir){ const qT=prodRowsBind(b,'i-pr',()=>toL($('#i-L',b).value,$('#i-u',b).value)||0,()=>getPz(),()=>pzSing(conf())); b.addEventListener('input',()=>setTimeout(qT,0)); b.addEventListener('change',()=>setTimeout(qT,0)); }
+    else if($('#il-pr',b)){ const qIl=prodRowsBind(b,'il-pr',()=>toL($('#i-L',b).value,$('#i-u',b).value)||0,()=>getPz(),()=>pzSing(conf())); b.addEventListener('input',()=>setTimeout(qIl,0)); b.addEventListener('change',()=>setTimeout(qIl,0)); }
     ilBind(b);
     $('#i-prop',b).onclick=()=>{ $('#i-lot',b).value=tir?propTir($('#i-data',b).value||today(),corrId):propLotto($('#i-data',b).value||today()); okDup=false; };
     if(tir&&!p.lotto&&!corrId){ $('#i-lot',b).value=propTir($('#i-data',b).value||today()); let lt=false; $('#i-lot',b).addEventListener('input',()=>{lt=true;}); $('#i-data',b).addEventListener('change',()=>{ if(!lt) $('#i-lot',b).value=propTir($('#i-data',b).value||today()); }); }
@@ -4369,10 +4382,10 @@ function formImbottigliamento(p={},corrId){
       const data=$('#i-data',b).value||today();
       const ev={id:uid(),tipo:'imbottigliamento',data,ord:Date.now(),fase:'Affinamento',vasca,L,lotto,formato:f,conf:conf(),bottiglie:getPz()||null,bottiglieManuali:drv!=='L'||svu(),litriManuali:drv!=='pz'&&!svu(),note:$('#i-note',b).value.trim(),inLinea:ilRead(b),perditaL:ilPerdita(b),creatoIl:new Date().toISOString()};
       if(!ev.inLinea.length) delete ev.inLinea; if(!ev.perditaL) delete ev.perditaL;
-      if(!tir&&$('#il-pr',b)){ const ag=prodRowsRead(b,'il-pr',L); prodSalva(ag); if(ag.length) ev.aggiunte=ag; }
+      if(!tir&&$('#il-pr',b)){ const ag=prodRowsRead(b,'il-pr',L,getPz()).map(a=>isPz(a.udm)?{...a,pzN:pzSing(conf())}:a); prodSalva(ag); if(ag.length) ev.aggiunte=ag; }
       if(svu()){ const df=L-(getPz()*f); Object.assign(ev,{svuota:true,diffTipo:df>0.5?$('#i-de',b).value:'',feccDest:df>0.5&&$('#i-de',b).value==='recupero'?$('#i-fd',b).value:''}); }
       if(!tir&&$('#i-dos',b)&&isAuto(vasca)){ const d=$('#i-dos',b).value.trim(); Object.assign(ev,{isobarico:true,dosaggio:d?num(d):null,menzione:$('#i-men',b).value}); }
-      if(tir){ const ag=prodRowsRead(b,'i-pr',L); prodSalva(ag); Object.assign(ev,{tiraggio:true,metodo:$('#i-met',b).value,aggiunte:ag,zucchero:zuccDi(ag),posizione:$('#i-pos',b).value.trim(),mesiMin:$('#i-mm',b).value.trim()?Math.round(num($('#i-mm',b).value)):null}); if(p.posizioni) ev.posizioni=p.posizioni; }
+      if(tir){ const ag=prodRowsRead(b,'i-pr',L,getPz()).map(a=>isPz(a.udm)?{...a,pzN:pzSing(conf())}:a); prodSalva(ag); Object.assign(ev,{tiraggio:true,metodo:$('#i-met',b).value,aggiunte:ag,zucchero:zuccDi(ag),posizione:$('#i-pos',b).value.trim(),mesiMin:$('#i-mm',b).value.trim()?Math.round(num($('#i-mm',b).value)):null}); if(p.posizioni) ev.posizioni=p.posizioni; }
       if(corrId){const o=S.eventi.find(x=>x.id===corrId); if(o.data===data) ev.ord=o.ord;}
       const dup=lotto&&attivi(S.eventi).find(x=>x.tipo==='imbottigliamento'&&!x.tiraggio===!tir&&x.id!==corrId&&String(x.lotto||'').toLowerCase()===lotto.toLowerCase());
       if(calc()&&!okPz){ okPz=true; $('#msg',b).innerHTML='<div class="box warn" style="color:var(--ink);font-weight:400">Il numero di pezzi non torna con la quantità uscita (vedi sopra). Premi di nuovo per salvare comunque, oppure correggi.</div>'; $('#fi button.pri',b).textContent='Conferma e salva'; return; }
@@ -4441,7 +4454,7 @@ function formSbocc(t,p={},corrId){ const cf=t.metodo==='colfondo'; const c=lievC
    <label class="f">Dosaggio (g/L di zucchero aggiunto)<input id="s-dos" inputmode="decimal" value="${p.dosaggio!=null?nfIn(p.dosaggio,1):''}" placeholder="es. 6"></label>
    <label class="f">Menzione<select id="s-men"><option value="">—</option>${MENZIONI.map(m=>`<option ${p.menzione===m?'selected':''}>${m}</option>`).join('')}</select></label>`}
    <label class="f">Lotto del prodotto finito<input id="s-lot" value="${esc(p.lottoFin||propLottoFin(t,corrId))}"></label>
-   ${cf?'':prodRowsHTML('s-pr',p.aggiunte||[],'Prodotti della liqueur (zucchero, SO₂…) <span class="muted small">— facoltativo</span>')}</div>
+   ${cf?'':prodRowsHTML('s-pr',p.aggiunte||[],'Prodotti della liqueur (zucchero, SO₂…) <span class="muted small">— facoltativo</span>',{pz:true,pzN:'bottiglia'})}</div>
    ${cf?'':'<p class="hint" id="s-mh">La menzione proposta segue il dosaggio; quella in etichetta dipende dallo zucchero totale del vino finito: controllala.</p>'}
    <label class="f wide">Note<textarea id="s-no">${esc(p.note||'')}</textarea></label><div id="msg" class="err"></div>
    <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Salva</button></div></form>`,(b,close)=>{
@@ -4450,7 +4463,7 @@ function formSbocc(t,p={},corrId){ const cf=t.metodo==='colfondo'; const c=lievC
    let lLman=p.liqL!=null&&!!corrId;
    if(!cf){ const lv=$('#s-lv',b), lL=$('#s-lL',b); const upd=()=>{ $('#s-lLw',b).hidden=!lv.value; if(!lLman){ const a=liqAuto(); lL.value=a!=null?nfIn(a,2):''; } };
      lv.onchange=upd; $('#s-ric',b).addEventListener('input',upd); $('#s-n',b).addEventListener('input',upd); lL.addEventListener('input',()=>{lLman=lL.value.trim()!=='';}); upd();
-     prodRowsBind(b,'s-pr',()=>{ const a=liqAuto(); return a||0; }); }
+     const qS=prodRowsBind(b,'s-pr',()=>{ const a=liqAuto(); return a||0; },()=>nB()); b.addEventListener('input',()=>setTimeout(qS,0)); }
    if(men) men.onchange=()=>{menTocc=true;}; if(dos) dos.oninput=()=>{ if(!menTocc) men.value=menzDa(dos.value.trim()===''?null:num(dos.value)); };
    $('#fs',b).oninput=()=>{ okM=false; $('#fs button.pri',b).textContent='Salva'; };
    $('#fs',b).onsubmit=ev=>{ ev.preventDefault(); const m=$('#msg',b); m.textContent=''; const data=$('#s-d',b).value||today(), n=Math.round(num($('#s-n',b).value)||0), pe=Math.round(num($('#s-p',b).value)||0), lot=$('#s-lot',b).value.trim();
@@ -4462,7 +4475,7 @@ function formSbocc(t,p={},corrId){ const cf=t.metodo==='colfondo'; const c=lievC
      const e2={id:uid(),tipo:'sboccatura',tir:t.id,data,ord:Date.now(),fase:'Affinamento',bottiglie:n,perse:pe,lottoFin:lot,colfondo:cf,note:$('#s-no',b).value.trim(),creatoIl:new Date().toISOString()};
      if(!cf){ const lv=$('#s-lv',b).value, lL=$('#s-lL',b).value.trim()?num($('#s-lL',b).value):null, ric=$('#s-ric',b).value.trim()?num($('#s-ric',b).value):null;
        if(lv&&!(lL>0)) return m.textContent='Indica quanti litri di vino prendi dalla vasca per la liqueur (o la ricolmatura per bottiglia).';
-       const ag=prodRowsRead(b,'s-pr',liqAuto()); prodSalva(ag);
+       const ag=prodRowsRead(b,'s-pr',liqAuto(),nB()); prodSalva(ag);
        Object.assign(e2,{liqueur:$('#s-liq',b).value.trim(),ricolmatura:ric,dosaggio:dos.value.trim()===''?null:num(dos.value),menzione:men.value,aggiunte:ag,...(lv?{liqVasca:lv,liqL:lL}:{})});
        if(lv&&!okM){ const st1=stateAt(data,e2.ord,corrId)[lv]||{}; if(lL>(st1.L||0)+1e-6){ okM=true; m.innerHTML=`<div class="box warn" style="color:var(--ink);font-weight:400">Nella ${esc(vnome(lv))} ci sono ${hL(st1.L||0)}: ne prendi ${hL(lL)}. Premi di nuovo per salvare comunque.</div>`; $('#fs button.pri',b).textContent='Salva comunque'; return; } } }
      storeEvent(e2,corrId); close(); refresh(); toast(cf?'Bottiglie pronte: passate negli Imbottigliamenti':'Sboccatura salvata: le bottiglie sono negli Imbottigliamenti'); }; }); }
