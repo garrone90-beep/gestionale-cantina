@@ -654,7 +654,8 @@ function gridPos(vs,ox=40,oy=40){ const out=[]; if(!vs.length) return out; const
     gs.forEach(g=>{ const xs=vs.filter(v=>(v.rec.gruppo||'')===g).sort((a,b)=>natCmp(a.rec.posto||a.label,b.rec.posto||b.label)); xs.forEach((v,i)=>out.push([v,ox+(i%maxR)*cell+cell/2,oy+(riga+Math.floor(i/maxR))*(cell+10)+cell/2])); riga+=Math.ceil(xs.length/maxR); }); return out; }
   const s=[...vs].sort((a,b)=>natCmp(a.label,b.label)); const cols=Math.max(1,Math.ceil(Math.sqrt(s.length*1.6))); s.forEach((v,i)=>out.push([v,ox+(i%cols)*cell+cell/2,oy+Math.floor(i/cols)*cell+cell/2])); return out; }
 /* elenco compatto di contenitori (REG-OP / registro raggruppato): «32 barrique (B001–B030, B045, B047)» */
-function elencoV(codes){ const cs=[...new Set((codes||[]).filter(Boolean))]; if(cs.length<=6) return cs.map(c=>vlab(c)).join(', ');
+function elencoV(codes){ const cs=[...new Set((codes||[]).filter(Boolean))];
+  if(cs.length<=6){ const tp=[...new Set(cs.map(c=>VMAP[c]?VMAP[c].tipo||'vasca':'?'))]; if(cs.length>1&&tp.length===1&&tp[0]!=='?') return (TIPO_PL[tp[0]]||tp[0])+' '+cs.map(c=>vlabS(c)).join(', '); return cs.map(c=>vlab(c)).join(', '); }
   const grp={}; cs.forEach(c=>{ const v=VMAP[c]; const k=v?(LOCMAP[locAt(c,VLAB_D)]||{}).sigla+'|'+v.tipo:'?|?'; (grp[k]=grp[k]||[]).push(c); });
   return Object.entries(grp).map(([k,xs])=>{ const tipo=k.split('|')[1], sg=k.split('|')[0]; if(xs.length<=3) return xs.map(c=>vlab(c)).join(', ');
     const labs=xs.map(c=>VMAP[c]?VMAP[c].label:c).sort(natCmp); const out=[]; let a=null,b=null;
@@ -668,9 +669,12 @@ const usaCont = (e,c)=>e.vasca===c||(e.vasche||[]).includes(c)||(e.dest||[]).som
    VLAB_D = data dell'operazione che si sta mostrando: lo storico legge il locale di allora. */
 let VLAB_D=null;
 const locAt = (c,d)=>{ const v=VMAP[c]; if(!v) return null; let l=v.dep; if(d) [...(v.rec.spostamenti||[])].sort((a,b)=>a.data<b.data?1:-1).forEach(m=>{ if(m.data>d) l=m.da; }); return l; };
-const vlab = (c,d)=>{ const v=VMAP[c]; if(!v) return /^P:/.test(c||'')?ptLab(c):String(c??''); const sg=prefLoc(locAt(c,d||VLAB_D),v.label); return sg?sg+' '+v.label:v.label; };
+/* vlabS: solo il nome del contenitore («13», «B03»), per pianta, menu e dove il tipo è già scritto; vlab: con il tipo davanti («vasca 13») */
+const vlabS = (c,d)=>{ const v=VMAP[c]; if(!v) return /^P:/.test(c||'')?ptLab(c):String(c??''); const sg=prefLoc(locAt(c,d||VLAB_D),v.label); return sg?sg+' '+v.label:v.label; };
+const vlab = (c,d)=>VMAP[c]?(VMAP[c].tipo||'vasca').toLowerCase()+' '+vlabS(c,d):vlabS(c,d);
+const TIPO_PL={vasca:'vasche',botte:'botti',barrique:'barrique',tonneau:'tonneaux',anfora:'anfore',cisterna:'cisterne',autoclave:'autoclavi'};
 const vkind = c=>{ const v=VMAP[c]; const t=v?v.tipo:'vasca'; return t.charAt(0).toUpperCase()+t.slice(1); };
-const vnome = c=>VMAP[c]?vkind(c).toLowerCase()+' '+vlab(c):'vasca '+(c??''); const Vnome = c=>VMAP[c]?vkind(c)+' '+vlab(c):'Vasca '+(c??'');
+const vnome = c=>VMAP[c]?vkind(c).toLowerCase()+' '+vlabS(c):'vasca '+(c??''); const Vnome = c=>VMAP[c]?vkind(c)+' '+vlabS(c):'Vasca '+(c??'');
 const PLUR={vasca:'vasche',botte:'botti',barrique:'barrique',tonneau:'tonneaux',anfora:'anfore',cisterna:'cisterne',autoclave:'autoclavi'};
 const isAuto = c=>!!(VMAP[c]&&VMAP[c].tipo==='autoclave');
 const pmaxDi = c=>{ const v=VMAP[c]; return v&&v.rec&&+v.rec.pmax>0?+v.rec.pmax:null; };
@@ -1189,14 +1193,14 @@ function stepText0(st,G,Lnow){
   if(['nodo','entrata','assemblaggio','ingresso','cert'].includes(st.kind)){
     const arr=n.parents.filter(p=>p.kind==='arrivo'), pres=n.parents.find(p=>p.kind==='presente');
     const desc=p=>{const P=R.nodes[p.n], k=p.n+'>'+n.id;
-      if(G.bounds[k]) return `<span class="ingr">ingresso di <b>${hL(p.L)}</b> di <b>${esc(vName(P.vino))}</b>${P.leaf?` <span class="muted">(${esc(P.descr)})</span>`:` dalla vasca <b>${esc(vlab(P.vasca))}</b>`} <button class="btn sm ghost" data-focus="${k}" data-l="${p.L}">${P.leaf?'scheda entrata':'storia di questa porzione'}</button></span>`;
-      return P.leaf?`entrano <b>${hL(p.L)}</b> <span class="muted">(${esc(P.descr)}${P.note?' · '+esc(P.note):''})</span>`:`arrivano <b>${hL(p.L)}</b> dalla vasca <b>${esc(vlab(P.vasca))}</b>${(()=>{const m=provMix(p.n); return m.length?` <span class="muted">(${m.map(([k2,f2])=>esc(k2)+(m.length>1?' '+nf(f2*100,1)+'%':'')).join(', ')})</span>`:''})()} <button class="btn sm ghost" data-focus="${p.n}>${n.id}" data-l="${p.L}">storia di questa porzione</button>`;};
+      if(G.bounds[k]) return `<span class="ingr">ingresso di <b>${hL(p.L)}</b> di <b>${esc(vName(P.vino))}</b>${P.leaf?` <span class="muted">(${esc(P.descr)})</span>`:` dalla <b>${esc(vlab(P.vasca))}</b>`} <button class="btn sm ghost" data-focus="${k}" data-l="${p.L}">${P.leaf?'scheda entrata':'storia di questa porzione'}</button></span>`;
+      return P.leaf?`entrano <b>${hL(p.L)}</b> <span class="muted">(${esc(P.descr)}${P.note?' · '+esc(P.note):''})</span>`:`arrivano <b>${hL(p.L)}</b> dalla <b>${esc(vlab(P.vasca))}</b>${(()=>{const m=provMix(p.n); return m.length?` <span class="muted">(${m.map(([k2,f2])=>esc(k2)+(m.length>1?' '+nf(f2*100,1)+'%':'')).join(', ')})</span>`:''})()} <button class="btn sm ghost" data-focus="${p.n}>${n.id}" data-l="${p.L}">storia di questa porzione</button>`;};
     let title;
-    if(st.kind==='assemblaggio') title=`Assemblaggio in vasca ${esc(vlab(n.vasca))}`;
-    else if(st.kind==='entrata') title=`Entrata in vasca ${esc(vlab(n.vasca))}`;
-    else if(st.kind==='ingresso') title=`${pres?'Assemblaggio':'Origine'} in vasca ${esc(vlab(n.vasca))}`;
-    else { const src=arr.map(p=>R.nodes[p.n]).filter(P=>!P.leaf).map(P=>P.vasca); title=`${esc(e.tipo==='lavorazione'?(e.lav||'Travaso'):'Travaso')} · ${src.length?'dalla vasca '+src.map(c=>esc(vlab(c))).join(', ')+' ':''}alla vasca ${esc(vlab(n.vasca))}`; }
-    if(e.tipo==='certificazione'){ const P=R.nodes[(n.parents[0]||{}).n]; return {title:`Certificazione ${esc(certLbl(n.vino))} in vasca ${esc(vlab(n.vasca))}`,body:`<b>${hL(n.Ltot)}</b> passano da <b>${vNameSub(P?P.vino:e.vino)}</b> a <b>${vNameSub(n.vino)}</b>${e.idoneita?' · codice idoneità <b>'+esc(e.idoneita)+'</b>':''}`}; }
+    if(st.kind==='assemblaggio') title=`Assemblaggio in ${esc(vlab(n.vasca))}`;
+    else if(st.kind==='entrata') title=`Entrata in ${esc(vlab(n.vasca))}`;
+    else if(st.kind==='ingresso') title=`${pres?'Assemblaggio':'Origine'} in ${esc(vlab(n.vasca))}`;
+    else { const src=arr.map(p=>R.nodes[p.n]).filter(P=>!P.leaf).map(P=>P.vasca); title=`${esc(e.tipo==='lavorazione'?(e.lav||'Travaso'):'Travaso')} · ${src.length?'dalla vasca '+src.map(c=>esc(vlab(c))).join(', ')+' ':''}alla ${esc(vlab(n.vasca))}`; }
+    if(e.tipo==='certificazione'){ const P=R.nodes[(n.parents[0]||{}).n]; return {title:`Certificazione ${esc(certLbl(n.vino))} in ${esc(vlab(n.vasca))}`,body:`<b>${hL(n.Ltot)}</b> passano da <b>${vNameSub(P?P.vino:e.vino)}</b> a <b>${vNameSub(n.vino)}</b>${e.idoneita?' · codice idoneità <b>'+esc(e.idoneita)+'</b>':''}`}; }
     if((st.kind==='assemblaggio'||st.kind==='ingresso')&&e.tipo==='lavorazione'&&e.lav&&e.lav.toLowerCase()!=='travaso') title+=` · ${esc(e.lav)}`;
     const presTxt=pres?(G.bounds[pres.n+'>'+n.id]?` · ${desc(pres)} (era già in vasca)`:` · già presenti <b>${hL(pres.L)}</b>${st.kind==='assemblaggio'?(()=>{const m=provMix(pres.n); return m.length?` <span class="muted">(${m.map(([k2,f2])=>esc(k2)+(m.length>1?' '+nf(f2*100,1)+'%':'')).join(', ')})</span>`:''})():''}`):'';
     return {title,body:`${arr.map(desc).join(' · ')}${presTxt} → in vasca <b>${hL(n.Ltot)}</b> di ${esc(vName(n.vino))}${shareTxt(st.share,Lnow)}`+(st.aggs&&st.aggs.length?`<div>${aggLineCtx(st.aggs,st.aggCtx)}</div>`:'')};
@@ -1224,7 +1228,7 @@ function grpStepHTML(g,G,Lnow){ const p=VLAB_D; VLAB_D=g.ev.data; try{ const src
     const nums=g.items.map(x=>x.num).filter(x=>x!=null); const col=KIND[g.kind][1];
     return `<li><span class="gnum" style="border-color:${col}">${nums.length?Math.min(...nums)+'–'+Math.max(...nums):'·'}</span><div><div class="gdate">${fd(g.ev.data)} · <span style="color:${col};font-weight:700">${esc(g.ev.lav||'Raccolta')}</span></div>
       ${(()=>{ const dst=[...new Set(g.items.map(st=>st.n.vasca))]; const srcU=[...new Set(src)];
-        return dst.length===1?`<b>Raccolta in ${esc(vkind(dst[0]).toLowerCase())} ${esc(vlab(dst[0]))}</b><div>arrivano in tutto <b>${hL(L)}</b> da ${srcU.length?esc(elencoV(srcU)):''}${entr?(srcU.length?' e ':'')+entr+' entrate':''}</div>`
+        return dst.length===1?`<b>Raccolta in ${esc(vkind(dst[0]).toLowerCase())} ${esc(vlabS(dst[0]))}</b><div>arrivano in tutto <b>${hL(L)}</b> da ${srcU.length?esc(elencoV(srcU)):''}${entr?(srcU.length?' e ':'')+entr+' entrate':''}</div>`
           :`<b>Distribuzione${srcU.length?' da '+esc(elencoV(srcU)):''} in ${esc(elencoV(dst))}</b><div>in tutto <b>${hL(L)}</b> in ${dst.length} contenitori</div>`; })()}
       <details style="margin-top:4px"><summary class="small" style="cursor:pointer">Dettaglio dei ${g.items.length} arrivi</summary><ul class="small">${g.items.map(st=>{ const tx=stepText(st,G,Lnow); return `<li>${tx.body}</li>`; }).join('')}</ul></details>
       ${g.ev.note?`<div class="nt muted small">${esc(g.ev.note)}</div>`:''}</div></li>`; } finally{ VLAB_D=p; } }
@@ -1259,9 +1263,9 @@ function compRows(G,Ltot,btn){
   const cols=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)'];
   const rows=Object.entries(G.compo).filter(([,f])=>f>1e-9).sort((a,b)=>{const ao=a[0].startsWith('own:'),bo=b[0].startsWith('own:'); return ao!==bo?(ao?-1:1):b[1]-a[1];});
   const ownN=Object.keys(G.compo).filter(k=>k.startsWith('own:')).length;
-  const label=k=>{ if(k.startsWith('own:')){ const n=R.nodes[k.slice(4)]; const ot=origTxt(n); return `<b>${esc(vName(G.root.vino))}</b> <span class="muted">— ${ownN>1?'partita':'partita propria'}${ot?' · '+esc(ot):''}${ownN>1?` · entrata in vasca ${esc(vlab(n.vasca))} il ${fd(n.data)}`:''}</span>`; }
+  const label=k=>{ if(k.startsWith('own:')){ const n=R.nodes[k.slice(4)]; const ot=origTxt(n); return `<b>${esc(vName(G.root.vino))}</b> <span class="muted">— ${ownN>1?'partita':'partita propria'}${ot?' · '+esc(ot):''}${ownN>1?` · entrata in ${esc(vlab(n.vasca))} il ${fd(n.data)}`:''}</span>`; }
     if(G.mode==='op'){ const bd=G.bounds[k]; return `<b>${esc(vName(bd.p.vino))}</b> <span class="muted">— ${bd.p.leaf?esc(lc1(bd.p.descr)):'dalla '+esc(vnome(bd.p.vasca))} in ${esc(vnome(bd.child.vasca))} il ${fd(R.nodes[bd.child.id].data)}</span>`; }
-    const n=R.nodes[k]; return `<b>${esc(vName(n.vino))}</b> <span class="muted">— ${esc(lc1(n.descr))} in vasca ${esc(vlab(n.vasca))} il ${fd(n.data)}</span>`; };
+    const n=R.nodes[k]; return `<b>${esc(vName(n.vino))}</b> <span class="muted">— ${esc(lc1(n.descr))} in ${esc(vlab(n.vasca))} il ${fd(n.data)}</span>`; };
   return `<div class="cbar">${rows.map(([k,f],j)=>`<i style="width:${f*100}%;background:${cols[j%cols.length]}"></i>`).join('')}</div>
    <ul class="clist">${rows.map(([k,f],j)=>`<li><span class="sw" style="background:${cols[j%cols.length]}"></span><b>${nf(f*100,1)}%</b> · ${hL(f*Ltot)} · ${label(k)}${btn&&G.mode==='op'?histBtn(G,k):''}</li>`).join('')}</ul>`;
 }
@@ -1280,7 +1284,7 @@ function analisiPercorso(G,code,focus){
     const hit=lin.filter(n=>n.vino===a.vino&&anVasche(a).includes(n.vasca)&&a.data>=n.data&&a.data<=endDate(G.ends[n.id]));
     if(!hit.length) return;
     const n=hit[0]; const here=!focus&&n.vasca===code&&G.ends[n.id]===Infinity;
-    rows.push({a,perc:here?'questa vasca':(n.vasca===code&&!focus?'questa vasca, prima dell\'unione':`porzione in vasca ${esc(vlab(n.vasca))}${G.ends[n.id]===Infinity?'':', prima di confluire'}`),share:G.w[n.id]}); });
+    rows.push({a,perc:here?'questa vasca':(n.vasca===code&&!focus?'questa vasca, prima dell\'unione':`porzione in ${esc(vlab(n.vasca))}${G.ends[n.id]===Infinity?'':', prima di confluire'}`),share:G.w[n.id]}); });
   if(!rows.length) return '';
   rows.sort((x,y)=>x.a.data<y.a.data?1:-1);
   const K=['Alcool distillazione','Acidità totale','Acidità volatile','pH','Solforosa libera','Solforosa totale'];
@@ -1355,12 +1359,12 @@ function viewGen(app,code){
     G=genData(f.p, C.i, 'op', {i:C.i,a:C.vasca}); G.focusC=C; Lnow=f.L;
     const prev=UI.genStack.length>1?UI.genStack[UI.genStack.length-2]:null;
     if(C.unico&&C.orig===f.p) head=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span><b>Da dove viene:</b> com'era composto <b>${esc(vName(C.vino))}</b> in ${esc(vnome(C.vasca))} prima di diventare vino unico il ${fd(C.data)}.</span><span class="row"><button class="btn sm" id="unfocus">← ${prev?'Indietro':'Torna a '+esc(vnome(code))}</button>${prev?`<button class="btn sm ghost" id="unfocus-all">${esc(Vnome(code))}</button>`:''}</span></div>`;
-    else head=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span>${P.leaf?`Questa porzione è <b>entrata in cantina direttamente nella ${esc(vnome(C.vasca))}</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> il ${fd(P.data)}. Prima di questa entrata non ha passaggi registrati.`:`Storia operativa della <b>porzione aggiunta</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> dalla vasca ${esc(vlab(P.vasca))}, entrati in ${esc(vnome(C.vasca))} il ${fd(C.data)}. Mostra la partita ${esc(vName(P.vino))} fino a quel momento.`}</span>
+    else head=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span>${P.leaf?`Questa porzione è <b>entrata in cantina direttamente nella ${esc(vnome(C.vasca))}</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> il ${fd(P.data)}. Prima di questa entrata non ha passaggi registrati.`:`Storia operativa della <b>porzione aggiunta</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> dalla ${esc(vlab(P.vasca))}, entrati in ${esc(vnome(C.vasca))} il ${fd(C.data)}. Mostra la partita ${esc(vName(P.vino))} fino a quel momento.`}</span>
       <span class="row"><button class="btn sm" id="unfocus">← ${prev?'Indietro':'Torna a '+esc(vnome(code))}</button>${prev?`<button class="btn sm ghost" id="unfocus-all">${esc(Vnome(code))}</button>`:''}</span></div>`;
   } else { G=genData(s.node, Infinity, mode); Lnow=s.L; }
   const list=[...G.steps].reverse();
   app.innerHTML=`<div class="row"><a href="#vasche" class="small">← Vasche</a>${s.vino?`<a href="#vino-${s.vino}" class="small">← ${esc(vName(s.vino))}</a>`:''}</div>
-  <div class="panel"><div class="spread"><div><h2 style="font-size:1.6rem">Genealogia · ${vkind(code).toLowerCase()} ${esc(vlab(code))}</h2><div class="muted">${tipoDot(s.vino)} ${esc(vName(s.vino))} · ${hL(s.L)} oggi</div></div>
+  <div class="panel"><div class="spread"><div><h2 style="font-size:1.6rem">Genealogia · ${vkind(code).toLowerCase()} ${esc(vlabS(code))}</h2><div class="muted">${tipoDot(s.vino)} ${esc(vName(s.vino))} · ${hL(s.L)} oggi</div></div>
     <div class="row">${f?'':`<div class="seg" role="group" aria-label="Livello"><button aria-pressed="${mode==='op'}" data-gm="op">Operativa</button><button aria-pressed="${mode==='full'}" data-gm="full">Tracciabilità completa</button></div>`}
     <label class="f" style="max-width:210px">Altra vasca<select id="gsel">${VASCHE.filter(v=>R.st[v.code].vino).map(v=>`<option value="${esc(v.code)}" ${v.code===code?'selected':''}>${esc(vlab(v.code))+capTxt(v.code)}</option>`).join('')}</select></label></div></div></div>
   ${head}
@@ -1374,7 +1378,7 @@ function viewGen(app,code){
   <div class="panel"><h3>Percorso e lavorazioni <span class="muted small" style="font-family:var(--f-body);font-weight:400">· dal più recente</span></h3>
     <ol class="gsteps">
     ${f?'':`<li><span class="gnum" style="border-color:var(--ink)">✓</span><div><div class="gdate">${UI.asOf&&UI.asOf!==today()?'situazione al '+fd(UI.asOf):'oggi'}</div><b>${esc(Vnome(code))}</b><div>${esc(vName(s.vino))} · <b>${hL(s.L)}</b></div></div></li>`}
-    ${f&&R.nodes[f.p].leaf?(()=>{const P=R.nodes[f.p], ev=S.eventi.find(x=>x.id===P.ev)||{}; return `<li><span class="gnum" style="border-color:var(--ink)">E</span><div><div class="gdate">${fd(P.data)} · <span style="font-weight:700">Entrata in cantina</span></div><b>Vasca ${esc(vlab(P.vasca))}</b><div>entrano <b>${hL(ev.L||f.L)}</b> di ${esc(vName(P.vino))} · ${esc(P.descr)}${ev.stima?' · volume '+esc(ev.stima):''}</div>${ev.note?`<div class="nt muted small">${esc(ev.note)}</div>`:''}</div></li>`;})():''}
+    ${f&&R.nodes[f.p].leaf?(()=>{const P=R.nodes[f.p], ev=S.eventi.find(x=>x.id===P.ev)||{}; return `<li><span class="gnum" style="border-color:var(--ink)">E</span><div><div class="gdate">${fd(P.data)} · <span style="font-weight:700">Entrata in cantina</span></div><b>${esc(Vnome(P.vasca))}</b><div>entrano <b>${hL(ev.L||f.L)}</b> di ${esc(vName(P.vino))} · ${esc(P.descr)}${ev.stima?' · volume '+esc(ev.stima):''}</div>${ev.note?`<div class="nt muted small">${esc(ev.note)}</div>`:''}</div></li>`;})():''}
     ${raggruppaSteps(list).map(st=>{ if(st.grp) return grpStepHTML(st,G,Lnow); const tx=stepText(st,G,Lnow); const ingr=f&&st.kind==='out'&&G.focusC&&st.t.i===G.focusC.i&&st.t.a===G.focusC.vasca; if(f) tx.body=tx.body.split('del vino attuale').join('della porzione'); return `<li><span class="gnum" style="border-color:${ingr?'var(--c2)':KIND[st.kind][1]}">${st.num}</span><div><div class="gdate">${fd(st.ev.data)} · <span style="color:${ingr?'var(--c2)':KIND[st.kind][1]};font-weight:700">${ingr?'Ingresso':(st.kind==='nodo'||st.kind==='agg')&&st.ev.lav?esc(st.ev.lav):KIND[st.kind][0]}</span>${st.ev.pronto&&st.ev.tipo==='lavorazione'?' <span class="chip pronto">vino pronto</span>':''}</div><b>${tx.title}</b><div>${tx.body}</div>${st.ev.note&&!['agg'].includes(st.kind)?`<div class="nt muted small">${esc(st.ev.note)}</div>`:''}</div></li>`}).join('')}
     </ol></div>`;
   const gan=$('#g-an',app); if(gan) gan.onclick=()=>{UI.vinoTab='analisi'; UI.keepTab=true;};
@@ -1427,7 +1431,7 @@ function tankSVG(v){
   const col = vi?`var(--${vi.tipo})`:'none';
   const cls = ['tank',over?'over':'',UI.sel===v.code?'sel':'',v.unk?'unk':'',v.kind==='botte'?'botte':''].join(' ');
   const fC=Math.max(8.5,Math.min(26,v.r*0.52)), fV=Math.max(5.6,Math.min(15,v.r*0.31));
-  return `<g class="${cls}" data-code="${esc(v.code)}" tabindex="0" role="button" aria-label="${vkind(v.code)} ${esc(vlab(v.code))}, ${s.vino?vName(s.vino)+' '+hL(s.L):'vuota'}, nominale ${nf(v.cap)} hL">
+  return `<g class="${cls}" data-code="${esc(v.code)}" tabindex="0" role="button" aria-label="${vkind(v.code)} ${esc(vlabS(v.code))}, ${s.vino?vName(s.vino)+' '+hL(s.L):'vuota'}, nominale ${nf(v.cap)} hL">
     <clipPath id="cp-${esc(v.code)}"><rect x="${v.x-v.r}" y="${v.y+v.r-h}" width="${2*v.r}" height="${h}"/></clipPath>
     <circle class="body${s.man?' inman':''}" cx="${v.x}" cy="${v.y}" r="${v.r}"/>
     ${f>0?`<circle cx="${v.x}" cy="${v.y}" r="${v.r}" fill="${col}" fill-opacity=".6" clip-path="url(#cp-${esc(v.code)})"/>`:''}
@@ -1441,7 +1445,7 @@ function tankSVG(v){
       return o; })()}
     <text class="code" x="${v.x}" y="${v.y-v.r*0.2}" style="font-size:${fC.toFixed(1)}px">${esc(v.label)}</text>
     <text class="vol" x="${v.x}" y="${v.y+v.r*0.5}" style="font-size:${fV.toFixed(1)}px">${nf(v.cap)} hL</text>
-    <title>${vkind(v.code)} ${esc(vlab(v.code))} · ${s.vino?esc(vName(s.vino))+' · '+hL(s.L)+(s.pronto?' · VINO PRONTO':'')+(s.imp?' · IN LAVORAZIONE: '+s.imp.lav:''):'vuota'} · nominale ${nf(v.cap)} hL</title>
+    <title>${vkind(v.code)} ${esc(vlabS(v.code))} · ${s.vino?esc(vName(s.vino))+' · '+hL(s.L)+(s.pronto?' · VINO PRONTO':'')+(s.imp?' · IN LAVORAZIONE: '+s.imp.lav:''):'vuota'} · nominale ${nf(v.cap)} hL</title>
   </g>`;
 }
 function mapSVG(dep){
@@ -1484,7 +1488,7 @@ function vascaPanel(code){
   const pct = Math.min(100,s.L/(v.cap*100)*100), vi=vino(s.vino);
   const evs = attivi(S.eventi).filter(e=>!e.storico && e.data<=asOf() && (e.vasca===code || (e.tratte||[]).some(t=>t.da===code||t.a===code) || (e.vasche||[]).includes(code) || (e.dest||[]).some(d=>d.vasca===code))).sort((a,b)=>before(a,b)?1:-1).slice(0,5);
   return `<div class="panel side">
-    <div class="spread"><h2>${vkind(code)} ${esc(vlab(code))}</h2><span class="row" style="gap:6px">${v.unk?'<span class="chip warn">Posizione da verificare</span>':''}<button class="btn sm ghost" id="desel" title="Deseleziona" aria-label="Deseleziona la vasca">✕</button></span></div>
+    <div class="spread"><h2>${vkind(code)} ${esc(vlabS(code))}</h2><span class="row" style="gap:6px">${v.unk?'<span class="chip warn">Posizione da verificare</span>':''}<button class="btn sm ghost" id="desel" title="Deseleziona" aria-label="Deseleziona la vasca">✕</button></span></div>
     ${posTxt(code)||v.stato!=='attivo'?`<div class="small muted">${esc(posTxt(code))}${v.stato!=='attivo'?` <span class="chip warn">${v.stato}</span>`:''}</div>`:''}
     ${v.kind==='botte'?`<div class="small muted">${(()=>{const b=(S.contenitori||{})[code]||{}; const t=[b.essenza,b.tostatura?'tostatura '+b.tostatura:'',b.anno?'anno '+b.anno:''].filter(Boolean).join(' · '); return (t?esc(t)+' · ':'Dati botte non indicati · ')+`<a href="#" data-botte="${esc(code)}">modifica</a>`;})()}</div>`:''}
     <dl class="kv">
@@ -2015,7 +2019,7 @@ function bindActs(root){
     else if(a==='colm') formColmatura({vasche:[c]});
     else if(a==='scheda') location.hash='scheda-'+c;
     else if(a==='fferm') formFineFerm(c);
-    else if(a==='iferm'){ evPush({id:uid(),tipo:'fermentazione',azione:'inizio',data:asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[c],creatoIl:new Date().toISOString()}); refresh(); toast('Vasca '+vlab(c)+': fermentazione iniziata il '+fd(asOf())); }
+    else if(a==='iferm'){ evPush({id:uid(),tipo:'fermentazione',azione:'inizio',data:asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[c],creatoIl:new Date().toISOString()}); refresh(); toast(Vnome(c)+': fermentazione iniziata il '+fd(asOf())); }
     else if(a==='prog') formLavoro(null,{tipo:R.st[c].vino?'Travaso':'Pulizia vasche e attrezzature',vasche:[c]});
     else if(a==='finelav') formFineLav(c);
     else if(a==='pronto'||a==='nopronto'){ evPush({id:uid(),tipo:'stato',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,pronto:a==='pronto',creatoIl:new Date().toISOString()}); refresh(); toast((a==='pronto'?Vnome(c)+': vino pronto':Vnome(c)+': tolto «pronto»')+' dal '+fd(asOf())); }
@@ -2146,7 +2150,11 @@ const imbRighe = l=>Array.isArray(l&&l.imbs)&&l.imbs.length?l.imbs.filter(i=>i&&
 const imbEsec = (l,k)=>{ const e=l.esec||{}; if(Array.isArray(e.imbs)) return e.imbs[k]||{}; return k===0?(e.imb||{}):{}; };
 function imbTxt(l,st){ return imbRighe(l).map(i=>imbTxtR(i,st)).join(' · '); }
 function imbTxtR(i,st){ if(!i||!i.vasca) return ''; const s=imbStima(i,st); const v=((st||{})[i.vasca]||{}).vino;
-  return `${vlab(i.vasca)}${v?' ('+vName(v)+')':''}: ${i.q==='pz'?`${nf(i.pz||0,0)} ${imbPzN(i)}`:i.q==='hL'?hL(i.L||0):'tutto il contenuto'}${s.pz&&i.q!=='pz'?` · circa ${nf(s.pz,0)} ${imbPzN(i)}`:''}${s.L&&i.q==='pz'?` · circa ${hL(s.L)}`:''} da ${nf(i.formato||0.75,3)} L${i.lotto?' · lotto '+i.lotto:''}`; }
+  const fm=`da ${nf(i.formato||0.75,3)} L`, N=imbPzN(i);
+  const q=i.q==='pz'?`${nf(i.pz||0,0)} ${N} ${fm}${s.L?` (circa ${hL(s.L)})`:''}`
+    :i.q==='hL'?`${hL(i.L||0)}: ${s.pz?`circa ${nf(s.pz,0)} ${N} ${fm}`:`${N} ${fm}`}`
+    :`tutto il contenuto: ${s.pz?`circa ${nf(s.pz,0)} ${N} ${fm} (circa ${hL(s.L)})`:`${N} ${fm}`}`;
+  return `${Vnome(i.vasca)}${v?' · '+vName(v):''} — ${q}${i.lotto?' · lotto '+i.lotto:''}`; }
 /* quanto prodotto in ciascun contenitore (con i volumi della programmazione) */
 /* quantità per contenitore: {codice: '300 g' | null se il volume di quel contenitore non è noto}; null se non si divide */
 /* quantità scritta a mano (o «in tutto»): numero e unità */
@@ -2273,7 +2281,7 @@ function sceltaMulti(o){ /* o: {titolo, scelti:[], escludi:[], vino:''|'+'|'-', 
         .sort((a,c)=>DEPOSITI.findIndex(x=>x.id===a.dep)-DEPOSITI.findIndex(x=>x.id===c.dep)||natCmp(a.rec.gruppo||'',c.rec.gruppo||'')||natCmp(a.rec.posto||a.label,c.rec.posto||c.label)||natCmp(a.label,c.label)); };
     const draw=()=>{ const vs=filt(); const tuttiLoc=locs.length>1&&!($('#sm-l',b)&&$('#sm-l',b).value);
       $('#sm-g',b).innerHTML=vs.map(v=>{ const s=st[v.code]||{}, pieno=(s.L||0)>1e-6, ff=pieno?Math.min(1,s.L/(v.cap*100)):0, on=sel.has(v.code);
-        const loc=tuttiLoc&&vlab(v.code)===v.label?`<span>${esc((LOCMAP[v.dep]||{}).sigla||locNome(v.dep))}</span>`:'';
+        const loc=tuttiLoc&&vlabS(v.code)===v.label?`<span>${esc((LOCMAP[v.dep]||{}).sigla||locNome(v.dep))}</span>`:'';
         return `<button type="button" class="fpost${on?' sel':''}" data-sm="${esc(v.code)}" aria-pressed="${on}" style="--pc:${pieno?partCol(s.vino):'transparent'};--pf:${(ff*100).toFixed(0)}%" title="${esc(Vnome(v.code))} · ${esc(locNome(v.dep))} · ${nf(v.cap)} hL${pieno?' · '+esc(vName(s.vino))+' '+hL(s.L):' · vuota'}"><b>${esc(vlab(v.code))}</b>${loc}<span class="vn">${pieno?esc(vName(s.vino)):'vuota'}</span><span>${pieno?esc(hL(s.L)):nf(v.cap)+' hL'}</span></button>`; }).join('')||'<p class="muted small">Nessun contenitore con questi filtri.</p>';
       $$('[data-sm]',b).forEach(x=>x.onclick=()=>{ const c=x.dataset.sm; sel.has(c)?sel.delete(c):sel.add(c); draw(); });
       const tot=[...sel].reduce((a,c)=>a+((st[c]||{}).L||0),0);
@@ -2672,7 +2680,7 @@ function dichiaraEsec(l,stato,o={}){
    <p class="small" style="margin-top:0"><b>${esc(lavTitolo(l))}</b></p>
    ${fatto?`<div class="fg"><label class="f">Quando l'hai fatto<input type="datetime-local" id="x-il" value="${ora}"></label>${o.op?'':`<label class="f">Chi l'ha fatto${assSelHTML('x-da',o.chi||'',!!o.chiEst)}</label>`}</div>
      ${l.tipo==='Colmatura'?`<label class="f" style="margin-top:8px">Litri usati in tutto${l.colm&&l.colm.da?' dalla '+esc(vnome(l.colm.da)):''} <span class="muted small">(facoltativo)</span><input id="x-cL" inputmode="decimal" placeholder="${l.colm&&l.colm.L?'previsti '+nfIn(l.colm.L,1):'es. 40'}"></label>`:''}
-     ${IR.length===1?`<label class="row" style="gap:8px;margin:10px 0 0"><input type="checkbox" id="x-ivu" ${IR[0].q==='tutto'?'checked':''}> <span>La vasca <b>${esc(vlab(IR[0].vasca))}</b> è rimasta vuota</span></label>`:''}
+     ${IR.length===1?`<label class="row" style="gap:8px;margin:10px 0 0"><input type="checkbox" id="x-ivu" ${IR[0].q==='tutto'?'checked':''}> <span>La <b>${esc(vlab(IR[0].vasca))}</b> è rimasta vuota</span></label>`:''}
      ${multiI?`<fieldset class="lvf" style="margin-top:10px"><legend>Imbottigliamenti</legend>${IR.map((i,k)=>`<div style="border-top:1px solid var(--line);padding:8px 0">
         <label class="row" style="gap:8px"><input type="checkbox" data-if="${k}" checked> <span><b>${esc(imbTxtR(i,stOggi()))}</b></span></label>
         <div class="fg" data-ib="${k}"><label class="f">${esc(imbPzN(i).replace(/^./,c=>c.toUpperCase()))} ${imbPzN(i)==='bag in box'?'fatti':'fatte'}<input data-ipz="${k}" inputmode="numeric" placeholder="come previsto"></label><label class="f">hL usciti<input data-iL="${k}" inputmode="decimal" placeholder="come previsto"></label>
@@ -2743,7 +2751,7 @@ function apriRegistrazione(l){
   const avvisoNonAgg=()=>{ if(!nonAgg.length) return; setTimeout(()=>{ const a=document.querySelector('#aggs')||document.querySelector('.lprod')&&document.querySelector('.lprod').parentNode; if(a&&!document.querySelector('#cv-nonagg')) a.insertAdjacentHTML('beforebegin',`<div class="box warn small" id="cv-nonagg" style="color:var(--ink);margin:6px 0">${esc(ex.da||'L\'operatore')} <b>non ha aggiunto</b>: ${esc(nonAgg.join(', '))}. ${nonAgg.length>1?'Non sono':'Non è'} tra i prodotti qui sotto. Se al suo posto è stato messo altro, aggiungilo come riga nuova.</div>`); },0); };
   const agg=[]; (l.prodotti||[]).forEach((p,i)=>{ const su=prodSu(l,p); const reale=(ex.prodotti||[])[i]||''; if(nonAgg.includes(p.prodotto)&&(/^non aggiunt/i.test(reale)||(ex.spunte&&ex.spunte[i]===false))) return;
     /* l'operatore l'ha aggiunto solo in alcune vasche: si registra solo in quelle */
-    const pz=/^aggiunto solo in (.+?) \(non in /.exec(reale), suOk=pz?su.filter(c=>pz[1].split(', ').includes(vlab(c))):null;
+    const pz=/^aggiunto solo in (.+?) \(non in /.exec(reale), suOk=pz?su.filter(c=>{ const xs=pz[1].split(', '); return xs.includes(vlab(c))||xs.includes(vlabS(c)); }):null;
     if(suOk&&suOk.length){ suOk.forEach((c,k)=>agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:c,volL:null,volManual:false,reale:k?'':reale})); return; }
     const tutti=mv.length?(p.quando==='dopo'&&trattati.every(c=>su.includes(c))):trattati.every(c=>su.includes(c));
     if(tutti||!su.length) agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:'',volL:null,volManual:false,reale});
@@ -2877,7 +2885,7 @@ function formSegnala(op){ let vs=[];
       lavPush(l); close(); refresh(); toast('Segnalazione inviata'); }; }); }
 /* movimenti per l'operatore: per ogni vasca di partenza cosa contiene oggi, poi «da X → Y: quantità», e quanto resta */
 function opMovHTML(mv,st){ const gr=[]; mv.forEach(m=>{ let g=gr.find(x=>x.da===m.da); if(!g) gr.push(g={da:m.da,mv:[]}); g.mv.push(m); });
-  return gr.map(g=>{ const s0=st[g.da]||{}, part=/^P:/.test(g.da||''); const nome=part?esc(vlab(g.da)):esc(vkind(g.da).toLowerCase())+' '+esc(vlab(g.da));
+  return gr.map(g=>{ const s0=st[g.da]||{}, part=/^P:/.test(g.da||''); const nome=part?esc(vlab(g.da)):esc(vkind(g.da).toLowerCase())+' '+esc(vlabS(g.da));
     const tutto=g.mv.some(m=>m.q==='tutto'), dadef=g.mv.some(m=>!(m.q==='tutto'||(m.q==='hL'&&m.L))); const out=g.mv.reduce((a,m)=>a+(m.q==='hL'&&m.L?m.L:0),0);
     const resta=!part&&s0.vino&&!dadef?(tutto?`<b>${nome}</b> si svuota`:(s0.L-out<-1?`<span style="color:var(--warn)">Escono ${hL(out)} ma oggi ce ne sono ${hL(s0.L)}: senti il responsabile</span>`:`Restano nella ${nome}: <b>circa ${hL(Math.max(0,s0.L-out))}</b>`)):'';
     return `<div class="op-mv">${!part&&s0.vino?`<div class="op-src"><b>${nome}</b> · ${esc(vName(s0.vino))} · oggi <b>${hL(s0.L)}</b></div>`:part?'':`<div class="op-src"><b>${nome}</b> · <span class="muted">vuota oggi</span></div>`}
@@ -2910,7 +2918,7 @@ function opDettaglio(app,l,op,head,bindHead){
     ${l.arr?`<h3 class="op-h">Vino in arrivo${cm('arr')}</h3><div class="box" style="background:var(--surface-2)">${arrHTML(l,true)}</div>${mv.filter(m=>isCode(m.a)).map(m=>m.a).filter((c,i,a)=>a.indexOf(c)===i).map(c=>{ const s=st[c]||{}; return s.vino&&s.L>1e-6?`<div class="small" style="color:var(--warn)">${esc(vlab(c))} contiene già ${esc(vName(s.vino))} (${hL(s.L)}): il vino in arrivo si unisce.</div>`:''; }).join('')}`:''}
     ${mv.length&&!l.arr?`<h3 class="op-h">Movimenti${cm('mov')}</h3>${opMovHTML(mv,st)}${movNote(mv).filter(x=>!/si divide in/.test(x)).map(x=>`<div class="small">${x}</div>`).join('')}`:''}
     ${cs.length&&!imbRighe(l).length?`<h3 class="op-h">Contenitori${cm('vasche')} ${cs.length>1?'<span class="muted small">'+cs.length+'</span>':''}</h3>${cs.length>8?`<p class="small">${esc(elencoV(cs))}</p><details><summary class="small">elenco completo</summary><ul class="op-list">${cs.map(contTxt).join('')}</ul></details>`:`<ul class="op-list">${cs.map(contTxt).join('')}</ul>`}`:''}
-    ${ps.length?`<h3 class="op-h">Prodotti${cm('prod')} ${l.stato==='dafare'?'<span class="muted small">spunta ogni prodotto quando l\'hai aggiunto</span>':''}</h3>${G.map(g=>`<div class="op-vg">${g.c?`<b class="op-vc">${esc(vkind(g.c).toLowerCase())} ${esc(vlab(g.c))}</b>`:'<b>Contenitore non indicato</b>'}${g.q?`<span class="op-qd" style="flex-basis:auto">${g.q==='dopo'?'dopo il travaso, nel vino arrivato':'prima del travaso, nel vino che parte'}</span>`:''}</div>
+    ${ps.length?`<h3 class="op-h">Prodotti${cm('prod')} ${l.stato==='dafare'?'<span class="muted small">spunta ogni prodotto quando l\'hai aggiunto</span>':''}</h3>${G.map(g=>`<div class="op-vg">${g.c?`<b class="op-vc">${esc(vkind(g.c).toLowerCase())} ${esc(vlabS(g.c))}</b>`:'<b>Contenitore non indicato</b>'}${g.q?`<span class="op-qd" style="flex-basis:auto">${g.q==='dopo'?'dopo il travaso, nel vino arrivato':'prima del travaso, nel vino che parte'}</span>`:''}</div>
       <ul class="op-list${l.stato==='dafare'?' op-chk':''}">${g.righe.map(x=>{ const p=x.p, dose=p.dose!=null&&!/ in tutto$/.test(p.udm||'')?`dose ${nf(p.dose,3)} ${esc(p.udm)}`:'';
         return `<li>${l.stato==='dafare'?`<label class="op-ck"><input type="checkbox" data-pk="${esc(x.key)}" ${spunte.has(x.key)?'checked':''} aria-label="Aggiunto ${esc(p.prodotto)}${g.c?' in '+esc(vlab(g.c)):''}"><span>`:''}<b>${esc(p.prodotto)}</b><br>${x.qta?`<span class="op-pq">${esc(x.qta)}</span>`:x.nota?`<span>${esc(x.nota)}</span>`:`<span class="muted">${dose?'da calcolare: '+dose+(p.quando==='dopo'&&mv.length?' sul vino arrivato':''):'quantità da definire'}</span>`}${dose&&x.qta?` <span class="small muted">· ${dose}</span>`:''}${p.note?`<br><span class="small muted">${esc(p.note)}</span>`:''}${l.stato==='dafare'?'</span></label>':''}</li>`; }).join('')}</ul>`).join('')}`:''}
     ${l.stato==='dafare'?`<div class="op-act"><button type="button" class="btn" id="op-no">Non fatto</button><button type="button" class="btn pri" id="op-ok">Fatto</button></div>`
@@ -3006,7 +3014,7 @@ function formManutenzione(codes,p={},corrId){
   });
 }
 function formFineMan(c){ const m=R.st[c].man; if(!m) return;
-  modal('Fine manutenzione · '+vlab(c),`<p>Vuoi terminare <b>${esc(m.lav)}</b> in ${vkind(c).toLowerCase()} ${esc(vlab(c))}?</p><p class="small muted">Iniziata il ${fd(m.inizio)}. Data di fine: <b>${fd(asOf())}</b>.</p>
+  modal('Fine manutenzione · '+vlab(c),`<p>Vuoi terminare <b>${esc(m.lav)}</b> in ${vkind(c).toLowerCase()} ${esc(vlabS(c))}?</p><p class="small muted">Iniziata il ${fd(m.inizio)}. Data di fine: <b>${fd(asOf())}</b>.</p>
    <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Termina</button></div>`,(b,close)=>{
     $('#ok',b).onclick=()=>{ evPush({id:uid(),tipo:'fineMan',data:asOf(),ord:Date.now(),fase:'Affinamento',vasca:c,man:m.lav,rif:m.ev,creatoIl:new Date().toISOString()}); close(); refresh(); toast('Manutenzione terminata'); };
   });
@@ -3080,7 +3088,7 @@ function diarioGruppi(filt){ const g={}; fermLog().forEach(m=>{ if(filt&&!filt(m
   return Object.values(g); }
 function diarioRow(g){ const lm=[...g.mis].sort((a,b)=>(a.ora||'')<(b.ora||'')?-1:1).pop();
   return `<div class="ev"><div class="d">${fd(g.data)}<small>Vinificazione</small></div>
-   <div class="what"><b>Diario di fermentazione · ${vkind(g.vasca)} ${esc(vlab(g.vasca))}</b><div class="row"><span class="chip">Diario</span></div><ul>
+   <div class="what"><b>Diario di fermentazione · ${vkind(g.vasca)} ${esc(vlabS(g.vasca))}</b><div class="row"><span class="chip">Diario</span></div><ul>
     ${g.ops.length?`<li>${esc(opsTxt(g.ops))}</li>`:''}${g.salt.length?`<li class="muted">Saltat${g.salt.length>1?'i':'o'}: ${g.salt.map(m=>esc(m.op.toLowerCase())+(m.note?' ('+esc(m.note)+')':'')).join(', ')}</li>`:''}${g.mis.length?`<li>${g.mis.length} misur${g.mis.length>1?'e':'a'}${lm?` · ultima ${esc(misTxt(lm))}${lm.ora?' alle '+lm.ora:''}`:''}</li>`:''}</ul></div>
    <div class="ops"><button class="btn sm" data-diario="${esc(g.vasca)}|${g.data}">Apri</button></div></div>`; }
 function conDiario(evs,groups,desc,rowFn){ const it=evs.map((e,i)=>({d:e.data,k:1,i,e})).concat(groups.map((g,i)=>({d:g.data,k:desc?0:2,i,g})));
@@ -3114,7 +3122,7 @@ function applicaProt(codes,protId,inizio){ S.protVasca=S.protVasca||{}; const pr
 const protSel = (id,sel)=>`<select id="${id}"><option value="">— nessuno</option>${protList().map(p=>`<option value="${esc(p.id)}" ${p.id===sel?'selected':''}>${esc(p.nome)}</option>`).join('')}</select>`;
 const oggiTxt = c=>{ const l=dovuti(c,today()); return l.map(x=>`${x.op} ${fattiDi(c,x.op,today())} di ${x.volte}`).join(' · '); };
 function formSaltato(c,op,d){
-  modal('Saltato · '+op+' · '+vlab(c),`<form id="fsk" novalidate><p class="small">Segno «${esc(op)}» come non fatto${d&&d!==today()?' il '+fd(d):' oggi'} sulla vasca ${esc(vlab(c))}. Resta nel diario.</p>
+  modal('Saltato · '+op+' · '+vlab(c),`<form id="fsk" novalidate><p class="small">Segno «${esc(op)}» come non fatto${d&&d!==today()?' il '+fd(d):' oggi'} sulla ${esc(vlab(c))}. Resta nel diario.</p>
     <label class="f wide">Motivo<input id="sk-m" placeholder="es. cappello già bagnato, temperatura bassa"></label>
     <div class="foot"><button type="button" class="btn" data-close>Annulla</button><button class="btn pri">Salva</button></div></form>`,(b,close)=>{
     $('#fsk',b).onsubmit=e=>{ e.preventDefault(); fermLog().push({id:uid(),vasca:c,data:d||today(),ora:oraAdesso(),op,saltato:true,note:$('#sk-m',b).value.trim(),vino:R.st[c].vino||null}); close(); refresh(); toast(op+' segnato come saltato'); }; });
@@ -3206,7 +3214,7 @@ function viewVendemmia(app){
    ${pig.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Lavorazione</th><th>Uve</th><th>Vino</th><th>Vasche</th><th class="r">Mosto</th><th class="r">Resa</th><th></th></tr></thead><tbody>
     ${pig.map(e=>{ const kg=(e.uve||[]).reduce((s,u)=>s+(u.kg||0),0), L=(e.dest||[]).reduce((s,d)=>s+(d.L||0),0);
       return `<tr><td>${fd(e.data)}</td><td>${esc(e.lav||'')}</td><td class="small">${(e.uve||[]).map(u=>esc(uvaLab({...(evById(u.uva)||{}),kg:u.kg}))).join('<br>')}</td><td>${tipoDot(e.vino)} <a href="#vino-${e.vino}">${esc(vName(e.vino))}</a></td>
-       <td class="small">${(e.dest||[]).map(d=>`<div style="white-space:nowrap">${vkind(d.vasca)} <b>${esc(vlab(d.vasca))}</b> · ${hL(d.L)}${d.fraz?` <span class="chip" style="text-transform:none;letter-spacing:0">${esc(d.fraz)}</span>`:''}</div>`).join('')}</td><td class="r" style="white-space:nowrap">${hL(L)}</td><td class="r" style="white-space:nowrap">${resa(L,kg)}${kg&&(L/kg>1||L/kg<0.3)?' <span class="chip warn" title="Controlla kg e litri (unità hL/L)">anomala</span>':''}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna lavorazione di uve.</p>'}</div>
+       <td class="small">${(e.dest||[]).map(d=>`<div style="white-space:nowrap">${vkind(d.vasca)} <b>${esc(vlabS(d.vasca))}</b> · ${hL(d.L)}${d.fraz?` <span class="chip" style="text-transform:none;letter-spacing:0">${esc(d.fraz)}</span>`:''}</div>`).join('')}</td><td class="r" style="white-space:nowrap">${hL(L)}</td><td class="r" style="white-space:nowrap">${resa(L,kg)}${kg&&(L/kg>1||L/kg<0.3)?' <span class="chip warn" title="Controlla kg e litri (unità hL/L)">anomala</span>':''}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna lavorazione di uve.</p>'}</div>
   <div class="panel"><h3>Uve arrivate ${Y}</h3>
    ${uve.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Provenienza</th><th>Varietà</th><th>Classificazione</th><th>Conto lavorazione</th><th class="r">Kg</th><th>Grado</th><th>Note</th><th></th></tr></thead><tbody>
     ${uve.map(e=>`<tr><td>${fd(e.data)}</td><td>${esc(e.fonte||'—')}</td><td>${esc(e.varieta||'—')}</td><td class="small">${esc(uvaClass(e)||'—')}</td><td>${esc(e.conto||nostroLab())}</td><td class="r">${nf(e.kg,0)}</td><td>${esc(gradoTxt(e.grado,e.scala))}</td><td class="small muted">${esc(e.note||'')}</td><td class="r" style="white-space:nowrap">${ops(e)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna uva registrata nel '+Y+'.</p>'}</div>`;
@@ -3342,7 +3350,7 @@ function formPigiatura(p={},corrId){
       if(conti.length>1) W.push({k:'conti',t:`Uve di conti lavorazione diversi (${conti.map(c=>esc(contoLab(c))).join(' · ')}).`,ok:'Procedi: il mosto risulta di più conti lavorazione, divisi in % secondo i kg (si vede nella composizione e nel cartello)'});
       if(isAtto(fv.categoria)){ const bad=uve.map(u=>evById(u.uva)).filter(e=>!(isAtto(e.categoria)&&e.denominazione===fv.denominazione));
         if(bad.length) W.push({k:'dop',t:`Il vino è «Atto a ${esc(fv.denominazione)}» ma ${bad.length===1?'questa uva non è atta':'queste uve non sono atte'} a quella denominazione: ${bad.map(x=>esc(uvaLab(x))).join('; ')}.`,ok:`Confermo: il vino resta «Atto a ${esc(fv.denominazione)}»`}); }
-      dest.forEach((d,i)=>{ const s0=st[d.vasca]; if(s0&&s0.vino&&s0.L>1e-6&&s0.vino!==vid) W.push({k:'occ'+i,t:`La vasca <b>${esc(vlab(d.vasca))}</b> contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}): il mosto si unisce a quel vino. Il vino risultante si chiama:<br>
+      dest.forEach((d,i)=>{ const s0=st[d.vasca]; if(s0&&s0.vino&&s0.L>1e-6&&s0.vino!==vid) W.push({k:'occ'+i,t:`La <b>${esc(vlab(d.vasca))}</b> contiene già ${esc(vName(s0.vino))} (${hL(s0.L)}): il mosto si unisce a quel vino. Il vino risultante si chiama:<br>
           <label><input type="radio" name="pgr${i}" value="${esc(s0.vino)}" checked> ${esc(vName(s0.vino))}</label> &nbsp; <label><input type="radio" name="pgr${i}" value="__new"> ${esc(nuovoNome)}</label>`,ok:'Procedi con l\'unione'}); });
       { const dL={}; dest.forEach(d=>{ dL[d.vasca]=(dL[d.vasca]||0)+d.L; }); oltreNominale(dL,st).forEach(x=>W.push({k:'cap'+x.code,t:'Oltre la capacità nominale · '+oltreTxt(x),ok:'È giusto, procedi'})); }
       { const kgT=uve.reduce((a,u)=>a+u.kg,0), LT=dest.reduce((a,d)=>a+d.L,0), r=LT/kgT;
@@ -3361,7 +3369,7 @@ function formPigiatura(p={},corrId){
 
 function formFerm(code){
   const s=R.st[code]; const last=fermMis(code).slice(-6).reverse(); const now=new Date(); const ora=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  modal('Densità / temperatura · '+vkind(code).toLowerCase()+' '+vlab(code),`<form id="ff" novalidate>
+  modal('Densità / temperatura · '+vkind(code).toLowerCase()+' '+vlabS(code),`<form id="ff" novalidate>
    <p class="hint">${s.vino?esc(vName(s.vino))+' · '+hL(s.L):'Vasca vuota'}${s.ferm?` · in fermentazione dal ${fd(s.ferm.inizio)}`:''}. Non cambia giacenze: serve per la curva di fermentazione.</p>
    <div class="fg"><label class="f">Data<input type="date" id="f-data" value="${asOf()}"></label><label class="f">Ora<input type="time" id="f-ora" value="${ora}"></label>
     <label class="f">Valore<input id="f-v" inputmode="decimal" placeholder="es. 18,5"></label><label class="f">Scala${scalaSel('f-sc')}</label>
@@ -3458,7 +3466,7 @@ function formPresa(code){ const s=R.st[code]; const pm=pmaxDi(code);
      evPush({id:uid(),tipo:'fermentazione',azione:'inizio',presa:{zucchero:zuccDi(ag)},aggiunte:ag,note:$('#ps-n',b).value.trim(),data:$('#ps-d',b).value||asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[code],creatoIl:new Date().toISOString()});
      close(); refresh(); toast('Presa di spuma iniziata · '+vlab(code)); }; }); }
 function formFineFerm(code){ const s=R.st[code]; if(!inVin(s)) return;
-  modal('Fine fermentazione · '+vlab(code),`<p>La vasca <b>${esc(vlab(code))}</b>${s.vino?' ('+esc(vName(s.vino))+')':''} è ${s.ferm?'in fermentazione dal '+fd(s.ferm.inizio):'in vinificazione dal '+fd(s.vinif.inizio)+' (fermentazione non registrata)'}.</p><p class="small muted">Dopo questa data la vasca esce dalla vinificazione: le lavorazioni si aprono in fase Affinamento.</p>
+  modal('Fine fermentazione · '+vlab(code),`<p>La <b>${esc(vlab(code))}</b>${s.vino?' ('+esc(vName(s.vino))+')':''} è ${s.ferm?'in fermentazione dal '+fd(s.ferm.inizio):'in vinificazione dal '+fd(s.vinif.inizio)+' (fermentazione non registrata)'}.</p><p class="small muted">Dopo questa data la vasca esce dalla vinificazione: le lavorazioni si aprono in fase Affinamento.</p>
    <div class="fg"><label class="f">Data di fine<input type="date" id="fe-d" value="${asOf()}"></label><label class="f wide">Note<input id="fe-n" placeholder="es. zuccheri finiti, svinato"></label></div>
    <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok">Termina fermentazione</button></div>`,(b,close)=>{
     $('#ok',b).onclick=()=>{ evPush({id:uid(),tipo:'fermentazione',azione:'fine',data:$('#fe-d',b).value||asOf(),ord:Date.now(),fase:'Vinificazione',vasche:[code],note:$('#fe-n',b).value.trim(),creatoIl:new Date().toISOString()}); close(); refresh(); toast('Fermentazione terminata · '+vlab(code)); };
@@ -3507,7 +3515,7 @@ function evBody(e){
   }
   if(e.tipo==='uva') out.push(`<li>${[e.varieta,uvaClass(e),e.fonte?'provenienza '+e.fonte:'',e.conto?'conto lavorazione '+e.conto:nostroLab(),e.grado!=null?gradoTxt(e.grado,e.scala):''].filter(Boolean).map(esc).join(' · ')}</li>`);
   if(e.tipo==='pigiatura'){ const kg=(e.uve||[]).reduce((a,u)=>a+(u.kg||0),0), L=(e.dest||[]).reduce((a,d)=>a+(d.L||0),0);
-    out.push(`<li>${esc(uveDescr(e))}</li>`); out.push(`<li>Vino <b>${esc(vName(e.vino))}</b> · ${(e.dest||[]).map(d=>`${vkind(d.vasca).toLowerCase()} ${esc(vlab(d.vasca))}: ${hL(d.L)}${d.fraz?' ('+esc(d.fraz)+')':''}`).join(' · ')} <span class="muted">(${e.stima||'stimato'})</span></li>`);
+    out.push(`<li>${esc(uveDescr(e))}</li>`); out.push(`<li>Vino <b>${esc(vName(e.vino))}</b> · ${(e.dest||[]).map(d=>`${vkind(d.vasca).toLowerCase()} ${esc(vlabS(d.vasca))}: ${hL(d.L)}${d.fraz?' ('+esc(d.fraz)+')':''}`).join(' · ')} <span class="muted">(${e.stima||'stimato'})</span></li>`);
     if(kg&&L) out.push(`<li>Resa ${nf(L/kg*100,1)} % (${hL(L)} da ${nf(kg,0)} kg)${e.ferm?' · vasche in fermentazione':''}</li>`); }
   if(e.tipo==='carico') out.push(`<li>${esc(e.provenienza||'Entrata')} · vino ${esc(vName(e.vino))} · ${e.stima||''}</li>`);
   if(e.tipo==='imbottigliamento') out.push(`<li>Uscita dalla ${esc(vnome(e.vasca))}: ${hL(e.L)}${e.formato?` · ${fmtTxt(e)} · ${nf(bott(e),0)} ${pezzi(e,bott(e))}${e.bottiglieManuali?'':' (calcolati)'}`:''}${e.lotto?` · <a href="#lotto-${e.id}">lotto ${esc(e.lotto)}</a>`:''}</li>`);
@@ -3521,10 +3529,10 @@ function evBody(e){
   (e.tratte||[]).forEach((t,i)=>{ if(!t.svuota) return; const dc=RA.diffCalc[e.id+'_'+i];
     const fdTxt = t.feccDest?(t.feccDest==='__dam'?' → damigiane':' → '+esc(vlab(t.feccDest))):'';
     if(dc&&Math.abs(dc.cls||0)<1e-6&&!(dc.parti||[]).length&&Math.abs(dc.calc||0)<1e-6){ out.push(`<li class="muted">${esc(vlab(t.da))} svuotata, nessuna differenza</li>`); return; }
-    if(dc&&dc.calc<-1e-6){ out.push(`<li><span class="chip warn">Confermato</span> ${esc(vkind(t.da))} ${esc(vlab(t.da))} svuotata: arrivati nella ${esc(vnome(t.a))} ${hL(-dc.calc)} più del teorico${verTxt('arr:'+e.id+'_'+i)||' · da verificare (Inventario → Differenze aperte)'}</li>`); return; }
+    if(dc&&dc.calc<-1e-6){ out.push(`<li><span class="chip warn">Confermato</span> ${esc(vkind(t.da))} ${esc(vlabS(t.da))} svuotata: arrivati nella ${esc(vnome(t.a))} ${hL(-dc.calc)} più del teorico${verTxt('arr:'+e.id+'_'+i)||' · da verificare (Inventario → Differenze aperte)'}</li>`); return; }
     const pz=[]; if(dc){ if(dc.cls>1e-6) pz.push(`<b>${hL(dc.cls)} ${esc(DIFF[t.diffTipo]||'da verificare')}</b>${fdTxt}`); (dc.parti||[]).filter(x=>x.L>1e-6).forEach(x=>pz.push(`<b>${hL(x.L)} ${esc(DIFF[x.tipo]||x.tipo)}</b>${VMAP[x.feccDest]?' → '+esc(vlab(x.feccDest)):x.feccDest==='__dam'?' → damigiane':''}`)); if(dc.resto>1e-6) pz.push(`${hL(dc.resto)} da verificare`); }
     const daVer=dc&&((t.diffTipo||'verificare')==='verificare'&&dc.cls>1e-6||dc.resto>1e-6);
-    out.push(`<li>${esc(vkind(t.da))} ${esc(vlab(t.da))} svuotata${dc?` · differenza ${hL(dc.calc)}${pz.length?': '+pz.join(' · '):''}`:''}${daVer?(verTxt('ver:'+e.id+'_'+i)||' <span class="muted">(Inventario → Differenze aperte)</span>'):''}</li>`); });
+    out.push(`<li>${esc(vkind(t.da))} ${esc(vlabS(t.da))} svuotata${dc?` · differenza ${hL(dc.calc)}${pz.length?': '+pz.join(' · '):''}`:''}${daVer?(verTxt('ver:'+e.id+'_'+i)||' <span class="muted">(Inventario → Differenze aperte)</span>'):''}</li>`); });
   if((e.tratte||[]).length>6){ const det=out.splice(o0); const tot=e.tratte.reduce((a,t)=>a+(t.L||0),0); const sv=e.tratte.filter(t=>t.svuota).length;
     out.push(`<li>${e.tratte.length} movimenti · ${hL(tot)} arrivati in tutto${sv?` · ${sv} contenitor${sv>1?'i':'e'} svuotat${sv>1?'i':'o'}`:''}</li><li style="list-style:none"><details><summary class="small" style="cursor:pointer">Dettaglio dei movimenti</summary><ul>${det.join('')}</ul></details></li>`); }
   if(e.tipo==='manutenzione'){ out.push(`<li>${e.vasche.map(c=>esc(vlab(c))).join(', ')}${e.giorni?` · per ${e.giorni} giorni, fino al ${fd(addDays(e.data,e.giorni))}`:''}</li>`); if((e.prodotti||[]).length) out.push(`<li>${e.prodotti.map(p=>`<b>${esc(p.prodotto)}</b> ${p.dose!=null?nf(p.dose,3)+' '+esc(p.udm):''}${p.volL&&p.dose!=null?` <span class="muted">(${qtaTeorica(p.dose,p.udm,p.volL)} su ${hL(p.volL)})</span>`:''}${p.reale?' · usata '+esc(p.reale):''}`).join(' · ')}</li>`); }
@@ -3646,7 +3654,7 @@ function modal(title,html,mount){
     di.addEventListener('change',f); di.addEventListener('input',f); f(); }
 }
 const capTxt = c=>VMAP[c]?' (cap. '+nf(VMAP[c].cap)+' hL)':'';
-const vascaLab = (c,s)=>esc(vlab(c))+capTxt(c)+(s&&s.vino?' — '+esc(vName(s.vino))+' · '+hL(s.L)+(s.pronto?' · pronto':''):' — vuota');
+const vascaLab = (c,s)=>esc(vlabS(c))+capTxt(c)+(s&&s.vino?' — '+esc(vName(s.vino))+' · '+hL(s.L)+(s.pronto?' · pronto':''):' — vuota');
 const vascaOpts = (sel,onlyOcc,st)=>{st=st||R.st;return `<option value="">—</option>`+VASCHE.filter(v=>(v.stato==='attivo'||v.code===sel)&&(!onlyOcc||st[v.code].vino||v.code===sel)).map(v=>{const s=st[v.code];return `<option value="${esc(v.code)}" ${v.code===sel?'selected':''}>${vascaLab(v.code,s)}</option>`}).join('')};
 const vinoOpts = sel=>`<option value="">—</option>`+S.vini.map(v=>`<option value="${v.id}" ${v.id===sel?'selected':''}>${esc(v.nome)} ${v.annata}</option>`).join('')+`<option value="__new">+ Nuovo vino…</option>`;
 const unitSel = (id,u='hL')=>`<select id="${id}" aria-label="Unità"><option ${u==='hL'?'selected':''}>hL</option><option ${u==='L'?'selected':''}>L</option></select>`;
@@ -4463,7 +4471,7 @@ function viewLotto(app,id){
   else { if(UI.lotFor!==id){ UI.lotFor=id; UI.lotStack=[]; } UI.lotStack=(UI.lotStack||[]).filter(f=>R.nodes[f.p]&&R.nodes[f.c]);
     const f=UI.lotStack[UI.lotStack.length-1]; let G=lp.G, Lnow=e.L, fh='';
     if(f){ const P=R.nodes[f.p], C=R.nodes[f.c]; G=genData(f.p,C.i,'op',{i:C.i,a:C.vasca}); G.focusC=C; Lnow=f.L; const prev=UI.lotStack.length>1;
-      fh=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;color:var(--ink)"><span>${P.leaf?`Questa porzione è <b>entrata in cantina direttamente nella ${esc(vnome(C.vasca))}</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> il ${fd(P.data)}.`:`Storia della <b>porzione aggiunta</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> dalla vasca ${esc(vlab(P.vasca))}, entrati in ${esc(vnome(C.vasca))} il ${fd(C.data)}.`} Fa parte del vino del lotto ${esc(e.lotto)}.</span><span class="row"><button class="btn sm" id="lt-back">← ${prev?'Indietro':'Torna al lotto'}</button>${prev?'<button class="btn sm ghost" id="lt-top">Lotto</button>':''}</span></div>`; }
+      fh=`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;color:var(--ink)"><span>${P.leaf?`Questa porzione è <b>entrata in cantina direttamente nella ${esc(vnome(C.vasca))}</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> il ${fd(P.data)}.`:`Storia della <b>porzione aggiunta</b>: ${hL(f.L)} di <b>${esc(vName(P.vino))}</b> dalla ${esc(vlab(P.vasca))}, entrati in ${esc(vnome(C.vasca))} il ${fd(C.data)}.`} Fa parte del vino del lotto ${esc(e.lotto)}.</span><span class="row"><button class="btn sm" id="lt-back">← ${prev?'Indietro':'Torna al lotto'}</button>${prev?'<button class="btn sm ghost" id="lt-top">Lotto</button>':''}</span></div>`; }
     const list=[...G.steps].reverse();
     app.innerHTML=head+fh+`<div class="panel"><div class="spread"><h3>${f?'Composizione della porzione':e.tiraggio?'Provenienza del vino base':'Provenienza del vino imbottigliato'} · ${hL(Lnow)}</h3>${f?'':`<div class="seg" role="group" aria-label="Livello"><button aria-pressed="${lmode==='op'}" data-lm="op">Operativa</button><button aria-pressed="${lmode==='full'}" data-lm="full">Tracciabilità completa</button></div>`}</div>
       <p class="hint">${f?'Partite che formavano la porzione quando è entrata nel vino del lotto.':lmode==='full'?`Tracciabilità completa: le origini iniziali (entrate in cantina, pigiature) di tutto il vino del lotto, riunite anche attraverso più assemblaggi, con la parte di ciascuna e i litri attribuiti al lotto (${hL(e.L)}). Sempre alla data del lotto.`:`Composizione del vino in ${esc(vnome(e.vasca))} al momento ${e.tiraggio?'del tiraggio':'dell\'imbottigliamento'}, applicata alla quantità del lotto. «Storia di questa porzione» risale alle partite entrate per assemblaggio, sempre alla data del lotto.`}</p>${compRows(G,Lnow,true)}</div>
@@ -4567,7 +4575,7 @@ function formCartello(code){
   const provs=contoVasca(code), one=provs.length===1?provs[0][0]:null;
   def.note = !provs.length?def.note:one?noteConto(one):provs.map(([pv,f])=>`${noteConto(pv)||pv} (${nf(f*100,0)}%)`).join(' + ');
   const dop=!!(w&&isDen(w.categoria));
-  modal('Cartello · '+vkind(code).toLowerCase()+' '+vlab(code),`
+  modal('Cartello · '+vkind(code).toLowerCase()+' '+vlabS(code),`
    <div class="cart-wrap">
     <form id="fcart" class="fg" style="align-content:start" novalidate>
       <label class="f">ID vasca<input id="k-id" value="${esc(vlab(code))}"></label>
@@ -4622,11 +4630,11 @@ function viewScheda(app,code){
   const {s,w}=D; const cols=anCols(D.ans);
   app.innerHTML=`<div class="row"><a href="#vino-${s.vino}" class="small">← ${esc(vName(s.vino))}</a><a href="#gen-${esc(code)}" class="small">Genealogia</a></div>
   <div class="panel"><div class="spread" style="align-items:flex-start"><div>
-     <div class="muted small" style="text-transform:uppercase;letter-spacing:.08em">Scheda ${vkind(code).toLowerCase()} ${esc(vlab(code))} · ${fd(asOf())}</div>
+     <div class="muted small" style="text-transform:uppercase;letter-spacing:.08em">Scheda ${vkind(code).toLowerCase()} ${esc(vlabS(code))} · ${fd(asOf())}</div>
      <h2 style="font-size:1.7rem;margin:4px 0">${tipoDot(s.vino)} ${esc(vName(s.vino))}</h2><div class="muted">${esc(vinoSub(w))}</div></div>
      <div class="row"><button class="btn pri" id="sc-pdf">Stampa / esporta PDF</button></div></div>
    <dl class="kv" style="margin-top:12px">
-     <dt>Vasca</dt><dd>${vkind(code)} ${esc(vlab(code))}${capTxt(code)}</dd>
+     <dt>Vasca</dt><dd>${vkind(code)} ${esc(vlabS(code))}${capTxt(code)}</dd>
      <dt>Volume</dt><dd>${hL(s.L)}${kgTxt(s.vino,s.L)}</dd>
      <dt>Stato</dt><dd>${esc(D.stato)}</dd>
      <dt>Di chi è</dt><dd>${D.conti.map(([c,f])=>esc(contoLab(c))+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')||'—'}</dd>
@@ -4658,9 +4666,9 @@ async function schedaPDF(code){
   const T=pdfTxt; const head=(t)=>{ if(y>265){ doc.addPage(); y=16; } doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(120,25,45); doc.text(T(t),M,y); doc.setTextColor(0); y+=5; };
   const para=(t,sz=9.5)=>{ doc.setFont('helvetica','normal'); doc.setFontSize(sz); const l=doc.splitTextToSize(T(t),W-2*M); if(y+l.length*4.4>285){ doc.addPage(); y=16; } doc.text(l,M,y); y+=l.length*4.4+1; };
   const tab=(headR,body,opt={})=>{ doc.autoTable({startY:y,head:[headR.map(T)],body:body.map(r=>r.map(T)),margin:{left:M,right:M},styles:{fontSize:8.5,cellPadding:1.6,overflow:'linebreak'},headStyles:{fillColor:[120,25,45],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,244,240]},...opt}); y=doc.lastAutoTable.finalY+6; };
-  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(110); doc.text(T(azNome().toUpperCase()+' · SCHEDA '+vkind(code).toUpperCase()+' '+vlab(code)+' · '+fd(asOf())),M,y); doc.setTextColor(0); y+=8;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(110); doc.text(T(azNome().toUpperCase()+' · SCHEDA '+vkind(code).toUpperCase()+' '+vlabS(code)+' · '+fd(asOf())),M,y); doc.setTextColor(0); y+=8;
   doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text(T(vName(s.vino)),M,y); y+=6; doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.text(T(vinoSub(w)),M,y); y+=7;
-  tab(['Vasca','Volume','Stato','Di chi è'].concat(w.idoneita?['Codice idoneità']:[]),[[vkind(code)+' '+vlab(code)+capTxt(code),hL(s.L),D.stato,D.conti.map(([c,f])=>contoLab(c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')].concat(w.idoneita?[w.idoneita]:[])]);
+  tab(['Vasca','Volume','Stato','Di chi è'].concat(w.idoneita?['Codice idoneità']:[]),[[vkind(code)+' '+vlabS(code)+capTxt(code),hL(s.L),D.stato,D.conti.map(([c,f])=>contoLab(c)+(D.conti.length>1?' '+nf(f*100,0)+'%':'')).join(' · ')].concat(w.idoneita?[w.idoneita]:[])]);
   head('Origine e composizione');
   const tmp=document.createElement('div'); tmp.innerHTML=compRows(D.G,s.L,false); $$('li',tmp).forEach(li=>para('• '+li.textContent.replace(/\s+/g,' ').trim()));
   y+=2;
@@ -4828,7 +4836,7 @@ function certBlock(p,pre){ const vs=vascheDelVino(p.id); const on=Array.isArray(
     <div id="v-cdet" ${on?'':'hidden'}><div class="fg" style="margin-top:8px">
       <label class="f">Data certificazione<input type="date" id="v-cdata" value="${asOf()}"></label>
       <label class="f">Codice idoneità<input id="v-cidon" placeholder="es. 028669/2026-05"></label>
-      ${vs.length>1?`<div class="f" style="grid-column:1/-1">Vasche certificate<span class="row" style="gap:6px;flex-wrap:wrap">${vs.map(c=>`<label class="chip" style="cursor:pointer"><input type="checkbox" class="v-cvs" value="${esc(c)}" ${!on||!pre.length||pre.includes(c)?'checked':''}> ${esc(vlab(c))} · ${hL(R.st[c].L)}</label>`).join('')}</span><span class="hint">Il vino è in più vasche. Se ne togli qualcuna, solo quelle spuntate diventano ${esc(cc)} (con una scheda a parte); le altre restano «Atto a».</span></div>`:vs.length===1?`<span class="hint" style="grid-column:1/-1">Il vino è nella vasca ${esc(vlab(vs[0]))}.</span>`:''}
+      ${vs.length>1?`<div class="f" style="grid-column:1/-1">Vasche certificate<span class="row" style="gap:6px;flex-wrap:wrap">${vs.map(c=>`<label class="chip" style="cursor:pointer"><input type="checkbox" class="v-cvs" value="${esc(c)}" ${!on||!pre.length||pre.includes(c)?'checked':''}> ${esc(vlab(c))} · ${hL(R.st[c].L)}</label>`).join('')}</span><span class="hint">Il vino è in più vasche. Se ne togli qualcuna, solo quelle spuntate diventano ${esc(cc)} (con una scheda a parte); le altre restano «Atto a».</span></div>`:vs.length===1?`<span class="hint" style="grid-column:1/-1">Il vino è nella ${esc(vlab(vs[0]))}.</span>`:''}
     </div></div></div>`; }
 function certifica(p,f,b,close){
   const msg=t=>{ $('#msg',b).textContent=t; };
@@ -4886,7 +4894,7 @@ function viewVino(app,id){
     tc.innerHTML=analisiTable(id)+originAnalisi(id);
     $$('[data-aed]',tc).forEach(b=>b.onclick=()=>formAnalisi(b.dataset.av||id,b.dataset.aed));
   } else if(UI.vinoTab==='genealogia'){
-    tc.innerHTML=t.vs.length?t.vs.map(c=>`<section class="panel" style="margin-bottom:12px"><div class="spread"><h2>${vkind(c)} ${esc(vlab(c))} · ${hL(R.st[c].L)}</h2><a class="btn pri" href="#gen-${esc(c)}">Apri genealogia completa</a></div>${compBar(c)}</section>`).join(''):'<div class="empty">Questo vino non è in nessuna vasca.</div>';
+    tc.innerHTML=t.vs.length?t.vs.map(c=>`<section class="panel" style="margin-bottom:12px"><div class="spread"><h2>${vkind(c)} ${esc(vlabS(c))} · ${hL(R.st[c].L)}</h2><a class="btn pri" href="#gen-${esc(c)}">Apri genealogia completa</a></div>${compBar(c)}</section>`).join(''):'<div class="empty">Questo vino non è in nessuna vasca.</div>';
   } else if(UI.vinoTab==='provenienza'){
     tc.innerHTML=provenienza(id);
   } else {
@@ -5521,7 +5529,7 @@ function viewLocali(app){
       const usato=VASCHE.some(v=>v.dep===l.id); if(usato) l.stato='rimosso'; else S.locali=S.locali.filter(x=>x!==l); if(UI.dep===l.id) UI.dep=null; close(); refresh(); toast('Locale rimosso'); }; }); });
 }
 function menuContenitore(code){ const v=VMAP[code];
-  modal(vkind(code)+' '+vlab(code),`<div style="display:flex;flex-direction:column;gap:10px">
+  modal(vkind(code)+' '+vlabS(code),`<div style="display:flex;flex-direction:column;gap:10px">
     <button class="btn" id="m-sp" style="text-align:left"><b>Sposta in un altro locale</b><br><span class="small muted">Stesso contenitore, cambia solo il locale. Lo storico ricorda dov'era.</span></button>
     <button class="btn" id="m-so" style="text-align:left"><b>Sostituisci</b><br><span class="small muted">Il contenitore è stato cambiato davvero (nuovo, ridotto, rifatto). Nasce un contenitore nuovo, anche con lo stesso codice; lo storico resta su quello vecchio.</span></button>
     <button class="btn" id="m-di" style="text-align:left"><b>Dismetti</b><br><span class="small muted">Non si usa più. Sparisce dalla pianta e dai moduli, resta in archivio.</span></button></div>
@@ -5529,7 +5537,7 @@ function menuContenitore(code){ const v=VMAP[code];
     $('#m-sp',b).onclick=()=>{ close(); formSposta(code); }; $('#m-so',b).onclick=()=>{ close(); formFineCont(code,'sostituito'); }; $('#m-di',b).onclick=()=>{ close(); formFineCont(code,'dismesso'); }; });
 }
 function formFineCont(code,tipo){ const v=VMAP[code], c=v.rec, sost=tipo==='sostituito';
-  modal((sost?'Sostituisci ':'Dismetti ')+vkind(code).toLowerCase()+' '+vlab(code),`<form id="ffc" novalidate><div class="fg">
+  modal((sost?'Sostituisci ':'Dismetti ')+vkind(code).toLowerCase()+' '+vlabS(code),`<form id="ffc" novalidate><div class="fg">
     <label class="f">Data${sost?' della sostituzione':' di dismissione'}<input type="date" id="fc-d" value="${today()}" max="${today()}"></label>
     <label class="f">Motivo (facoltativo)<input id="fc-m" placeholder="${sost?'es. vasca rifatta, nuova da 60 hL':'es. venduta, rottamata'}"></label>
     ${sost?`<div class="f wide"><b class="small">Il nuovo contenitore</b><span class="hint">Il codice può restare lo stesso: nello storico si leggerà sempre «${esc(vkind(code))} ${esc(v.label)}», ma le operazioni passate restano sul contenitore vecchio e sulla sua capacità di allora.</span></div>
@@ -5554,7 +5562,7 @@ function formFineCont(code,tipo){ const v=VMAP[code], c=v.rec, sost=tipo==='sost
 }
 function formSposta(code){ const v=VMAP[code], c=v.rec; const dest=DEPOSITI.filter(l=>l.id!==v.dep);
   if(!dest.length) return modal('Sposta',`<p>Non ci sono altri locali attivi. Creane uno da «+ Aggiungi locale».</p><div class="foot"><button class="btn pri" data-close>Ho capito</button></div>`,()=>{});
-  modal('Sposta '+vkind(code).toLowerCase()+' '+vlab(code),`<form id="fsp" novalidate><div class="fg">
+  modal('Sposta '+vkind(code).toLowerCase()+' '+vlabS(code),`<form id="fsp" novalidate><div class="fg">
     <label class="f">Nuovo locale<select id="sp-l">${dest.map(l=>`<option value="${esc(l.id)}">${esc(l.nome)}</option>`).join('')}</select></label>
     <label class="f">Data dello spostamento<input type="date" id="sp-d" value="${today()}" max="${today()}"></label>
     <label class="f">Fila / gruppo (facoltativo)<input id="sp-g" value=""></label><label class="f">Posto (facoltativo)<input id="sp-p" value=""></label></div>
@@ -5712,7 +5720,7 @@ function formSerie(locId){
 }
 function rimuoviContenitore(code){ const v=VMAP[code];
   const usi=S.eventi.filter(e=>usaCont(e,code)).length+(S.analisi||[]).filter(a=>a.vasca===code).length+(lavori().some(l=>lavCodes(l).includes(code)||(l.vasche||[]).includes(code))?1:0);
-  modal('Rimuovi dall\'anagrafica',`<p>Tolgo <b>${esc(vkind(code))} ${esc(vlab(code))}</b> (${v.stato}) da tutti gli elenchi, archivio compreso. Non potrà più essere scelto per nuove operazioni.</p>
+  modal('Rimuovi dall\'anagrafica',`<p>Tolgo <b>${esc(vkind(code))} ${esc(vlabS(code))}</b> (${v.stato}) da tutti gli elenchi, archivio compreso. Non potrà più essere scelto per nuove operazioni.</p>
     <p>${usi?`Compare in <b>${usi}</b> tra operazioni e analisi: <b>restano tutte intatte</b> e continuano a leggere «${esc(vkind(code))} ${esc(v.label)}» con la capacità di allora.`:'Non compare in nessuna operazione.'}</p>
     <label class="row" style="gap:6px"><input type="checkbox" id="rm-ok"> <b>Ho capito, rimuovi</b></label>
     <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ok" disabled>Rimuovi</button></div>`,(b,close)=>{
@@ -5754,7 +5762,7 @@ function formLocale(l){
 function formContenitore(c,locId){
   const nuovo=!c; c=c||{tipo:'vasca',locale:locId}; const loc=LOCMAP[c.locale]||{};
   const usato=!nuovo&&S.eventi.some(e=>JSON.stringify(e).includes('"'+c.id+'"'));
-  modal(nuovo?'Aggiungi contenitore · '+loc.nome:'Modifica '+vkind(c.id).toLowerCase()+' '+vlab(c.id),`<form id="fco" novalidate><div class="fg">
+  modal(nuovo?'Aggiungi contenitore · '+loc.nome:'Modifica '+vkind(c.id).toLowerCase()+' '+vlabS(c.id),`<form id="fco" novalidate><div class="fg">
     <label class="f">Codice visibile<input id="co-c" value="${esc(c.codice||'')}" placeholder="es. 24"></label>
     <label class="f">Tipo<select id="co-t">${TIPI_CONT.filter(t=>t!=='autoclave'||(MOD().spumanti&&MOD().charmat)||c.tipo==='autoclave').map(t=>`<option value="${t}" ${c.tipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}</select></label>
     <label class="f">Capacità nominale (hL)<input id="co-cap" inputmode="decimal" value="${c.cap!=null?nfIn(c.cap):''}"></label>
@@ -5772,7 +5780,7 @@ function formContenitore(c,locId){
       if(!codice) return m.textContent='Scrivi il codice visibile.';
       if(!(cap>0)) return m.textContent='Scrivi la capacità nominale in hL.';
       if(VASCHE.some(v=>v.dep===c.locale&&v.stato==='attivo'&&v.code!==c.id&&v.label.toLowerCase()===codice.toLowerCase())) return m.textContent='Nel locale c\'è già un contenitore attivo con il codice «'+codice+'».';
-      const W=[]; const sg=loc.sigla||''; const omon=VASCHE.filter(v=>v.code!==c.id&&v.stato==='attivo'&&v.dep!==c.locale&&vlab(v.code).toLowerCase()===((sg?sg+' ':'')+codice).toLowerCase());
+      const W=[]; const sg=loc.sigla||''; const omon=VASCHE.filter(v=>v.code!==c.id&&v.stato==='attivo'&&v.dep!==c.locale&&vlabS(v.code).toLowerCase()===((sg?sg+' ':'')+codice).toLowerCase());
       if(omon.length) W.push({k:'omon',t:`A video si leggerebbe «${esc((sg?sg+' ':'')+codice)}» come ${omon.map(v=>esc(vkind(v.code).toLowerCase())+' di '+esc(locNome(v.dep))).join(', ')}: nei moduli potrebbero confondersi. Valuta una sigla diversa per il locale.`,ok:'Va bene lo stesso'});
       if(capOp!=null&&capOp>cap) W.push({k:'op',t:'La capacità operativa è maggiore della nominale.',ok:'È corretto'});
       if(W.length){ const key=W.map(w=>w.k).join(); const ok=W.every(w=>{ const x=$(`[data-ok="${w.k}"]`,b); return x&&x.checked; });
