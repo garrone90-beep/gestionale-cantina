@@ -1133,7 +1133,13 @@ const daysBetween=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:
 function impTxt(imp,ref){ ref=ref||asOf(); const d=daysBetween(ref,imp.scad); return `${esc(imp.lav)} dal ${fd(imp.inizio)}, prevista fino al ${fd(imp.scad)} · ${d>0?'mancano '+d+' giorn'+(d===1?'o':'i'):d===0?'scade oggi':'<b>scaduta da '+(-d)+' giorn'+(d===-1?'o':'i')+'</b>'}`; }
 const impScaduta=(imp,ref)=>daysBetween(ref||asOf(),imp.scad)<0;
 const anVasche = a=>a.ambito==='vasca'?(a.vasche&&a.vasche.length?a.vasche:(a.vasca?[a.vasca]:[])):[];
-const anAmbitoTxt = a=>a.ambito==='vasca'?(anVasche(a).length>1?'Vasche ':'Vasca ')+anVasche(a).map(c=>vlab(c)).join(', '):'Vino';
+const anAmbitoTxt = a=>a.ambito==='vasca'?anVasche(a).map(c=>Vnome(c)).join(', '):'Vino';
+/* note automatiche dei lavori salvate prima: «Da lavoro L0001: <titolo lungo> · partita 1 di 2» → «Da lavoro L0001 · Arrivo vino» */
+function notaV(t){ t=String(t||''); const m=/^Da lavoro (\S+): /.exec(t); if(!m) return t;
+  const l=(S.lavori||[]).find(x=>x.num===m[1]); let r=t.slice(m[0].length);
+  const tit=l?lavTitolo(l):''; if(tit&&r.startsWith(tit)) r=r.slice(tit.length); else return t.replace(/ · partita \d+ di \d+/,'');
+  r=r.replace(/^ · partita \d+ di \d+/,'').replace(/^\.\s*/,'');
+  return `Da lavoro ${m[1]}${l&&l.tipo?' · '+l.tipo:''}`+(r?'. '+r:''); }
 const vascheDelVino = (vid,data)=>{ const st=replay(S.eventi,{data:data||asOf(),ord:Infinity}).st; return VASCHE.filter(v=>st[v.code].vino===vid).map(v=>v.code); };
 function partiteDiverse(vid,data){ if(!vid) return false; const rr=replay(S.eventi,{data:data||asOf(),ord:Infinity}); const codes=VASCHE.filter(v=>rr.st[v.code].vino===vid).map(v=>v.code); if(codes.length<2) return false;
   const leaves=(id,seen=new Set())=>{ const n=rr.nodes[id]; if(!n) return seen; if(n.leaf||!n.parents.length){ seen.add(n.grp||id); return seen; } n.parents.forEach(p=>leaves(p.n,seen)); return seen; };
@@ -1210,7 +1216,7 @@ function stepText0(st,G,Lnow){
     const arr=n.parents.filter(p=>p.kind==='arrivo'), pres=n.parents.find(p=>p.kind==='presente');
     const desc=p=>{const P=R.nodes[p.n], k=p.n+'>'+n.id;
       if(G.bounds[k]) return `<span class="ingr">ingresso di <b>${hL(p.L)}</b> di <b>${esc(vName(P.vino))}</b>${P.leaf?` <span class="muted">(${esc(P.descr)})</span>`:` dalla <b>${esc(vlab(P.vasca))}</b>`} <button class="btn sm ghost" data-focus="${k}" data-l="${p.L}">${P.leaf?'scheda entrata':'storia di questa porzione'}</button></span>`;
-      return P.leaf?`entrano <b>${hL(p.L)}</b> <span class="muted">(${esc(P.descr)}${P.note?' · '+esc(P.note):''})</span>`:`arrivano <b>${hL(p.L)}</b> dalla <b>${esc(vlab(P.vasca))}</b>${(()=>{const m=provMix(p.n); return m.length?` <span class="muted">(${m.map(([k2,f2])=>esc(k2)+(m.length>1?' '+nf(f2*100,1)+'%':'')).join(', ')})</span>`:''})()} <button class="btn sm ghost" data-focus="${p.n}>${n.id}" data-l="${p.L}">storia di questa porzione</button>`;};
+      return P.leaf?`entrano <b>${hL(p.L)}</b> <span class="muted">(${esc(P.descr)}${P.note&&!/^Da lavoro /.test(P.note)?' · '+esc(notaV(P.note)):''})</span>`:`arrivano <b>${hL(p.L)}</b> dalla <b>${esc(vlab(P.vasca))}</b>${(()=>{const m=provMix(p.n); return m.length?` <span class="muted">(${m.map(([k2,f2])=>esc(k2)+(m.length>1?' '+nf(f2*100,1)+'%':'')).join(', ')})</span>`:''})()} <button class="btn sm ghost" data-focus="${p.n}>${n.id}" data-l="${p.L}">storia di questa porzione</button>`;};
     let title;
     if(st.kind==='assemblaggio') title=`Assemblaggio in ${esc(vlab(n.vasca))}`;
     else if(st.kind==='entrata') title=`Entrata in ${esc(vlab(n.vasca))}`;
@@ -1223,7 +1229,7 @@ function stepText0(st,G,Lnow){
   }
   const t=st.t;
   if(t.kind==='agg'){ const ag=t.aggs||[]; const pd=(t.perd||[]).map(x=>`${esc(DIFF[x.tipo]||x.tipo)} <b>${hL(x.L)}</b>${x.tipo==='recupero'&&x.feccDest?' in '+esc(vlab(x.feccDest)):''}`).join(' · ');
-    return {title:`${esc(e.lav||'Lavorazione')} · ${esc(vnome(t.vasca))}`,body:(ag.length?aggLineCtx(ag,t.ctx):(!pd&&e.note?esc(e.note):''))+(pd?`<div>${pd}</div>`:'')+shareTxt(st.share,Lnow)}; }
+    return {title:`${esc(e.lav||'Lavorazione')} · ${esc(vnome(t.vasca))}`,body:(ag.length?aggLineCtx(ag,t.ctx):(!pd&&e.note?esc(notaV(e.note)):''))+(pd?`<div>${pd}</div>`:'')+shareTxt(st.share,Lnow)}; }
   if(t.kind==='fine') return {title:`Fine lavorazione · ${esc(vnome(t.vasca))}`,body:esc(t.lav||'')};
   if(t.kind==='stato') return {title:t.pronto?`Vino pronto da imbottigliare · ${esc(vnome(t.vasca))}`:`Tolto «vino pronto» · ${esc(vnome(t.vasca))}`,body:''};
   if(t.kind==='mis') return {title:`Misura · ${esc(vnome(t.vasca))}`,body:`misurati <b>${hL(t.L)}</b> (teorico ${hL(t.teorico)}) · ${t.scelta==='accetta'?'misura accettata':'differenza segnalata'}`};
@@ -1247,7 +1253,7 @@ function grpStepHTML(g,G,Lnow){ const p=VLAB_D; VLAB_D=g.ev.data; try{ const src
         return dst.length===1?`<b>Raccolta in ${esc(vkind(dst[0]).toLowerCase())} ${esc(vlabS(dst[0]))}</b><div>arrivano in tutto <b>${hL(L)}</b> da ${srcU.length?esc(elencoV(srcU)):''}${entr?(srcU.length?' e ':'')+entr+' entrate':''}</div>`
           :`<b>Distribuzione${srcU.length?' da '+esc(elencoV(srcU)):''} in ${esc(elencoV(dst))}</b><div>in tutto <b>${hL(L)}</b> in ${dst.length} contenitori</div>`; })()}
       <details style="margin-top:4px"><summary class="small" style="cursor:pointer">Dettaglio dei ${g.items.length} arrivi</summary><ul class="small">${g.items.map(st=>{ const tx=stepText(st,G,Lnow); return `<li>${tx.body}</li>`; }).join('')}</ul></details>
-      ${g.ev.note?`<div class="nt muted small">${esc(g.ev.note)}</div>`:''}</div></li>`; } finally{ VLAB_D=p; } }
+      ${g.ev.note?`<div class="nt muted small">${esc(notaV(g.ev.note))}</div>`:''}</div></li>`; } finally{ VLAB_D=p; } }
 const KIND = {cert:['Certificazione','var(--ok)'],fine:['Fine lavorazione','var(--ok)'],stato:['Stato','var(--ok)'],entrata:['Entrata','var(--ink)'],ingresso:['Ingresso da altra partita','var(--c2)'],assemblaggio:['Assemblaggio','var(--accent)'],nodo:['Travaso','var(--accent)'],agg:['Lavorazione','var(--ok)'],mis:['Misura','var(--steel)'],imb:['Imbottigliamento','var(--warn)'],out:['Uscita','var(--warn)'],colm:['Colmatura','var(--steel)']};
 function genDiagram(G,fineLab){
   const lanes=[]; G.lin.filter(n=>!n.leaf).sort((a,b)=>a.i-b.i).forEach(n=>{if(!lanes.includes(n.vasca)) lanes.push(n.vasca);});
@@ -1394,8 +1400,8 @@ function viewGen(app,code){
   <div class="panel"><h3>Percorso e lavorazioni <span class="muted small" style="font-family:var(--f-body);font-weight:400">· dal più recente</span></h3>
     <ol class="gsteps">
     ${f?'':`<li><span class="gnum" style="border-color:var(--ink)">✓</span><div><div class="gdate">${UI.asOf&&UI.asOf!==today()?'situazione al '+fd(UI.asOf):'oggi'}</div><b>${esc(Vnome(code))}</b><div>${esc(vName(s.vino))} · <b>${hL(s.L)}</b></div></div></li>`}
-    ${f&&R.nodes[f.p].leaf?(()=>{const P=R.nodes[f.p], ev=S.eventi.find(x=>x.id===P.ev)||{}; return `<li><span class="gnum" style="border-color:var(--ink)">E</span><div><div class="gdate">${fd(P.data)} · <span style="font-weight:700">Entrata in cantina</span></div><b>${esc(Vnome(P.vasca))}</b><div>entrano <b>${hL(ev.L||f.L)}</b> di ${esc(vName(P.vino))} · ${esc(P.descr)}${ev.stima?' · volume '+esc(ev.stima):''}</div>${ev.note?`<div class="nt muted small">${esc(ev.note)}</div>`:''}</div></li>`;})():''}
-    ${raggruppaSteps(list).map(st=>{ if(st.grp) return grpStepHTML(st,G,Lnow); const tx=stepText(st,G,Lnow); const ingr=f&&st.kind==='out'&&G.focusC&&st.t.i===G.focusC.i&&st.t.a===G.focusC.vasca; if(f) tx.body=tx.body.split('del vino attuale').join('della porzione'); return `<li><span class="gnum" style="border-color:${ingr?'var(--c2)':KIND[st.kind][1]}">${st.num}</span><div><div class="gdate">${fd(st.ev.data)} · <span style="color:${ingr?'var(--c2)':KIND[st.kind][1]};font-weight:700">${ingr?'Ingresso':(st.kind==='nodo'||st.kind==='agg')&&st.ev.lav?esc(st.ev.lav):KIND[st.kind][0]}</span>${st.ev.pronto&&st.ev.tipo==='lavorazione'?' <span class="chip pronto">vino pronto</span>':''}</div><b>${tx.title}</b><div>${tx.body}</div>${st.ev.note&&!['agg'].includes(st.kind)?`<div class="nt muted small">${esc(st.ev.note)}</div>`:''}</div></li>`}).join('')}
+    ${f&&R.nodes[f.p].leaf?(()=>{const P=R.nodes[f.p], ev=S.eventi.find(x=>x.id===P.ev)||{}; return `<li><span class="gnum" style="border-color:var(--ink)">E</span><div><div class="gdate">${fd(P.data)} · <span style="font-weight:700">Entrata in cantina</span></div><b>${esc(Vnome(P.vasca))}</b><div>entrano <b>${hL(ev.L||f.L)}</b> di ${esc(vName(P.vino))} · ${esc(P.descr)}${ev.stima?' · volume '+esc(ev.stima):''}</div>${ev.note?`<div class="nt muted small">${esc(notaV(ev.note))}</div>`:''}</div></li>`;})():''}
+    ${raggruppaSteps(list).map(st=>{ if(st.grp) return grpStepHTML(st,G,Lnow); const tx=stepText(st,G,Lnow); const ingr=f&&st.kind==='out'&&G.focusC&&st.t.i===G.focusC.i&&st.t.a===G.focusC.vasca; if(f) tx.body=tx.body.split('del vino attuale').join('della porzione'); return `<li><span class="gnum" style="border-color:${ingr?'var(--c2)':KIND[st.kind][1]}">${st.num}</span><div><div class="gdate">${fd(st.ev.data)} · <span style="color:${ingr?'var(--c2)':KIND[st.kind][1]};font-weight:700">${ingr?'Ingresso':(st.kind==='nodo'||st.kind==='agg')&&st.ev.lav?esc(st.ev.lav):KIND[st.kind][0]}</span>${st.ev.pronto&&st.ev.tipo==='lavorazione'?' <span class="chip pronto">vino pronto</span>':''}</div><b>${tx.title}</b><div>${tx.body}</div>${st.ev.note&&!['agg'].includes(st.kind)?`<div class="nt muted small">${esc(notaV(st.ev.note))}</div>`:''}</div></li>`}).join('')}
     </ol></div>`;
   const gan=$('#g-an',app); if(gan) gan.onclick=()=>{UI.vinoTab='analisi'; UI.keepTab=true;};
   $$('[data-paed]',app).forEach(x=>x.onclick=()=>formAnalisi(x.dataset.pav,x.dataset.paed));
@@ -2765,7 +2771,7 @@ function formConvalida(l){
 }
 function apriRegistrazione(l){
   const T=LT(l.tipo)||{}, ex=l.esec||{}, st=stOggi(), mv=lavMov(l);
-  const note=[`Da lavoro ${l.num||''}: ${lavTitolo(l)}`,ex.diff?'Differenze: '+ex.diff:'',ex.note||''].filter(Boolean).join('. ');
+  const note=[`Da lavoro ${l.num||''}${l.tipo?' · '+l.tipo:''}`,ex.diff?'Differenze: '+ex.diff:'',ex.note||''].filter(Boolean).join('. ');
   const tratte=mv.map((m,i)=>{ const x=(ex.mov||[])[i]||{}; const a=x.a||(m.a==='?'?'':m.a); const L=x.L||movQtaL(m,st,mv); return {da:m.da,a,L:L||null}; });
   const trattati=mv.length?[...new Set(tratte.map(t=>t.a).filter(isCode))]:lavCodes(l);
   /* un prodotto su tutti i contenitori trattati: una riga; su una parte: una riga per contenitore */
@@ -2785,7 +2791,7 @@ function apriRegistrazione(l){
   if(T.reg==='arr'&&l.arr){ const ps=(l.arr.partite||[]).filter(p=>tratte.some((t,i)=>mv[i].da==='P:'+p.id));
     const apri=k=>{ const p=ps[k]; if(!p) return; const rows=mv.map((m,i)=>({m,t:tratte[i]})).filter(x=>x.m.da==='P:'+p.id).map(x=>({vasca:isCode(x.t.a)?x.t.a:'',L:x.t.L||movQtaL(x.m,st,mv)}));
       formCarico({vasca:rows[0]?rows[0].vasca:'',L:rows[0]?rows[0].L:null,righe:rows,vino:p.vino&&vino(p.vino)?p.vino:'',nuovoNome:p.vino?'':p.desc,provenienza:p.da||l.arr.fornitore||'',data:today(),
-        note:`${note}${ps.length>1?` · partita ${k+1} di ${ps.length}`:''}`,titoloExtra:ps.length>1?`Arrivo vino · partita ${k+1} di ${ps.length}: ${ptNome(p)}`:'Arrivo vino: '+ptNome(p),poi:k+1<ps.length?()=>apri(k+1):null}); };
+        note,titoloExtra:ps.length>1?`Arrivo vino · partita ${k+1} di ${ps.length}: ${ptNome(p)}`:'Arrivo vino: '+ptNome(p),poi:k+1<ps.length?()=>apri(k+1):null}); };
     if(!ps.length){ UI.pendLav=null; toast('Nessuna partita con una vasca di destinazione'); return; }
     apri(0); return; }
   if(l.tipo==='Colmatura'&&(l.colm||!mv.length)){ const c=l.colm||{}; formColmatura({vasche:(l.vasche||[]).filter(isCode),da:c.da||'',L:ex.colmL||c.L||null,data:today(),note}); return; }
@@ -3633,7 +3639,7 @@ function evRow0(e,opts={}){
   if(RA.conflitti[e.id]===undefined && (e.tratte||[]).some(t=>t.risultante)) badges.push('<span class="chip">Assemblaggio</span>');
   return `<div class="ev" ${st?'style="opacity:.6"':''}>
     <div class="d">${fd(e.data)}<small>${esc(e.fase||'')}</small></div>
-    <div class="what"><b>${esc(evTitle(e))}</b><div class="row">${badges.join('')}</div>${evBody(e)}${e.note?`<div class="nt">${esc(e.note)}</div>`:''}${e.motivoCorr?`<div class="nt">Motivo correzione: ${esc(e.motivoCorr)}</div>`:''}</div>
+    <div class="what"><b>${esc(evTitle(e))}</b><div class="row">${badges.join('')}</div>${evBody(e)}${e.note?`<div class="nt">${esc(notaV(e.note))}</div>`:''}${e.motivoCorr?`<div class="nt">Motivo correzione: ${esc(e.motivoCorr)}</div>`:''}</div>
     <div class="ops">${!st&&!opts.noOps?`${!e.storico&&e.tipo!=='stato'&&e.tipo!=='fineLav'&&e.tipo!=='fineMan'&&e.tipo!=='certificazione'&&e.tipo!=='fermentazione'&&e.tipo!=='unifica'?`<button class="btn sm" data-corr="${e.id}">Correggi</button>`:''}<button class="btn sm danger" data-ann="${e.id}">Annulla</button>`:''}</div>
   </div>`;
 }
@@ -4954,7 +4960,7 @@ function certifica(p,f,b,close){
   let tid; if(ex) tid=ex.id; else { const r=pickerResolve(fd2); S.vini.push({...r.nuovo,note:'Certificato '+fd2.categoria+' da '+vName(p.id)+(partial?' ('+(sel.length>1?'vasche ':'vasca ')+sel.map(vlab).join(', ')+')':'')}); tid=r.nuovo.id; }
   if(idon) vino(tid).idoneita=idon; Object.assign(vino(p.id),{alias,note});
   evPush({...ev,nuovoVino:tid,inPlace:false}); close(); location.hash='vino-'+tid; refresh();
-  toast((sel.length?(sel.length>1?'Vasche ':'Vasca ')+sel.map(vlab).join(', ')+' certificat'+(sel.length>1?'e':'a'):'Vino certificato')+': ora '+vName(tid)); }
+  toast((sel.length?sel.map(Vnome).join(', ')+' certificat'+(sel.length>1?'e':'a'):'Vino certificato')+': ora '+vName(tid)); }
 
 /* ===================== Scheda vino ===================== */
 function viewVino(app,id){
