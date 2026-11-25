@@ -583,7 +583,7 @@ body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 .chip.mod{background:#FFF1B8;color:#6B5200;border-color:transparent}
 .vp-sel{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:30px}.vp-sel .chip{padding:3px 8px}
 .vp-dd>summary{list-style:none;display:inline-flex;cursor:pointer;margin-top:6px}.vp-dd>summary::-webkit-details-marker{display:none}
-.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.vp-loc{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.vp-loc .chip{cursor:pointer;font:inherit;font-size:13px}.vp-loc .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}.vp-q{max-width:320px;margin-bottom:4px}
+.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.lnk{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}.vp-loc{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.vp-loc .chip{cursor:pointer;font:inherit;font-size:13px}.vp-loc .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}.vp-q{max-width:320px;margin-bottom:4px}
 .vp-g{padding:6px 0;border-top:1px solid var(--line)}.vp-gh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.9rem}
 .vp-gc{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.vp-c{padding:4px 9px;font-size:.88rem;cursor:pointer}.vp-c:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .op-mod{border-left:4px solid #E0B400;background:#FFFBE6;color:var(--ink);border-radius:8px;padding:8px 12px;margin:10px 0}
@@ -1134,12 +1134,22 @@ function impTxt(imp,ref){ ref=ref||asOf(); const d=daysBetween(ref,imp.scad); re
 const impScaduta=(imp,ref)=>daysBetween(ref||asOf(),imp.scad)<0;
 const anVasche = a=>a.ambito==='vasca'?(a.vasche&&a.vasche.length?a.vasche:(a.vasca?[a.vasca]:[])):[];
 const anAmbitoTxt = a=>a.ambito==='vasca'?anVasche(a).map(c=>Vnome(c)).join(', '):'Vino';
-/* note automatiche dei lavori salvate prima: «Da lavoro L0001: <titolo lungo> · partita 1 di 2» → «Da lavoro L0001 · Arrivo vino» */
-function notaV(t){ t=String(t||''); const m=/^Da lavoro (\S+): /.exec(t); if(!m) return t;
-  const l=(S.lavori||[]).find(x=>x.num===m[1]); let r=t.slice(m[0].length);
-  const tit=l?lavTitolo(l):''; if(tit&&r.startsWith(tit)) r=r.slice(tit.length); else return t.replace(/ · partita \d+ di \d+/,'');
-  r=r.replace(/^ · partita \d+ di \d+/,'').replace(/^\.\s*/,'');
-  return `Da lavoro ${m[1]}${l&&l.tipo?' · '+l.tipo:''}`+(r?'. '+r:''); }
+/* nota automatica dei lavori: nella storia di vasche/partite/registro resta solo «Da lavoro L0001 · Arrivo vino».
+   Titolo, differenze e note del lavoro riguardano tutto il lavoro: si leggono aprendo il lavoro (clic su L0001).
+   Vale anche per le note salvate prima («Da lavoro L0001: <titolo>. Differenze: …. <nota> · partita 1 di 2»);
+   quello che l'utente ha aggiunto a mano nella nota resta. */
+function notaV(t){ t=String(t||''); const m=/^Da lavoro (\S+?)(?=: | · |\.|$)/.exec(t); if(!m) return t;
+  const num=m[1], l=(S.lavori||[]).find(x=>x.num===num), ex=(l&&l.esec)||{};
+  let r=t.slice(m[0].length).replace(/\s*·\s*partita \d+ di \d+/g,'');
+  if(!l){ return /^: /.test(r)?'Da lavoro '+num:t.replace(/\s*·\s*partita \d+ di \d+/g,''); }
+  const pezzi=[lavTitolo(l),l.titolo,ex.diff?'Differenze: '+ex.diff:'',ex.note,l.tipo].filter(Boolean).sort((a,b)=>b.length-a.length);
+  for(const p of pezzi){ const k=r.indexOf(p); if(k>=0) r=r.slice(0,k)+r.slice(k+p.length); }
+  r=r.replace(/^[\s.:·]+/,'').replace(/(\.\s*){2,}/g,'. ').replace(/[\s·]+$/,'').trim();
+  return `Da lavoro ${num}${l.tipo?' · '+l.tipo:''}`+(r&&!/^[.:·\s]*$/.test(r)?'. '+r:''); }
+/* come notaV, in HTML, con il numero del lavoro cliccabile */
+function notaH(t){ const v=notaV(t), m=/^Da lavoro (\S+?)(?= · |\.|$)/.exec(v); if(!m||!(S.lavori||[]).some(x=>x.num===m[1])) return esc(v);
+  return `Da lavoro <button type="button" class="lnk" data-lavnum="${esc(m[1])}">${esc(m[1])}</button>`+esc(v.slice(m[0].length)); }
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-lavnum]'); if(!b) return; e.preventDefault(); e.stopPropagation(); const l=(S.lavori||[]).find(x=>x.num===b.dataset.lavnum); if(l) lavDettaglio(l.id); });
 const vascheDelVino = (vid,data)=>{ const st=replay(S.eventi,{data:data||asOf(),ord:Infinity}).st; return VASCHE.filter(v=>st[v.code].vino===vid).map(v=>v.code); };
 function partiteDiverse(vid,data){ if(!vid) return false; const rr=replay(S.eventi,{data:data||asOf(),ord:Infinity}); const codes=VASCHE.filter(v=>rr.st[v.code].vino===vid).map(v=>v.code); if(codes.length<2) return false;
   const leaves=(id,seen=new Set())=>{ const n=rr.nodes[id]; if(!n) return seen; if(n.leaf||!n.parents.length){ seen.add(n.grp||id); return seen; } n.parents.forEach(p=>leaves(p.n,seen)); return seen; };
@@ -1216,7 +1226,7 @@ function stepText0(st,G,Lnow){
     const arr=n.parents.filter(p=>p.kind==='arrivo'), pres=n.parents.find(p=>p.kind==='presente');
     const desc=p=>{const P=R.nodes[p.n], k=p.n+'>'+n.id;
       if(G.bounds[k]) return `<span class="ingr">ingresso di <b>${hL(p.L)}</b> di <b>${esc(vName(P.vino))}</b>${P.leaf?` <span class="muted">(${esc(P.descr)})</span>`:` dalla <b>${esc(vlab(P.vasca))}</b>`} <button class="btn sm ghost" data-focus="${k}" data-l="${p.L}">${P.leaf?'scheda entrata':'storia di questa porzione'}</button></span>`;
-      return P.leaf?`entrano <b>${hL(p.L)}</b> <span class="muted">(${esc(P.descr)}${P.note&&!/^Da lavoro /.test(P.note)?' · '+esc(notaV(P.note)):''})</span>`:`arrivano <b>${hL(p.L)}</b> dalla <b>${esc(vlab(P.vasca))}</b>${(()=>{const m=provMix(p.n); return m.length?` <span class="muted">(${m.map(([k2,f2])=>esc(k2)+(m.length>1?' '+nf(f2*100,1)+'%':'')).join(', ')})</span>`:''})()} <button class="btn sm ghost" data-focus="${p.n}>${n.id}" data-l="${p.L}">storia di questa porzione</button>`;};
+      return P.leaf?`entrano <b>${hL(p.L)}</b> <span class="muted">(${esc(P.descr)}${P.note&&!/^Da lavoro /.test(P.note)?' · '+notaH(P.note):''})</span>`:`arrivano <b>${hL(p.L)}</b> dalla <b>${esc(vlab(P.vasca))}</b>${(()=>{const m=provMix(p.n); return m.length?` <span class="muted">(${m.map(([k2,f2])=>esc(k2)+(m.length>1?' '+nf(f2*100,1)+'%':'')).join(', ')})</span>`:''})()} <button class="btn sm ghost" data-focus="${p.n}>${n.id}" data-l="${p.L}">storia di questa porzione</button>`;};
     let title;
     if(st.kind==='assemblaggio') title=`Assemblaggio in ${esc(vlab(n.vasca))}`;
     else if(st.kind==='entrata') title=`Entrata in ${esc(vlab(n.vasca))}`;
@@ -1229,7 +1239,7 @@ function stepText0(st,G,Lnow){
   }
   const t=st.t;
   if(t.kind==='agg'){ const ag=t.aggs||[]; const pd=(t.perd||[]).map(x=>`${esc(DIFF[x.tipo]||x.tipo)} <b>${hL(x.L)}</b>${x.tipo==='recupero'&&x.feccDest?' in '+esc(vlab(x.feccDest)):''}`).join(' · ');
-    return {title:`${esc(e.lav||'Lavorazione')} · ${esc(vnome(t.vasca))}`,body:(ag.length?aggLineCtx(ag,t.ctx):(!pd&&e.note?esc(notaV(e.note)):''))+(pd?`<div>${pd}</div>`:'')+shareTxt(st.share,Lnow)}; }
+    return {title:`${esc(e.lav||'Lavorazione')} · ${esc(vnome(t.vasca))}`,body:(ag.length?aggLineCtx(ag,t.ctx):(!pd&&e.note?notaH(e.note):''))+(pd?`<div>${pd}</div>`:'')+shareTxt(st.share,Lnow)}; }
   if(t.kind==='fine') return {title:`Fine lavorazione · ${esc(vnome(t.vasca))}`,body:esc(t.lav||'')};
   if(t.kind==='stato') return {title:t.pronto?`Vino pronto da imbottigliare · ${esc(vnome(t.vasca))}`:`Tolto «vino pronto» · ${esc(vnome(t.vasca))}`,body:''};
   if(t.kind==='mis') return {title:`Misura · ${esc(vnome(t.vasca))}`,body:`misurati <b>${hL(t.L)}</b> (teorico ${hL(t.teorico)}) · ${t.scelta==='accetta'?'misura accettata':'differenza segnalata'}`};
@@ -1253,7 +1263,7 @@ function grpStepHTML(g,G,Lnow){ const p=VLAB_D; VLAB_D=g.ev.data; try{ const src
         return dst.length===1?`<b>Raccolta in ${esc(vkind(dst[0]).toLowerCase())} ${esc(vlabS(dst[0]))}</b><div>arrivano in tutto <b>${hL(L)}</b> da ${srcU.length?esc(elencoV(srcU)):''}${entr?(srcU.length?' e ':'')+entr+' entrate':''}</div>`
           :`<b>Distribuzione${srcU.length?' da '+esc(elencoV(srcU)):''} in ${esc(elencoV(dst))}</b><div>in tutto <b>${hL(L)}</b> in ${dst.length} contenitori</div>`; })()}
       <details style="margin-top:4px"><summary class="small" style="cursor:pointer">Dettaglio dei ${g.items.length} arrivi</summary><ul class="small">${g.items.map(st=>{ const tx=stepText(st,G,Lnow); return `<li>${tx.body}</li>`; }).join('')}</ul></details>
-      ${g.ev.note?`<div class="nt muted small">${esc(notaV(g.ev.note))}</div>`:''}</div></li>`; } finally{ VLAB_D=p; } }
+      ${g.ev.note?`<div class="nt muted small">${notaH(g.ev.note)}</div>`:''}</div></li>`; } finally{ VLAB_D=p; } }
 const KIND = {cert:['Certificazione','var(--ok)'],fine:['Fine lavorazione','var(--ok)'],stato:['Stato','var(--ok)'],entrata:['Entrata','var(--ink)'],ingresso:['Ingresso da altra partita','var(--c2)'],assemblaggio:['Assemblaggio','var(--accent)'],nodo:['Travaso','var(--accent)'],agg:['Lavorazione','var(--ok)'],mis:['Misura','var(--steel)'],imb:['Imbottigliamento','var(--warn)'],out:['Uscita','var(--warn)'],colm:['Colmatura','var(--steel)']};
 function genDiagram(G,fineLab){
   const lanes=[]; G.lin.filter(n=>!n.leaf).sort((a,b)=>a.i-b.i).forEach(n=>{if(!lanes.includes(n.vasca)) lanes.push(n.vasca);});
@@ -1400,8 +1410,8 @@ function viewGen(app,code){
   <div class="panel"><h3>Percorso e lavorazioni <span class="muted small" style="font-family:var(--f-body);font-weight:400">· dal più recente</span></h3>
     <ol class="gsteps">
     ${f?'':`<li><span class="gnum" style="border-color:var(--ink)">✓</span><div><div class="gdate">${UI.asOf&&UI.asOf!==today()?'situazione al '+fd(UI.asOf):'oggi'}</div><b>${esc(Vnome(code))}</b><div>${esc(vName(s.vino))} · <b>${hL(s.L)}</b></div></div></li>`}
-    ${f&&R.nodes[f.p].leaf?(()=>{const P=R.nodes[f.p], ev=S.eventi.find(x=>x.id===P.ev)||{}; return `<li><span class="gnum" style="border-color:var(--ink)">E</span><div><div class="gdate">${fd(P.data)} · <span style="font-weight:700">Entrata in cantina</span></div><b>${esc(Vnome(P.vasca))}</b><div>entrano <b>${hL(ev.L||f.L)}</b> di ${esc(vName(P.vino))} · ${esc(P.descr)}${ev.stima?' · volume '+esc(ev.stima):''}</div>${ev.note?`<div class="nt muted small">${esc(notaV(ev.note))}</div>`:''}</div></li>`;})():''}
-    ${raggruppaSteps(list).map(st=>{ if(st.grp) return grpStepHTML(st,G,Lnow); const tx=stepText(st,G,Lnow); const ingr=f&&st.kind==='out'&&G.focusC&&st.t.i===G.focusC.i&&st.t.a===G.focusC.vasca; if(f) tx.body=tx.body.split('del vino attuale').join('della porzione'); return `<li><span class="gnum" style="border-color:${ingr?'var(--c2)':KIND[st.kind][1]}">${st.num}</span><div><div class="gdate">${fd(st.ev.data)} · <span style="color:${ingr?'var(--c2)':KIND[st.kind][1]};font-weight:700">${ingr?'Ingresso':(st.kind==='nodo'||st.kind==='agg')&&st.ev.lav?esc(st.ev.lav):KIND[st.kind][0]}</span>${st.ev.pronto&&st.ev.tipo==='lavorazione'?' <span class="chip pronto">vino pronto</span>':''}</div><b>${tx.title}</b><div>${tx.body}</div>${st.ev.note&&!['agg'].includes(st.kind)?`<div class="nt muted small">${esc(notaV(st.ev.note))}</div>`:''}</div></li>`}).join('')}
+    ${f&&R.nodes[f.p].leaf?(()=>{const P=R.nodes[f.p], ev=S.eventi.find(x=>x.id===P.ev)||{}; return `<li><span class="gnum" style="border-color:var(--ink)">E</span><div><div class="gdate">${fd(P.data)} · <span style="font-weight:700">Entrata in cantina</span></div><b>${esc(Vnome(P.vasca))}</b><div>entrano <b>${hL(ev.L||f.L)}</b> di ${esc(vName(P.vino))} · ${esc(P.descr)}${ev.stima?' · volume '+esc(ev.stima):''}</div>${ev.note?`<div class="nt muted small">${notaH(ev.note)}</div>`:''}</div></li>`;})():''}
+    ${raggruppaSteps(list).map(st=>{ if(st.grp) return grpStepHTML(st,G,Lnow); const tx=stepText(st,G,Lnow); const ingr=f&&st.kind==='out'&&G.focusC&&st.t.i===G.focusC.i&&st.t.a===G.focusC.vasca; if(f) tx.body=tx.body.split('del vino attuale').join('della porzione'); return `<li><span class="gnum" style="border-color:${ingr?'var(--c2)':KIND[st.kind][1]}">${st.num}</span><div><div class="gdate">${fd(st.ev.data)} · <span style="color:${ingr?'var(--c2)':KIND[st.kind][1]};font-weight:700">${ingr?'Ingresso':(st.kind==='nodo'||st.kind==='agg')&&st.ev.lav?esc(st.ev.lav):KIND[st.kind][0]}</span>${st.ev.pronto&&st.ev.tipo==='lavorazione'?' <span class="chip pronto">vino pronto</span>':''}</div><b>${tx.title}</b><div>${tx.body}</div>${st.ev.note&&!['agg'].includes(st.kind)?`<div class="nt muted small">${notaH(st.ev.note)}</div>`:''}</div></li>`}).join('')}
     </ol></div>`;
   const gan=$('#g-an',app); if(gan) gan.onclick=()=>{UI.vinoTab='analisi'; UI.keepTab=true;};
   $$('[data-paed]',app).forEach(x=>x.onclick=()=>formAnalisi(x.dataset.pav,x.dataset.paed));
@@ -2771,7 +2781,10 @@ function formConvalida(l){
 }
 function apriRegistrazione(l){
   const T=LT(l.tipo)||{}, ex=l.esec||{}, st=stOggi(), mv=lavMov(l);
-  const note=[`Da lavoro ${l.num||''}${l.tipo?' · '+l.tipo:''}`,ex.diff?'Differenze: '+ex.diff:'',ex.note||''].filter(Boolean).join('. ');
+  const note=`Da lavoro ${l.num||''}${l.tipo?' · '+l.tipo:''}`;
+  /* differenze e note dell'operatore riguardano tutto il lavoro: si mostrano come avviso nel modulo, non si copiano su ogni movimento */
+  const avvisoOp=()=>{ if(!ex.diff&&!ex.note) return; setTimeout(()=>{ const ds=document.querySelectorAll('.ov .dbody'); const d=ds[ds.length-1]; if(!d||d.querySelector('.cv-opnote')) return;
+    d.insertAdjacentHTML('afterbegin',`<div class="box small cv-opnote" style="margin:0 0 8px;color:var(--ink)"><b>Dal lavoro ${esc(l.num||'')}</b>${ex.diff?`<div>Differenze: ${esc(ex.diff)}</div>`:''}${ex.note?`<div>Nota${ex.da?' di '+esc(ex.da):''}: ${esc(ex.note)}</div>`:''}<div class="hint">Resta nel lavoro. Se riguarda questa vasca, correggi i volumi o scrivilo nelle note qui sotto.</div></div>`); },0); };
   const tratte=mv.map((m,i)=>{ const x=(ex.mov||[])[i]||{}; const a=x.a||(m.a==='?'?'':m.a); const L=x.L||movQtaL(m,st,mv); return {da:m.da,a,L:L||null}; });
   const trattati=mv.length?[...new Set(tratte.map(t=>t.a).filter(isCode))]:lavCodes(l);
   /* un prodotto su tutti i contenitori trattati: una riga; su una parte: una riga per contenitore */
@@ -2787,7 +2800,7 @@ function apriRegistrazione(l){
     else su.forEach((c,k)=>agg.push({prodotto:p.prodotto,dose:p.dose,udm:p.udm,vasca:mv.length&&p.quando!=='dopo'?'':c,volL:null,volManual:false,reale:k?'':reale})); });
   const notaPrima=mv.length&&(l.prodotti||[]).some(p=>p.quando!=='dopo')?' Prodotti previsti prima del trasferimento: '+(l.prodotti||[]).filter(p=>p.quando!=='dopo').map(p=>p.prodotto+' su '+elencoV(prodSu(l,p))).join('; ')+'.':'';
   UI.pendLav={id:l.id,nEv:S.eventi.length,nAn:S.analisi.length};
-  avvisoNonAgg();
+  avvisoNonAgg(); avvisoOp();
   if(T.reg==='arr'&&l.arr){ const ps=(l.arr.partite||[]).filter(p=>tratte.some((t,i)=>mv[i].da==='P:'+p.id));
     const apri=k=>{ const p=ps[k]; if(!p) return; const rows=mv.map((m,i)=>({m,t:tratte[i]})).filter(x=>x.m.da==='P:'+p.id).map(x=>({vasca:isCode(x.t.a)?x.t.a:'',L:x.t.L||movQtaL(x.m,st,mv)}));
       formCarico({vasca:rows[0]?rows[0].vasca:'',L:rows[0]?rows[0].L:null,righe:rows,vino:p.vino&&vino(p.vino)?p.vino:'',nuovoNome:p.vino?'':p.desc,provenienza:p.da||l.arr.fornitore||'',data:today(),
@@ -3639,7 +3652,7 @@ function evRow0(e,opts={}){
   if(RA.conflitti[e.id]===undefined && (e.tratte||[]).some(t=>t.risultante)) badges.push('<span class="chip">Assemblaggio</span>');
   return `<div class="ev" ${st?'style="opacity:.6"':''}>
     <div class="d">${fd(e.data)}<small>${esc(e.fase||'')}</small></div>
-    <div class="what"><b>${esc(evTitle(e))}</b><div class="row">${badges.join('')}</div>${evBody(e)}${e.note?`<div class="nt">${esc(notaV(e.note))}</div>`:''}${e.motivoCorr?`<div class="nt">Motivo correzione: ${esc(e.motivoCorr)}</div>`:''}</div>
+    <div class="what"><b>${esc(evTitle(e))}</b><div class="row">${badges.join('')}</div>${evBody(e)}${e.note?`<div class="nt">${notaH(e.note)}</div>`:''}${e.motivoCorr?`<div class="nt">Motivo correzione: ${esc(e.motivoCorr)}</div>`:''}</div>
     <div class="ops">${!st&&!opts.noOps?`${!e.storico&&e.tipo!=='stato'&&e.tipo!=='fineLav'&&e.tipo!=='fineMan'&&e.tipo!=='certificazione'&&e.tipo!=='fermentazione'&&e.tipo!=='unifica'?`<button class="btn sm" data-corr="${e.id}">Correggi</button>`:''}<button class="btn sm danger" data-ann="${e.id}">Annulla</button>`:''}</div>
   </div>`;
 }
@@ -4543,7 +4556,7 @@ function lievPanel(e){ const m=mesiTra(e.data,asOf()); const vid=(R.imb[e.id]||{
    <dt>Bottiglie</dt><dd>${e.formato?`<b>${nf(bott(e),0)}</b> ${pezzi(e,bott(e))} da ${nf(e.formato,3)} L`:'—'}</dd>
    <dt>Liqueur de tirage</dt><dd>${(e.aggiunte||[]).length?aggLine(e.aggiunte).replace(/^Aggiunte: /,''):[e.zucchero!=null?'zucchero '+nf(e.zucchero,1)+' g/L':'',esc(e.lieviti||'')].filter(Boolean).join(' · ')||'—'}</dd>
    <dt>Posizione</dt><dd>${esc(posLotto(e)||'—')}${(e.posizioni||[]).length?`<div class="small muted">${[{data:e.data,pos:e.posizione||'—'},...e.posizioni].map(x=>fd(x.data)+': '+esc(x.pos)).join(' → ')}</div>`:''}</dd></dl>
-   ${c&&c.ev.length?`<h4 style="margin:12px 0 4px">Storia del lotto</h4><div class="tbl-wrap"><table><tbody>${c.ev.slice().reverse().map(x=>`<tr><td style="white-space:nowrap">${fd(x.data)}</td><td>${esc(evTitle(x))}${x.tipo==='sboccatura'&&!x.colfondo?` <span class="muted small">${x.dosaggio!=null?'· dosaggio '+nf(x.dosaggio,1)+' g/L':''}${x.liqueur?' · '+esc(x.liqueur):''}${x.ricolmatura!=null?' · ricolmatura '+nf(x.ricolmatura,1)+' mL/bott.':''}${x.liqVasca?' · '+nf(x.liqL||0,1)+' L di '+esc(vName((R.imb[x.id]||{}).vino)||'vino')+' dalla '+esc(vnome(x.liqVasca)):''}${(x.aggiunte||[]).length?' · '+aggLine(x.aggiunte).replace(/^Aggiunte: /,''):''}</span>`:''}${x.perse?` <span class="muted small">· perse ${nf(x.perse,0)}</span>`:''}${x.motivo?` <span class="muted small">· ${esc(x.motivo)}</span>`:''}${x.note?` <span class="muted small">· ${esc(x.note)}</span>`:''}</td><td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-corr="${x.id}">Correggi</button><button class="btn sm ghost" data-ann="${x.id}">Annulla</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`; }
+   ${c&&c.ev.length?`<h4 style="margin:12px 0 4px">Storia del lotto</h4><div class="tbl-wrap"><table><tbody>${c.ev.slice().reverse().map(x=>`<tr><td style="white-space:nowrap">${fd(x.data)}</td><td>${esc(evTitle(x))}${x.tipo==='sboccatura'&&!x.colfondo?` <span class="muted small">${x.dosaggio!=null?'· dosaggio '+nf(x.dosaggio,1)+' g/L':''}${x.liqueur?' · '+esc(x.liqueur):''}${x.ricolmatura!=null?' · ricolmatura '+nf(x.ricolmatura,1)+' mL/bott.':''}${x.liqVasca?' · '+nf(x.liqL||0,1)+' L di '+esc(vName((R.imb[x.id]||{}).vino)||'vino')+' dalla '+esc(vnome(x.liqVasca)):''}${(x.aggiunte||[]).length?' · '+aggLine(x.aggiunte).replace(/^Aggiunte: /,''):''}</span>`:''}${x.perse?` <span class="muted small">· perse ${nf(x.perse,0)}</span>`:''}${x.motivo?` <span class="muted small">· ${esc(x.motivo)}</span>`:''}${x.note?` <span class="muted small">· ${notaH(x.note)}</span>`:''}</td><td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-corr="${x.id}">Correggi</button><button class="btn sm ghost" data-ann="${x.id}">Annulla</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`; }
 function lievBind(app,e){ const g=id=>$('#'+id,app); if(g('lv-sb')) g('lv-sb').onclick=()=>formSbocc(e); if(g('lv-sc')) g('lv-sc').onclick=()=>formScarto(e); if(g('lv-re')) g('lv-re').onclick=()=>formRemuage(e); bindEvOps(app);
   const b0=$('#lv-pos',app); if(!b0) return; b0.onclick=()=>modal('Cambia posizione · lotto '+e.lotto,`<div class="fg"><label class="f">Data<input type="date" id="lp-d" value="${today()}"></label><label class="f">Nuova posizione<input id="lp-p" value="${esc(posLotto(e))}" placeholder="es. pupitre 4"></label></div><div id="msg" class="err"></div>
    <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="lp-ok">Salva</button></div>`,(b,close)=>{
@@ -4720,7 +4733,7 @@ function schedaDati(code){
       return {data:st.ev.data,titolo:t,testo:body,aggs:[],note:''}; }
     const e=evOf(st); const tx=stepText(st,G,s.L); const aggs=st.aggs||(st.kind==='agg'&&st.t&&st.t.aggs)||[];
     const h2t=h=>{ const d=document.createElement('div'); d.innerHTML=String(h||'').replace(/<br\s*\/?>/g,' · ').replace(/<(div|li|p)\b/g,' · <$1'); $$('button',d).forEach(x=>x.remove()); return d.textContent.replace(/\s+/g,' ').replace(/^( ·)+\s*/,'').replace(/(\s·)+\s*$/,'').replace(/( · )+/g,' · ').trim(); };
-    return {data:(e.data||(st.n&&st.n.data)||''),titolo:h2t(tx.title),testo:h2t(tx.body),aggs,note:e.note&&!h2t(tx.body).includes(e.note)?e.note:''}; });
+    return {data:(e.data||(st.n&&st.n.data)||''),titolo:h2t(tx.title),testo:h2t(tx.body),aggs,note:e.note&&!h2t(tx.body).includes(notaV(e.note))?e.note:''}; });
   const tr={}; storia.forEach(x=>x.aggs.forEach(a=>{ const k=(a.prodotto||'?')+'|'+(a.udm||''); const t=tr[k]=tr[k]||{prodotto:a.prodotto||'?',udm:a.udm||'',n:0,dose:0,dosi:[]}; t.n++; if(a.dose!=null){ t.dose+=a.dose; t.dosi.push(fd(x.data).slice(0,5)+': '+nf(a.dose,3)); } }));
   const vinifs=G.lin.filter(n=>n.leaf).map(n=>S.eventi.find(e=>e.id===n.ev)).filter(e=>e&&(e.tipo==='pigiatura'||(e.tipo==='carico'&&e.prodotto)));
   const uve=vinifs.map(e=>{ if(e.tipo==='carico') return {data:e.data,lav:'Entrata '+voceTxt(e),uve:entryDescr(e),kg:0,L:e.L,resa:null,ferm:e.prodotto==='mostoferm'}; const kg=(e.uve||[]).reduce((a,u)=>a+(u.kg||0),0), L=(e.dest||[]).reduce((a,d)=>a+(d.L||0),0); return {data:e.data,lav:e.lav,uve:uveDescr(e),kg,L,resa:kg?L/kg*100:null,ferm:!!e.ferm}; });
@@ -4755,7 +4768,7 @@ function viewScheda(app,code){
     ${fermMis(code).length?`<div style="max-width:620px">${fermCurve(code,560,170)}</div>`:D.misure.length?`<div class="tbl-wrap" style="max-width:620px"><table><thead><tr><th>Data</th><th>Vasca</th><th>Misura</th></tr></thead><tbody>${D.misure.map(m=>`<tr><td>${fd(m.data)} ${m.ora||''}</td><td>${esc(vlab(m.vasca))}</td><td>${esc(misTxt(m))}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`:''}
   <div class="panel"><h3>Storia della partita <span class="muted small" style="font-weight:400">· ${D.storia.length} passaggi, dal più vecchio</span></h3>
     <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Operazione</th><th>Dettaglio</th></tr></thead><tbody>
-    ${D.storia.map(x=>`<tr><td style="white-space:nowrap">${fd(x.data)}</td><td><b>${esc(x.titolo)}</b></td><td class="small">${esc(x.testo)}${x.note?`<div class="muted">${esc(x.note)}</div>`:''}</td></tr>`).join('')}</tbody></table></div></div>
+    ${D.storia.map(x=>`<tr><td style="white-space:nowrap">${fd(x.data)}</td><td><b>${esc(x.titolo)}</b></td><td class="small">${esc(x.testo)}${x.note?`<div class="muted">${notaH(x.note)}</div>`:''}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="panel"><h3>Trattamenti · riepilogo</h3>${D.trattamenti.length?`<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Aggiunte</th><th class="r">Totale</th><th>Dosi</th></tr></thead><tbody>
     ${D.trattamenti.map(t=>`<tr><td><b>${esc(t.prodotto)}</b></td><td class="r">${t.n}</td><td class="r">${t.dosi.length?nf(t.dose,3)+' '+esc(t.udm):'—'}</td><td class="small muted">${esc(t.dosi.join(' · '))}</td></tr>`).join('')}</tbody></table></div><p class="hint">Totale = somma delle dosi aggiunte nella partita (stessa unità).</p>`:'<p class="muted small">Nessun prodotto aggiunto.</p>'}</div>
   <div class="panel"><h3>Analisi</h3>${D.ans.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th>${cols.map(k=>`<th class="r">${esc(k)}</th>`).join('')}</tr></thead><tbody>
