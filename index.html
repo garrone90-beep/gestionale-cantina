@@ -581,6 +581,11 @@ body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 .op-top{margin:4px 0 8px}
 .chip.segn{background:#E3EEF7;color:#2D5F8A;border-color:transparent}
 .chip.mod{background:#FFF1B8;color:#6B5200;border-color:transparent}
+.vp-sel{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:30px}.vp-sel .chip{padding:3px 8px}
+.vp-dd>summary{list-style:none;display:inline-flex;cursor:pointer;margin-top:6px}.vp-dd>summary::-webkit-details-marker{display:none}
+.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.vp-loc{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.vp-loc .chip{cursor:pointer;font:inherit;font-size:13px}.vp-loc .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}.vp-q{max-width:320px;margin-bottom:4px}
+.vp-g{padding:6px 0;border-top:1px solid var(--line)}.vp-gh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.vp-gc{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.vp-c{padding:4px 9px;font-size:.88rem;cursor:pointer}.vp-c:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .op-mod{border-left:4px solid #E0B400;background:#FFFBE6;color:var(--ink);border-radius:8px;padding:8px 12px;margin:10px 0}
 .op-mod ul{margin:4px 0 0;padding-left:18px}.op-mod s{color:var(--muted)}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .chip.mod{background:#4A3D00;color:#FFE27A}:root:not([data-theme=light]) .op-mod{background:#2E2700}}
@@ -2408,8 +2413,7 @@ function formLavoro(ed,preset){
     <p class="hint" style="margin:6px 0 0">Ogni riga è un movimento: partenza → arrivo. Le righe non uniscono i vini da sole: si uniscono solo dove più partenze arrivano nello stesso contenitore. Le quantità sono indicazioni per chi lavora, non movimenti registrati. Volumi di riferimento: registrati al ${fd(today())}.</p>
    </fieldset>
    <fieldset class="lvf" id="w-cf"><legend id="w-vlab">Contenitori</legend>
-    <div class="row" id="w-vs" style="gap:4px;flex-wrap:wrap"></div>
-    <div class="row" style="gap:6px;align-items:flex-end;flex-wrap:wrap;margin-top:6px"><label class="f" style="min-width:200px">Aggiungi<select id="w-vadd"></select></label><button type="button" class="btn sm" id="w-vbulk">Scegli più contenitori…</button><button type="button" class="btn sm ghost" id="w-vclr">Togli tutti</button></div>
+    <div id="w-vp"></div>
     <div class="hint" id="w-vinfo"></div>
    </fieldset>
    <fieldset class="lvf" id="w-colm" hidden><legend>Vino per la colmatura <span class="muted small">(facoltativo)</span></legend><div class="fg">
@@ -2494,12 +2498,7 @@ function formLavoro(ed,preset){
     const inMov=()=>{ const m=LMOV(tipo()); return m==='si'||(m==='opz'&&conT); };
     const cur=()=>({imbs:isImb()?imbsDa():undefined,tipo:tipo(),vasche:inMov()?[]:isImb()?[...new Set(imbsDa().map(i=>i.vasca).filter(Boolean))]:vs,mov:inMov()?mv:[],conTrasf:LMOV(tipo())==='opz'&&conT,arr:isArr()?{partite:pt}:undefined});
     /* contenitori senza movimento */
-    const renderVs=()=>{ $('#w-vs',b).innerHTML=vs.length?(vs.length>3?`<div class="small" style="width:100%"><b>${vs.length} contenitori</b>: ${esc(elencoV(vs))} · ${hL(vs.reduce((a,c)=>a+((st[c]||{}).L||0),0))}</div>`:'')+vs.map(c=>`<span class="chip">${esc(vlab(c))}${st[c]&&st[c].vino?' · '+esc(vName(st[c].vino))+' · '+hL(st[c].L):' · vuota'} <button type="button" class="x" data-rmv="${esc(c)}" aria-label="Togli ${esc(vnome(c))}" style="border:0;background:none;cursor:pointer">×</button></span>`).join(''):'<span class="muted small">nessun contenitore scelto</span>';
-      $('#w-vadd',b).innerHTML=`<option value="">—</option>`+VASCHE.filter(v=>v.stato==='attivo'&&!vs.includes(v.code)).map(v=>`<option value="${esc(v.code)}">${vascaLab(v.code,st[v.code])}</option>`).join('');
-      $$('[data-rmv]',b).forEach(x=>x.onclick=()=>{ vs=vs.filter(c=>c!==x.dataset.rmv); renderVs(); upd(); }); };
-    $('#w-vadd',b).onchange=e=>{ const c=e.target.value; if(c&&!vs.includes(c)) vs.push(c); renderVs(); upd(); };
-    $('#w-vbulk',b).onclick=()=>sceltaMulti({titolo:'Contenitori del lavoro',scelti:vs,onOk:cs=>{ vs=cs; renderVs(); upd(); }});
-    $('#w-vclr',b).onclick=()=>{ vs=[]; renderVs(); upd(); };
+    const renderVs=()=>vPicker($('#w-vp',b),{codes:VASCHE.filter(v=>v.stato==='attivo').map(v=>v.code),sel:vs,st,onChange:cs=>{ vs=cs; upd(); }});
     /* righe di movimento */
     const renderRows=()=>{ $('#w-rows',b).innerHTML=mv.map((m,i)=>`<div class="line mrow" data-i="${i}">
         <label class="f">${isArr()?'Partita':'Da'}<select class="m-da">${daOpt(m.da)}</select></label><span class="m-ar" aria-hidden="true">→</span>
@@ -2838,6 +2837,37 @@ function lavCheckPend(){ const p=UI.pendLav; if(!p) return; const l=lavori().fin
   else if(S.analisi.length>p.nAn){ const a=S.analisi[S.analisi.length-1]; l.convalida={il:new Date().toISOString(),ev:'an:'+a.id,titolo:'Analisi del '+fd(a.data)}; lavLog(l,'convalidato','Convalidato con analisi registrata'); UI.pendLav=null; } }
 
 /* ===================== Schermata dell'operatore (telefono): vede i suoi lavori, dice fatto o non fatto ===================== */
+/* scelta di più vasche: in alto le selezionate, «+ Scegli vasche» apre ricerca ed elenco raggruppato per vino.
+   Le caselle restano nel box (input[type=checkbox] value=codice), così chi legge «box input:checked» continua a funzionare. */
+function vPicker(box,o){ if(!box) return; const st=o.st||R.st, sel=new Set(o.sel||[]);
+  const codes=[...new Set([...(o.codes||[]),...sel])].filter(c=>VMAP[c]).sort((a,b2)=>natCmp(vlab(a),vlab(b2)));
+  const G=new Map(); codes.forEach(c=>{ const k=(st[c]||{}).vino||''; if(!G.has(k)) G.set(k,[]); G.get(k).push(c); });
+  const gs=[...G.entries()].sort((a,b2)=>(!a[0])-(!b2[0])||natCmp(vName(a[0]||'')||'',vName(b2[0]||'')||''));
+  const nome=k=>k?vName(k):'Vuote';
+  const locs=[...new Set(codes.map(c=>VMAP[c].dep))].filter(Boolean).sort((x,y)=>natCmp(locNome(x)||'',locNome(y)||'')); if(box._loc&&!locs.includes(box._loc)) box._loc='';
+  box.innerHTML=`<div class="vp-sel"></div>
+   <details class="vp-dd" ${box._open?'open':''}><summary class="btn sm"><span class="vp-ap">+ Scegli vasche</span><span class="vp-ch">− Chiudi elenco</span></summary>
+    ${locs.length>1?`<div class="vp-loc" role="group" aria-label="Filtra per locale"><button type="button" class="chip${!box._loc?' on':''}" data-vploc="">Tutti i locali</button>${locs.map(d=>`<button type="button" class="chip${box._loc===d?' on':''}" data-vploc="${esc(d)}">${esc(locNome(d))}</button>`).join('')}</div>`:''}
+    <input class="vp-q" type="search" placeholder="Cerca numero o vino…" value="${esc(box._q||'')}">
+    ${gs.map(([k,cs])=>`<div class="vp-g"><div class="vp-gh"><b>${esc(nome(k))}</b> <span class="muted small">${cs.length} · ${hL(cs.reduce((a,c)=>a+((st[c]||{}).L||0),0))}</span>${cs.length>1?'<button type="button" class="btn sm ghost" data-vpall>tutte</button>':''}</div>
+      <div class="vp-gc">${cs.map(c=>`<label class="chip vch-c vp-c" data-dep="${esc(VMAP[c].dep)}" data-q="${esc((vlab(c)+' '+nome(k)).toLowerCase())}" title="${esc(Vnome(c))}${(st[c]||{}).vino?' · '+esc(vName(st[c].vino))+' · '+hL(st[c].L):' · vuota'}"><input type="checkbox" value="${esc(c)}" ${sel.has(c)?'checked':''}> <b>${esc(vlabS(c))}</b>${(st[c]||{}).L?` <span class="muted small">${hL(st[c].L)}</span>`:''}</label>`).join('')}</div></div>`).join('')||`<p class="hint">${esc(o.vuoto||'Nessun contenitore.')}</p>`}
+   </details>`;
+  const leggi=()=>$$('.vp-gc input:checked',box).map(x=>x.value);
+  const top=()=>{ const cs=leggi();
+    if(cs.length>6){ const M=new Map(); cs.forEach(c=>{ const k=(st[c]||{}).vino||''; if(!M.has(k)) M.set(k,[]); M.get(k).push(c); });
+      $('.vp-sel',box).innerHTML=[...M.entries()].map(([k,g])=>`<span class="chip"><b>${esc(nome(k))}</b>: ${esc(elencoV(g))} <button type="button" data-vpgx="${esc(k)}" aria-label="Togli ${esc(nome(k))}" style="border:0;background:none;cursor:pointer;padding:0 2px">×</button></span>`).join('')+` <span class="muted small">${cs.length} · ${hL(cs.reduce((a,c)=>a+((st[c]||{}).L||0),0))}</span> <button type="button" class="btn sm ghost" data-vpnone>Nessuna</button>`;
+      $$('[data-vpgx]',box).forEach(x=>x.onclick=()=>{ $$('.vp-gc input:checked',box).forEach(i=>{ if(((st[i.value]||{}).vino||'')===x.dataset.vpgx) i.checked=false; }); cambia(); });
+      const nn=$('[data-vpnone]',box); if(nn) nn.onclick=()=>{ $$('.vp-gc input',box).forEach(i=>i.checked=false); cambia(); }; return; }
+    $('.vp-sel',box).innerHTML=cs.length?cs.map(c=>`<span class="chip"><b>${esc(vlab(c))}</b>${(st[c]||{}).vino?' · '+esc(vName(st[c].vino)):''} <button type="button" data-vpx="${esc(c)}" aria-label="Togli ${esc(vnome(c))}" style="border:0;background:none;cursor:pointer;padding:0 2px">×</button></span>`).join('')+` <span class="muted small">${cs.length} · ${hL(cs.reduce((a,c)=>a+((st[c]||{}).L||0),0))}</span> <button type="button" class="btn sm ghost" data-vpnone>Nessuna</button>`:'<span class="muted small">Nessuna vasca scelta</span>';
+    $$('[data-vpx]',box).forEach(x=>x.onclick=()=>{ const i=$(`.vp-gc input[value="${CSS.escape(x.dataset.vpx)}"]`,box); if(i) i.checked=false; cambia(); });
+    const nn=$('[data-vpnone]',box); if(nn) nn.onclick=()=>{ $$('.vp-gc input',box).forEach(i=>i.checked=false); cambia(); }; };
+  const cambia=()=>{ top(); if(o.onChange) o.onChange(leggi()); };
+  const filtra=()=>{ const q=($('.vp-q',box).value||'').trim().toLowerCase(); box._q=q; const lo=box._loc||''; $$('.vp-c',box).forEach(l=>l.hidden=(!!q&&!l.dataset.q.includes(q))||(!!lo&&l.dataset.dep!==lo)); $$('.vp-g',box).forEach(g=>g.hidden=!$$('.vp-c',g).some(l=>!l.hidden)); };
+  $$('.vp-gc input',box).forEach(i=>i.onchange=cambia);
+  $$('[data-vpall]',box).forEach(bt=>bt.onclick=()=>{ const is=$$('.vp-c',bt.closest('.vp-g')).filter(l=>!l.hidden).map(l=>$('input',l)); const tutte=is.every(i=>i.checked); is.forEach(i=>i.checked=!tutte); cambia(); });
+  $$('[data-vploc]',box).forEach(bt=>bt.onclick=()=>{ box._loc=bt.dataset.vploc; $$('[data-vploc]',box).forEach(x=>x.classList.toggle('on',x===bt)); filtra(); });
+  $('.vp-q',box).oninput=filtra; $('.vp-dd',box).ontoggle=e=>{ box._open=e.target.open; };
+  top(); filtra(); return {leggi}; }
 /* modifiche fatte dal responsabile a un lavoro che l'operatore aveva già: «Modificato» finché non lo apre, il riquadro resta finché il lavoro è da fare */
 const opMods=(l,op)=>(l.modifiche||[]).filter(m=>(m.per||[]).some(n=>nrm(n)===nrm(op)));
 const opModNuova=(l,op)=>{ const ms=opMods(l,op); if(!ms.length) return false; const v=(l.visto||[]).find(x=>nrm(x.n)===nrm(op)); return !v||String(v.il)<String(ms[ms.length-1].il); };
@@ -3012,9 +3042,8 @@ function formManutenzione(codes,p={},corrId){
     <label class="f" id="m-altw" ${tipo0==='Altro'?'':'hidden'}>Quale<input id="m-alt" value="${esc(tipo0==='Altro'?p.man||'':'')}" placeholder="es. sanificazione a vapore"></label>
     <label class="f">Durata (giorni)<input id="m-gg" inputmode="numeric" value="${p.giorni||''}" placeholder="facoltativa"></label>
    </div>
-   <fieldset class="lvf"><legend>Contenitori</legend><div class="row" id="m-vs"></div>
-    <div class="fg"><label class="f">Aggiungi contenitore<select id="m-add">${vOpt()}</select></label>
-    <label class="f">Volume della soluzione (hL)<input id="m-vol" inputmode="decimal" value="${p.volL?nfIn(p.volL/100,3):''}" placeholder="auto"></label></div>
+   <fieldset class="lvf"><legend>Contenitori</legend><div id="m-vp"></div><div class="row" id="m-vs" hidden></div>
+    <div class="fg"><label class="f">Volume della soluzione (hL)<input id="m-vol" inputmode="decimal" value="${p.volL?nfIn(p.volL/100,3):''}" placeholder="auto"></label></div>
     <div class="hint" id="m-info"></div></fieldset>
    <fieldset class="lvf"><legend>Prodotti</legend><div id="m-prs"></div><button type="button" class="btn sm" id="m-padd">+ Aggiungi prodotto</button>
     <p class="hint" style="margin:6px 0 0">Quantità teorica = dose × volume della soluzione (se vuoto: la capacità dei contenitori).</p></fieldset>
@@ -3032,14 +3061,15 @@ function formManutenzione(codes,p={},corrId){
        <button type="button" class="btn sm ghost p-x">Togli</button>`;
       $('.p-x',d).onclick=()=>{d.remove();upd();}; d.oninput=upd; d.onchange=upd; $('#m-prs',b).append(d); };
     const renderVs=()=>{ $('#m-vs',b).innerHTML=vs.length?vs.map(c=>`<span class="chip">${esc(vlab(c))} · ${nf(VMAP[c].cap)} hL${st[c]&&st[c].vino?' · <b>contiene '+esc(vName(st[c].vino))+'</b>':''} <button type="button" data-rm="${esc(c)}" style="border:0;background:none;cursor:pointer" aria-label="Togli">×</button></span>`).join(''):'<span class="muted small">nessun contenitore</span>';
-      $$('[data-rm]',b).forEach(x=>x.onclick=()=>{ vs=vs.filter(c=>c!==x.dataset.rm); $('#m-add',b).innerHTML=vOpt(); renderVs(); upd(); }); };
+      $$('[data-rm]',b).forEach(x=>x.onclick=()=>{ vs=vs.filter(c=>c!==x.dataset.rm); renderVs(); upd(); });
+      if(!renderVs.pk){ renderVs.pk=1; vPicker($('#m-vp',b),{codes:VASCHE.filter(v=>v.stato==='attivo').map(v=>v.code),sel:vs,st,onChange:cs=>{ vs=cs; renderVs.inner=1; renderVs(); renderVs.inner=0; upd(); }}); }
+      else if(!renderVs.inner) vPicker($('#m-vp',b),{codes:VASCHE.filter(v=>v.stato==='attivo').map(v=>v.code),sel:vs,st,onChange:cs=>{ vs=cs; renderVs.inner=1; renderVs(); renderVs.inner=0; upd(); }}); };
     const upd=()=>{ $('#m-altw',b).hidden=$('#m-tipo',b).value!=='Altro'; const ct=capTot(); $('#m-vol',b).placeholder=ct?'auto '+nf(ct/100,2):'auto';
       $('#m-info',b).textContent=vs.some(c=>st[c]&&st[c].vino)?'Attenzione: alcuni contenitori contengono vino.':'';
       const v=volU(); $$('.lprod',b).forEach(d=>{ const q=qtaTeorica(num($('.p-d',d).value),$('.p-u',d).value,v,$('.p-n',d).value); $('.p-q',d).textContent=q?q+' su '+hL(v):'—'; }); };
     b.insertAdjacentHTML('beforeend',`<datalist id="m-prl">${prodVisibili().map(x=>`<option value="${esc(x.nome)}">${esc(x.categoria||'')}</option>`).join('')}</datalist>`);
     (p.prodotti&&p.prodotti.length?p.prodotti:(MAN_PROD[tipo0]||[])).forEach(line);
     $('#m-tipo',b).onchange=()=>{ if(!$$('.lprod',b).some(d=>$('.p-d',d).value)){ $('#m-prs',b).innerHTML=''; (MAN_PROD[$('#m-tipo',b).value]||[]).forEach(line); } upd(); };
-    $('#m-add',b).onchange=e=>{ const c=e.target.value; if(c&&!vs.includes(c)) vs.push(c); e.target.innerHTML=vOpt(); renderVs(); upd(); };
     $('#m-padd',b).onclick=()=>{line();upd();}; $('#m-vol',b).oninput=upd;
     renderVs(); upd();
     $('#fmn',b).onsubmit=e=>{ e.preventDefault(); const m=$('#msg',b);
@@ -3842,6 +3872,7 @@ function formLavorazione(p={},corrId){
       const st=stNow(); const sel=new Set(p.vasche||[]);
       $$('#vch input:checked',b).forEach(x=>sel.add(x.value)); if(renderVch.done) $$('#vch input:not(:checked)',b).forEach(x=>sel.delete(x.value)); renderVch.done=true;
       const vs=VASCHE.filter(v=>(st[v.code].vino&&v.stato==='attivo')||sel.has(v.code));
+      if(b.dataset.vin!=='1'){ vPicker($('#vch',b),{codes:vs.map(v=>v.code),sel:[...sel],st,vuoto:'Nessuna vasca occupata a questa data.',onChange:()=>upd()}); return; }
       const locs0=[...new Set(vs.map(v=>v.dep))]; const molti=vs.length>12||locs0.length>1; const vini=[...new Set(vs.map(v=>st[v.code].vino).filter(Boolean))];
       const gruppi=[...new Set(vs.filter(v=>v.rec.gruppo).map(v=>v.dep+'|'+v.rec.gruppo))].sort(natCmp); const locs=[...new Set(vs.map(v=>v.dep))];
       $('#vch',b).innerHTML=(molti?`<div class="row small" style="gap:6px;width:100%;align-items:center;flex-wrap:wrap;margin-bottom:4px"><span class="muted">Seleziona:</span>
@@ -4054,7 +4085,7 @@ function formLavorazione(p={},corrId){
       const vinVch=()=>{ const box=$('#vch',b); if(!box||box.querySelector('.vin-altre')) return; const ls=$$('label.chip',box); const st0=stNow(); const altre=ls.filter(l=>{ const c=$('input',l).value; return !inVin(st0[c])&&!$('input',l).checked; });
         if(!altre.length||altre.length===ls.length) return; ls.filter(l=>!altre.includes(l)).forEach(l=>{ const c=$('input',l).value; if(R.st[c]&&R.st[c].vino&&!l.querySelector('.vin-n')) l.insertAdjacentHTML('beforeend',` <span class="vin-n muted small" style="font-weight:400">${esc(vName(R.st[c].vino))}</span>`); });
         const d=document.createElement('details'); d.className='vin-altre'; d.style.width='100%'; d.innerHTML=`<summary class="small" style="cursor:pointer;margin-top:4px">Altre vasche (${altre.length})</summary><div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"></div>`; altre.forEach(l=>d.lastChild.append(l)); box.append(d); };
-      const layout=()=>{ if(!document.body.contains(b)) return; const v=isVin(); F.classList.toggle('vinif',v); $('#l-name',b).hidden=v; if(v) vinVch();
+      const layout=()=>{ if(!document.body.contains(b)) return; const v=isVin(); F.classList.toggle('vinif',v); if((b.dataset.vin==='1')!==v){ b.dataset.vin=v?'1':''; renderVch(); } $('#l-name',b).hidden=v; if(v) vinVch();
         $('#l-orw',b).hidden=!v; $('#l-ggw',b).hidden=v; vinA.hidden=!v; vinB.hidden=!v; vinC.hidden=!v;
         if(v){ vinA.after(fsV); fsV.after(opsDiv); opsDiv.after(vinB); fsVlegend.textContent='Vasche'; if(fsVhint) fsVhint.hidden=true; fsV.hidden=false;
           movFs.hidden=false; prodFs.hidden=false; $$('p.hint',movFs).forEach(x=>x.hidden=true); $$('p.hint',prodFs).forEach(x=>x.hidden=true);
