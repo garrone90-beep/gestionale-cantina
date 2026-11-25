@@ -13,10 +13,15 @@ const out = (body: unknown, status = 200) =>
 const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
 const txt = (s: unknown, n = 2000) => String(s ?? "").slice(0, n);
 /* impostazioni che servono a mostrare i lavori (niente conti, provenienze, persone…) */
-const IMP = ["azienda", "locali", "recipienti", "prodotti", "prodBase", "v", "pulizia1", "lavorazioni", "parametri", "oinosImportato",
+const IMP = ["azienda", "locali", "recipienti", "layout", "prodotti", "prodBase", "v", "pulizia1", "lavorazioni", "parametri", "oinosImportato",
   "fecceUnificate", "profilo", "denominazioni", "varieta", "ultimoBackup", "contiOk", "routine", "scalaFerm", "verifiche"];
 const APERTI = ["dafare", "incorso"];
 /* arrivo vino: all'operatore non arriva mai da chi viene il vino */
+/* inventario: per contenitore { ok: true } oppure { L: litri misurati }, con il teorico visto (T) e l'ora */
+const invSan = (o: any) => { const r: Record<string, unknown> = {}; if (!o || typeof o !== "object") return r;
+  Object.entries(o).slice(0, 3000).forEach(([k, x]: [string, any]) => { if (!k || k.length > 40 || !x || typeof x !== "object") return;
+    const T = typeof x.T === "number" && isFinite(x.T) ? x.T : null, il = /^\d{4}-\d\d-\d\dT/.test(String(x.il ?? "")) ? String(x.il) : new Date().toISOString();
+    if (x.ok === true) r[k] = { ok: true, T, il }; else if (typeof x.L === "number" && isFinite(x.L) && x.L >= 0 && x.L < 1e7) r[k] = { L: x.L, T, il }; }); return r; };
 const pulito = (l: any) => l && l.arr ? { ...l, arr: { fornitore: "", partite: (Array.isArray(l.arr.partite) ? l.arr.partite : []).map((p: any) => ({ ...p, da: "" })) } } : l;
 
 Deno.serve(async (req: Request) => {
@@ -177,6 +182,19 @@ Deno.serve(async (req: Request) => {
     return out({ ok: true, visto: vs });
   }
 
+  /* inventario in corso: l'operatore salva i contenitori controllati (lo stato del lavoro non cambia) */
+  if (az === "invsalva") {
+    const id = String(body.id ?? "");
+    const { data: r, error } = await adm.from("record").select("data").eq("tipo", "lavoro").eq("id", id).maybeSingle();
+    if (error) return out({ code: "db_error", message: error.message }, 500);
+    const l: any = r?.data;
+    if (!l || !suo(l) || !l.inv) return out({ code: "not_found", message: "Lavoro non trovato o non assegnato a te" }, 404);
+    if (!APERTI.includes(l.stato)) return out({ code: "conflict", message: "L'inventario è già stato segnato o modificato dal responsabile", lavoro: pulito(l) }, 409);
+    l.invPr = invSan(body.inv);
+    const { error: ue } = await adm.from("record").update({ data: l }).eq("tipo", "lavoro").eq("id", id);
+    if (ue) return out({ code: "db_error", message: ue.message }, 500);
+    return out({ ok: true });
+  }
   if (az === "dichiara") {
     const id = String(body.id ?? ""), stato = String(body.stato ?? "");
     if (!id || !["eseguito", "noneseguito"].includes(stato)) return out({ code: "bad_request", message: "Richiesta non valida" }, 400);
@@ -200,8 +218,10 @@ Deno.serve(async (req: Request) => {
       /* imbottigliamento da più vasche: una dichiarazione per riga */
       imbs: Array.isArray(e.imbs) ? e.imbs.slice(0, 30).map((x: any) => ({ fatto: x?.fatto !== false, pz: Number.isFinite(x?.pz) ? Math.floor(x.pz) : null, L: Number.isFinite(x?.L) ? x.L : null, vuota: x?.vuota === true ? true : undefined })) : undefined,
       colmL: typeof e.colmL === "number" && isFinite(e.colmL) && e.colmL > 0 ? e.colmL : null,
+      inv: l.inv && e.inv ? invSan(e.inv) : undefined,
       dichiaratoIl: now,
     };
+    if (l.esec.inv) l.invPr = l.esec.inv;
     l.stato = stato; l.modificatoIl = now;
     (l.storia = Array.isArray(l.storia) ? l.storia : []).push({ il: now, stato, nota: txt(body.nota, 300) || (stato === "eseguito" ? "Fatto" : "Non fatto") + " — dichiarato da " + prof.nome });
     const { error: ue } = await adm.from("record").update({ data: l }).eq("tipo", "lavoro").eq("id", id);

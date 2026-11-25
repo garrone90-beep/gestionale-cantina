@@ -151,13 +151,17 @@
         } else if(prima&&['convalidato','annullato'].includes(l.stato)&&(l.nascostoDa||[]).length>(prima.nascostoDa||[]).length){ /* l'operatore toglie un lavoro convalidato dal suo elenco */
           try{ await chiamaOp({azione:'nascondi',id:l.id}); opSnap[l.id]=s; }
           catch(e){ avviso('Non riesco a toglierlo: riprovo tra poco'+(navigator.onLine?'':' (senza connessione)')); setTimeout(()=>window.save(),10000); }
+        } else if(prima&&l.inv&&['dafare','incorso'].includes(l.stato)&&JSON.stringify(l.invPr||{})!==JSON.stringify(prima.invPr||{})){ /* inventario: ogni contenitore controllato si salva subito */
+          try{ await chiamaOp({azione:'invsalva',id:l.id,inv:l.invPr||{}}); opSnap[l.id]=s; }
+          catch(e){ if(e.code==='conflict'&&e.dati&&e.dati.lavoro){ const i=S.lavori.indexOf(l); S.lavori[i]=e.dati.lavoro; opSnap[l.id]=JSON.stringify(e.dati.lavoro); avviso(e.message); try{ window.route(); }catch(x){} }
+            else { avviso('Misure non inviate: riprovo tra poco'+(navigator.onLine?'':' (senza connessione)')); setTimeout(()=>window.save(),10000); } }
         } else if(prima&&JSON.stringify(l.visto||[])!==JSON.stringify(prima.visto||[])){ /* l'operatore ha aperto un lavoro modificato */
           try{ const j=await chiamaOp({azione:'visto',id:l.id}); l.visto=j.visto||l.visto; opSnap[l.id]=JSON.stringify(l); }
           catch(e){ setTimeout(()=>window.save(),10000); }
         } else opSnap[l.id]=s; /* le altre modifiche restano solo su questo telefono */ }
     } finally{ opIn=false; } }
   async function ricaricaOp(){ const S=getS(); if(!S||opT||opIn||document.querySelector('.ov')) return;
-    if((S.lavori||[]).some(l=>l&&((opSnap[l.id]!==undefined&&opSnap[l.id]!==JSON.stringify(l)&&['eseguito','noneseguito'].includes(l.stato))||(opSnap[l.id]===undefined&&l.segnalazione)))) return;
+    if((S.lavori||[]).some(l=>l&&((opSnap[l.id]!==undefined&&opSnap[l.id]!==JSON.stringify(l)&&(['eseguito','noneseguito'].includes(l.stato)||l.inv))||(opSnap[l.id]===undefined&&l.segnalazione)))) return;
     try{ const j=await chiamaOp({azione:'carica'}); if(opT||opIn) return; S.lavori=j.lavori||[]; S.vini=j.vini||[]; Object.assign(S,j.S||{}); opFoto(S);
       try{ window.route(); }catch(e){} }catch(e){} }
 
