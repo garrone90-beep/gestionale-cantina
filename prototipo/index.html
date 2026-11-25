@@ -583,7 +583,21 @@ body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 .chip.mod{background:#FFF1B8;color:#6B5200;border-color:transparent}
 .vp-sel{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:30px}.vp-sel .chip{padding:3px 8px}
 .vp-dd>summary{list-style:none;display:inline-flex;cursor:pointer;margin-top:6px}.vp-dd>summary::-webkit-details-marker{display:none}
-.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.lnk{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}.vp-loc{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.vp-loc .chip{cursor:pointer;font:inherit;font-size:13px}.vp-loc .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}.vp-q{max-width:320px;margin-bottom:4px}
+.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.an-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin-bottom:8px}.an-bar .an-d{min-width:140px;flex:0 1 160px}.an-bar #an-pdf{margin-left:auto}
+.an-vs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:4px 0}.an-vs .chip{cursor:pointer;font:inherit;font-size:13px}.an-vs .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.an-u{display:block;font-size:.75em;color:var(--muted);font-weight:400}
+table.an td.p,table.an th.p{white-space:normal;min-width:120px;max-width:200px}
+.an-box .an-fs-off{display:none}.an-box .an-fs-on{display:none;margin-bottom:6px}
+@media (max-width:899px){ .an-box .an-fs-on{display:inline-flex} table.an td.p,table.an th.p{min-width:96px;max-width:130px;font-size:.88rem} table.an td.v{min-width:62px} }
+.an-box.fs{position:fixed;inset:0;z-index:300;background:var(--surface);overflow:auto;padding:10px}
+.an-box.fs .an-fs-on{display:none}.an-box.fs .an-fs-off{display:inline-flex;position:sticky;top:0;left:0;z-index:5;margin-bottom:8px}
+.an-box.fs .tbl-wrap{overflow:visible}.an-box.fs>.hint{display:none}
+.an-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.an-card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}
+.an-card dl{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:8px 0 0}.an-card dl>div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted var(--line);padding-bottom:3px}
+.an-card dt{font-size:.88rem}.an-card dt .an-u{display:inline;font-size:.75rem}.an-card dd{margin:0;font-weight:700;white-space:nowrap;text-align:right}
+@media (max-width:420px){ .an-card dl{grid-template-columns:1fr} }
+.lnk{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}.vp-loc{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.vp-loc .chip{cursor:pointer;font:inherit;font-size:13px}.vp-loc .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}.vp-q{max-width:320px;margin-bottom:4px}
 .vp-g{padding:6px 0;border-top:1px solid var(--line)}.vp-gh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.9rem}
 .vp-gc{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.vp-c{padding:4px 9px;font-size:.88rem;cursor:pointer}.vp-c:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .op-mod{border-left:4px solid #E0B400;background:#FFFBE6;color:var(--ink);border-radius:8px;padding:8px 12px;margin:10px 0}
@@ -4796,7 +4810,7 @@ async function schedaPDF(code){
   if(D.uve.length||D.fermEv.length||D.misure.length){ head('Vinificazione'); D.uve.forEach(u=>para(fd(u.data)+' · '+u.lav+' · '+u.uve+' → '+hL(u.L)+(u.resa?' · resa '+nf(u.resa,1)+' %':''))); const fe=[...D.uve.filter(u=>u.ferm).map(u=>'Inizio fermentazione '+fd(u.data)),...D.fermEv.map(e=>(e.azione==='fine'?'Fine':'Inizio')+' fermentazione '+fd(e.data))]; if(fe.length) para(fe.join(' · '));
     if(D.misure.length) tab(['Data','Ora','Vasca','Misura'],D.misure.slice(-20).map(m=>[fd(m.data),m.ora||'',vlab(m.vasca),misTxt(m)])); else y+=2; }
   head('Storia della partita');
-  tab(['Data','Operazione','Dettaglio'],D.storia.map(x=>[fd(x.data),x.titolo,x.testo+(x.note?' | '+x.note:'')]),{columnStyles:{0:{cellWidth:20},1:{cellWidth:48}}});
+  tab(['Data','Operazione','Dettaglio'],D.storia.map(x=>[fd(x.data),x.titolo,x.testo+(x.note?' | '+notaV(x.note):'')]),{columnStyles:{0:{cellWidth:20},1:{cellWidth:48}}});
   head('Trattamenti · riepilogo');
   if(D.trattamenti.length) tab(['Prodotto','Aggiunte','Totale','Dosi'],D.trattamenti.map(t=>[t.prodotto,String(t.n),t.dosi.length?nf(t.dose,3)+' '+t.udm:'—',t.dosi.join(' · ')])); else para('Nessun prodotto aggiunto.');
   head('Analisi'); const cols=anCols(D.ans);
@@ -5012,8 +5026,7 @@ function viewVino(app,id){
     $$('[data-aed]',tc).forEach(b=>b.onclick=()=>formAnalisi(b.dataset.av||id,b.dataset.aed));
     bindEvOps(tc); bindDiario(tc);
   } else if(UI.vinoTab==='analisi'){
-    tc.innerHTML=analisiTable(id)+originAnalisi(id);
-    $$('[data-aed]',tc).forEach(b=>b.onclick=()=>formAnalisi(b.dataset.av||id,b.dataset.aed));
+    anPanel(tc,id);
   } else if(UI.vinoTab==='genealogia'){
     tc.innerHTML=t.vs.length?t.vs.map(c=>`<section class="panel" style="margin-bottom:12px"><div class="spread"><h2>${vkind(c)} ${esc(vlabS(c))} · ${hL(R.st[c].L)}</h2><a class="btn pri" href="#gen-${esc(c)}">Apri genealogia completa</a></div>${compBar(c)}</section>`).join(''):'<div class="empty">Questo vino non è in nessuna vasca.</div>';
   } else if(UI.vinoTab==='provenienza'){
@@ -5050,15 +5063,82 @@ function certFonti(id){ const evOf=x=>S.eventi.find(e=>e.id===x.ev)||{}; const g
   ((R&&R.apporti[id])||[]).filter(a=>a.da&&a.da!==id&&evOf(a).tipo==='certificazione').forEach(a=>{ const x=g[a.da]=g[a.da]||{dmax:'',vs:[]}; if(a.data>x.dmax) x.dmax=a.data; x.vs.push(a.vasca); });
   return Object.entries(g).map(([sv,x])=>({sv,...x,filt:a=>a.data<=x.dmax&&(a.ambito!=='vasca'||anVasche(a).some(c=>x.vs.includes(c)))})); }
 function anVino(id){ return [...S.analisi.filter(a=>a.vino===id),...certFonti(id).flatMap(f=>S.analisi.filter(a=>a.vino===f.sv&&f.filt(a)).map(a=>({...a,_da:f.sv})))]; }
-function analisiTable(id,readonly,filt){
-  const an=(filt?S.analisi.filter(a=>a.vino===id&&filt(a)):anVino(id)).sort((a,b)=>a.data<b.data?-1:1);
-  if(!an.length) return `<div class="empty">Nessuna analisi.${readonly?'':' Usa «Nuova analisi» o importa un referto.'}</div>`;
-  const used=new Set(an.flatMap(a=>Object.keys(a.valori)));
-  const params=[...S.parametri.map(p=>p.nome),...[...used].filter(u=>!S.parametri.some(p=>p.nome===u))];
-  const udm=n=>(S.parametri.find(p=>p.nome===n)||{}).udm||'';
-  return `<p class="hint">Date in colonna, parametri in riga. Cella vuota = non determinato; «0» = misurato zero; «&lt;0,1» = sotto il limite di rilevabilità indicato (0,1); «&lt; LR» = sotto il limite, valore del limite non indicato.</p>
-  <div class="tbl-wrap"><table class="an"><thead><tr><th class="p">Parametro</th><th>Unità</th>${an.map(a=>`<th class="r">${fd(a.data)}<br><span class="chip" style="text-transform:none;letter-spacing:0">${esc(anAmbitoTxt(a))}</span>${a.lab?`<br><span style="text-transform:none;letter-spacing:0;font-weight:500">${esc(a.lab)}</span>`:''}${a.stimata?'<br><span class="chip warn" style="text-transform:none;letter-spacing:0">stimata</span>':''}${a._da?`<br><span class="chip" style="text-transform:none;letter-spacing:0" title="Analisi fatta quando il vino era ${esc(vName(a._da))}">prima della certificazione</span>`:''}${!readonly?`<br><button class="btn sm ghost" data-aed="${a.id}" data-av="${a._da||''}">Correggi</button>`:''}</th>`).join('')}</tr></thead>
-  <tbody>${params.map(p=>`<tr><td class="p">${esc(p)}</td><td class="muted">${esc(udm(p))}</td>${an.map(a=>{const x=a.valori[p];const s=fmtVal(x);return `<td class="v ${s?'':'nd'}">${s?(x&&x.fl?`<span class="an-fl" title="Fuori dall'intervallo consueto: valore confermato al salvataggio">${s} !</span>`:s):'·'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
+/* ---- scheda Analisi del vino: filtri (periodo, vasche), vista Tabella/Schede, PDF ---- */
+function anVistaDef(){ try{ const v=localStorage.getItem('cp-an-vista'); if(v==='tab'||v==='sch') return v; }catch(e){} return matchMedia('(max-width: 899px)').matches?'sch':'tab'; }
+function anFiltra(id){ const F=(UI.anF=UI.anF||{})[id]=UI.anF[id]||{dal:'',al:'',vs:[]}; const all=anVino(id);
+  const lista=all.filter(a=>(!F.dal||a.data>=F.dal)&&(!F.al||a.data<=F.al)&&(!F.vs.length||(a.ambito!=='vasca'?F.vs.includes('__vino'):anVasche(a).some(c=>F.vs.includes(c)))));
+  return {F,all,lista}; }
+function anPanel(tc,id){
+  const {F,all,lista}=anFiltra(id); const vista=UI.anVista||anVistaDef();
+  const vsAll=[...new Set(all.flatMap(a=>a.ambito==='vasca'?anVasche(a):[]))].sort(natCmp); const haVino=all.some(a=>a.ambito!=='vasca');
+  const opz=[...(haVino?[['__vino','Tutto il vino']]:[]),...vsAll.map(c=>[c,Vnome(c)])];
+  const filtri=F.dal||F.al||F.vs.length;
+  tc.innerHTML=`<div class="an-bar">
+     <div class="seg" role="group" aria-label="Vista"><button type="button" aria-pressed="${vista==='tab'}" data-anv="tab">Tabella</button><button type="button" aria-pressed="${vista==='sch'}" data-anv="sch">Schede</button></div>
+     <label class="f an-d">Dal<input type="date" id="anf-dal" value="${esc(F.dal)}"></label><label class="f an-d">Al<input type="date" id="anf-al" value="${esc(F.al)}"></label>
+     <button type="button" class="btn pri" id="an-pdf" ${lista.length?'':'disabled'}>PDF analisi</button>
+   </div>
+   ${opz.length>1?`<div class="an-vs" role="group" aria-label="Riferite a"><span class="muted small">Riferite a:</span> <button type="button" class="chip${F.vs.length?'':' on'}" data-anvs="">Tutte</button>${opz.map(([c,l])=>`<button type="button" class="chip${F.vs.includes(c)?' on':''}" data-anvs="${esc(c)}">${esc(l)}</button>`).join('')}</div>`:''}
+   ${all.length?`<p class="small muted" style="margin:4px 0 8px">${lista.length===all.length?all.length+(all.length===1?' analisi':' analisi'):`${lista.length} analisi su ${all.length}`}${filtri?' · <button type="button" class="lnk" id="anf-x">togli i filtri</button>':''}</p>`:''}
+   <div class="an-box${vista==='tab'?'':' sch'}">${vista==='tab'?`<button type="button" class="btn sm an-fs-on" id="an-fs">⤢ Apri a schermo intero</button><button type="button" class="btn an-fs-off" id="an-fsx" aria-label="Chiudi schermo intero">× Chiudi</button>`+analisiTable(id,false,null,lista):analisiSchede(id,lista)}</div>
+   ${originAnalisi(id)}`;
+  const re=()=>anPanel(tc,id);
+  $$('[data-anv]',tc).forEach(b=>b.onclick=()=>{ UI.anVista=b.dataset.anv; try{ localStorage.setItem('cp-an-vista',b.dataset.anv); }catch(e){} re(); });
+  $('#anf-dal',tc).onchange=e=>{ F.dal=e.target.value; re(); }; $('#anf-al',tc).onchange=e=>{ F.al=e.target.value; re(); };
+  $$('[data-anvs]',tc).forEach(b=>b.onclick=()=>{ const c=b.dataset.anvs; if(!c) F.vs=[]; else F.vs=F.vs.includes(c)?F.vs.filter(x=>x!==c):[...F.vs,c]; re(); });
+  { const x=$('#anf-x',tc); if(x) x.onclick=()=>{ F.dal='';F.al='';F.vs=[]; re(); }; }
+  { const bx=$('.an-box',tc), on=$('#an-fs',tc), off=$('#an-fsx',tc); if(on){ on.onclick=()=>{ bx.classList.add('fs'); document.body.style.overflow='hidden'; }; off.onclick=()=>{ bx.classList.remove('fs'); document.body.style.overflow=''; }; } }
+  $('#an-pdf',tc).onclick=()=>anPDF(id,lista,F);
+  $$('[data-aed]',tc).forEach(b=>b.onclick=()=>formAnalisi(b.dataset.av||id,b.dataset.aed));
+}
+function analisiSchede(id,lista){
+  const an=lista.slice().sort((a,b)=>a.data<b.data?1:-1);
+  if(!an.length) return `<div class="empty">Nessuna analisi${anVino(id).length?' con questi filtri':'. Usa «Nuova analisi» o importa un referto.'}</div>`;
+  const ord=anParams(an);
+  return `<div class="an-cards">${an.map(a=>{ const ps=ord.filter(k=>fmtVal((a.valori||{})[k]));
+    return `<article class="an-card"><div class="spread"><div><b>${fd(a.data)}</b> <span class="chip">${esc(anAmbitoTxt(a))}</span>${a.lab?` <span class="muted small">${esc(a.lab)}</span>`:''}${a.stimata?' <span class="chip warn">stimata</span>':''}${a._da?' <span class="chip">prima della certificazione</span>':''}</div>
+      <button type="button" class="btn sm ghost" data-aed="${a.id}" data-av="${a._da||''}">Correggi</button></div>
+      <dl>${ps.map(k=>{ const x=a.valori[k]; return `<div><dt>${esc(k)}${anUdm(k)?` <span class="an-u">${esc(anUdm(k))}</span>`:''}</dt><dd>${x&&x.fl?`<span class="an-fl">${fmtVal(x)} !</span>`:fmtVal(x)}</dd></div>`; }).join('')||'<div class="muted small">Nessun valore.</div>'}</dl>
+      ${a.note?`<div class="nt small">${esc(a.note).replace(/\n/g,'<br>')}</div>`:''}</article>`; }).join('')}</div>`;
+}
+async function anPDF(id,lista,F){
+  if(!lista.length) return; let J; try{ J=await loadJsPDF(); }catch(e){ return toast('Non riesco a caricare il generatore PDF: controlla la connessione'); }
+  const w=vino(id)||{}; const an=lista.slice().sort((a,b)=>a.data<b.data?-1:1), ps=anParams(an), T=pdfTxt;
+  const doc=new J({unit:'mm',format:'a4',orientation:'landscape'}); const W=297, M=12; let y=14;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(110); doc.text(T(azNome().toUpperCase()+' · ANALISI · stampato il '+fd(today())),M,y); doc.setTextColor(0); y+=7;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text(T(vName(id)),M,y); y+=5.5; doc.setFont('helvetica','normal'); doc.setFontSize(10); if(vinoSub(w)){ doc.text(T(vinoSub(w)),M,y); y+=5; }
+  const fl=[F.dal||F.al?'Periodo: '+(F.dal?'dal '+fd(F.dal):'')+(F.al?(F.dal?' ':'')+'al '+fd(F.al):''):'',F.vs.length?'Riferite a: '+F.vs.map(c=>c==='__vino'?'tutto il vino':Vnome(c)).join(', '):''].filter(Boolean);
+  doc.setFontSize(9); doc.setTextColor(90); doc.text(T((fl.length?fl.join(' · ')+' · ':'')+an.length+' analisi'),M,y); doc.setTextColor(0); y+=4;
+  const PER=8; for(let i=0;i<an.length;i+=PER){ const g=an.slice(i,i+PER);
+    const head=[['Parametro',...g.map(a=>fd(a.data)+'\n'+anAmbitoTxt(a)+(a.lab?'\n'+a.lab:'')+(a.stimata?'\n(stimata)':''))]];
+    const body=ps.map(k=>[k+(anUdm(k)?' ('+anUdm(k)+')':''),...g.map(a=>{ const v=anVal(a,k); return v?v+((a.valori[k]||{}).fl?' !':''):''; })]).filter(r=>r.slice(1).some(Boolean));
+    if(i>0){ doc.addPage(); y=14; }
+    doc.autoTable({startY:y,head:head.map(r=>r.map(T)),body:body.map(r=>r.map(T)),margin:{left:M,right:M},styles:{fontSize:8.5,cellPadding:1.5,overflow:'linebreak'},headStyles:{fillColor:[120,25,45],textColor:255,fontStyle:'bold',fontSize:8},
+      columnStyles:{0:{cellWidth:58,fontStyle:'bold'},...Object.fromEntries(g.map((_,j)=>[j+1,{halign:'right'}]))},theme:'grid'}); y=doc.lastAutoTable.finalY+6; }
+  const nt=an.filter(a=>a.note); if(nt.length){ if(y>180){ doc.addPage(); y=14; } doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(120,25,45); doc.text(T('Note'),M,y); doc.setTextColor(0); y+=5;
+    nt.forEach(a=>{ doc.setFont('helvetica','bold'); doc.setFontSize(9); const h=fd(a.data)+' · '+anAmbitoTxt(a)+(a.lab?' · '+a.lab:''); if(y>195){ doc.addPage(); y=14; } doc.text(T(h),M,y); y+=4.2; doc.setFont('helvetica','normal');
+      const l=doc.splitTextToSize(T(a.note),W-2*M); l.forEach(r=>{ if(y>200){ doc.addPage(); y=14; } doc.text(r,M,y); y+=4.2; }); y+=2; }); }
+  if(an.some(a=>Object.values(a.valori||{}).some(x=>x&&x.fl))){ if(y>200){ doc.addPage(); y=14; } doc.setFontSize(8); doc.setTextColor(110); doc.text(T('«!» = valore fuori dall\'intervallo consueto, confermato da chi l\'ha inserito. «<» = sotto il limite di rilevabilità.'),M,y); doc.setTextColor(0); }
+  const n=doc.getNumberOfPages(); for(let p=1;p<=n;p++){ doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.text(T('Cantina Pratica · pagina '+p+' di '+n),W-M,204,{align:'right'}); }
+  const nome=('Analisi '+vName(id)+' '+today()).replace(/[^\w\-. àèéìòù]/g,'').replace(/\s+/g,'_')+'.pdf';
+  const url=URL.createObjectURL(doc.output('blob'));
+  modal('PDF analisi · '+vName(id),`<p class="small">Il PDF è pronto. Usa «Scarica PDF», oppure le icone del visualizzatore qui sotto per stampare o salvare.</p>
+    <iframe src="${url}" title="Anteprima PDF" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
+    <div class="foot"><button class="btn" data-close>Chiudi</button><button class="btn pri" id="an-dl">Scarica PDF</button></div>`,(b)=>{
+      $('#an-dl',b).onclick=async()=>{ const blob=doc.output('blob'); let dl=null; try{ dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null; }catch(e){ dl=null; }
+        if(dl){ try{ await dl.save({filename:nome,data:blob}); toast('PDF salvato'); }catch(e){ if(e&&e.code!=='declined') toast('Download non riuscito: '+(e.message||e.code||'errore')); } return; }
+        const a=document.createElement('a'); a.href=url; a.download=nome; document.body.append(a); a.click(); a.remove(); }; });
+}
+function anParams(an){ const used=new Set(an.flatMap(a=>Object.keys(a.valori||{}).filter(k=>fmtVal(a.valori[k]))));
+  return [...S.parametri.map(p=>p.nome).filter(n=>used.has(n)),...[...used].filter(u=>!S.parametri.some(p=>p.nome===u))]; }
+const anUdm=n=>(S.parametri.find(p=>p.nome===n)||{}).udm||'';
+function analisiTable(id,readonly,filt,lista){
+  const an=(lista?lista.slice():filt?S.analisi.filter(a=>a.vino===id&&filt(a)):anVino(id)).sort((a,b)=>a.data<b.data?-1:1);
+  if(!an.length) return `<div class="empty">Nessuna analisi${lista?' con questi filtri':''}.${readonly||lista?'':' Usa «Nuova analisi» o importa un referto.'}</div>`;
+  const params=anParams(an), udm=anUdm;
+  return `<p class="hint">Date in colonna, parametri in riga (solo quelli con almeno un valore). Cella vuota = non determinato; «0» = misurato zero; «&lt;0,1» = sotto il limite di rilevabilità indicato (0,1); «&lt; LR» = sotto il limite, valore del limite non indicato.</p>
+  <div class="tbl-wrap"><table class="an"><thead><tr><th class="p">Parametro</th>${an.map(a=>`<th class="r">${fd(a.data)}<br><span class="chip" style="text-transform:none;letter-spacing:0">${esc(anAmbitoTxt(a))}</span>${a.lab?`<br><span style="text-transform:none;letter-spacing:0;font-weight:500">${esc(a.lab)}</span>`:''}${a.stimata?'<br><span class="chip warn" style="text-transform:none;letter-spacing:0">stimata</span>':''}${a._da?`<br><span class="chip" style="text-transform:none;letter-spacing:0" title="Analisi fatta quando il vino era ${esc(vName(a._da))}">prima della certificazione</span>`:''}${!readonly?`<br><button class="btn sm ghost" data-aed="${a.id}" data-av="${a._da||''}">Correggi</button>`:''}</th>`).join('')}</tr></thead>
+  <tbody>${params.map(p=>`<tr><td class="p">${esc(p)}${udm(p)?`<span class="an-u">${esc(udm(p))}</span>`:''}</td>${an.map(a=>{const x=a.valori[p];const s=fmtVal(x);return `<td class="v ${s?'':'nd'}">${s?(x&&x.fl?`<span class="an-fl" title="Fuori dall'intervallo consueto: valore confermato al salvataggio">${s} !</span>`:s):'·'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
   ${an.some(a=>a.note||a.fonte||a.controlli)?`<ul class="small muted" style="margin-top:8px">${an.filter(a=>a.note||a.fonte||a.storia?.length||a.controlli).map(a=>`<li>${fd(a.data)}: ${esc([a.fonte&&'fonte '+a.fonte,a.note,a.storia?.length?`corretta ${a.storia.length} volta/e, versioni precedenti conservate`:'',a.controlli?'confermati al salvataggio, fuori dall\'intervallo consueto: '+a.controlli.avvisi.join(' · '):''].filter(Boolean).join(' · '))}</li>`).join('')}</ul>`:''}
   ${an.some(a=>a.controlli)?'<p class="hint">«!» = valore fuori dall\'intervallo consueto, confermato da chi l\'ha inserito.</p>':''}`;
 }
