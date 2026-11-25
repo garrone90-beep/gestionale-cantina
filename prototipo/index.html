@@ -4785,10 +4785,11 @@ function viewScheda(app,code){
     ${D.storia.map(x=>`<tr><td style="white-space:nowrap">${fd(x.data)}</td><td><b>${esc(x.titolo)}</b></td><td class="small">${esc(x.testo)}${x.note?`<div class="muted">${notaH(x.note)}</div>`:''}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="panel"><h3>Trattamenti · riepilogo</h3>${D.trattamenti.length?`<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Aggiunte</th><th class="r">Totale</th><th>Dosi</th></tr></thead><tbody>
     ${D.trattamenti.map(t=>`<tr><td><b>${esc(t.prodotto)}</b></td><td class="r">${t.n}</td><td class="r">${t.dosi.length?nf(t.dose,3)+' '+esc(t.udm):'—'}</td><td class="small muted">${esc(t.dosi.join(' · '))}</td></tr>`).join('')}</tbody></table></div><p class="hint">Totale = somma delle dosi aggiunte nella partita (stessa unità).</p>`:'<p class="muted small">Nessun prodotto aggiunto.</p>'}</div>
-  <div class="panel"><h3>Analisi</h3>${D.ans.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th>${cols.map(k=>`<th class="r">${esc(k)}</th>`).join('')}</tr></thead><tbody>
+  <div class="panel"><div class="spread"><h3>Analisi</h3>${D.ans.length?'<button type="button" class="btn sm" id="sc-anpdf">PDF analisi</button>':''}</div>${D.ans.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th>${cols.map(k=>`<th class="r">${esc(k)}</th>`).join('')}</tr></thead><tbody>
     ${D.ans.map((a,i)=>`<tr style="${i===0?'font-weight:600':''}"><td style="white-space:nowrap">${fd(a.data)}${a.stimata?' <span class="chip warn">stimata</span>':''}${a._da?' <span class="chip">prima della certificazione</span>':''}</td>${cols.map(k=>`<td class="r">${esc(anVal(a,k))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna analisi.</p>'}</div>
   ${w.note?`<div class="panel"><h3>Note del vino</h3><p>${esc(w.note)}</p></div>`:''}`;
   $('#sc-pdf',app).onclick=()=>schedaPDF(code);
+  { const x=$('#sc-anpdf',app); if(x) x.onclick=()=>anPDFVasca(code); }
 }
 let _jspdf=null;
 function loadJsPDF(){ if(_jspdf) return _jspdf; const add=src=>new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error('script')); document.head.append(sc); });
@@ -5101,6 +5102,18 @@ function analisiSchede(id,lista){
       <dl>${ps.map(k=>{ const x=a.valori[k]; return `<div><dt>${esc(k)}${anUdm(k)?` <span class="an-u">${esc(anUdm(k))}</span>`:''}</dt><dd>${x&&x.fl?`<span class="an-fl">${fmtVal(x)} !</span>`:fmtVal(x)}</dd></div>`; }).join('')||'<div class="muted small">Nessun valore.</div>'}</dl>
       ${a.note?`<div class="nt small">${esc(a.note).replace(/\n/g,'<br>')}</div>`:''}</article>`; }).join('')}</div>`;
 }
+/* PDF analisi dalla scheda vasca: già filtrato su questa vasca, si sceglie il periodo */
+function anPDFVasca(code){ const D=schedaDati(code); if(!D) return; const vid=D.s.vino; const haV=D.ans.some(a=>a.ambito!=='vasca');
+  modal('PDF analisi · '+Vnome(code),`<p class="small">Analisi di <b>${esc(vName(vid))}</b> riferite alla <b>${esc(vnome(code))}</b>.</p>
+    <div class="fg"><label class="f">Dal<input type="date" id="ap-dal"></label><label class="f">Al<input type="date" id="ap-al"></label></div>
+    ${haV?'<label class="opt"><input type="checkbox" id="ap-vino" checked> Includi le analisi fatte su tutto il vino</label>':''}
+    <div id="ap-n" class="hint"></div>
+    <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ap-go">Crea PDF</button></div>`,(b,close)=>{
+    const F=()=>({dal:$('#ap-dal',b).value,al:$('#ap-al',b).value,vs:[code,...(haV&&$('#ap-vino',b).checked?['__vino']:[])]});
+    const L=()=>{ const f=F(); return D.ans.filter(a=>(!f.dal||a.data>=f.dal)&&(!f.al||a.data<=f.al)&&(a.ambito!=='vasca'?f.vs.includes('__vino'):anVasche(a).includes(code))); };
+    const upd=()=>{ const n=L().length; $('#ap-n',b).textContent=n?n+(n===1?' analisi':' analisi')+' nel PDF':'Nessuna analisi con questi filtri.'; $('#ap-go',b).disabled=!n; };
+    b.addEventListener('change',upd); upd();
+    $('#ap-go',b).onclick=()=>{ const l=L(), f=F(); close(); anPDF(vid,l,f); }; }); }
 async function anPDF(id,lista,F){
   if(!lista.length) return; let J; try{ J=await loadJsPDF(); }catch(e){ return toast('Non riesco a caricare il generatore PDF: controlla la connessione'); }
   const w=vino(id)||{}; const an=lista.slice().sort((a,b)=>a.data<b.data?-1:1), ps=anParams(an), T=pdfTxt;
