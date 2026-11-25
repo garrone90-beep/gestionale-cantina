@@ -5140,10 +5140,11 @@ async function fileToImages(file,maxImgs,onStep){
   }
   return {images,testo:testo.trim()};
 }
-function refertoPrompt(nome,testo,nImg){
+function refertoPrompt(nome,testo,nImg,foglio){
   const cat=S.parametri.map(p=>`- ${p.nome}${p.udm?'   [unità: '+p.udm+']':''}`).join('\n');
-  return `Leggi un referto di analisi enologiche di un laboratorio (file «${nome}»). Ti passo ${nImg} immagini: sono le pagine del referto, oppure ritagli SOVRAPPOSTI della stessa pagina (in tal caso non duplicare i campioni).
-${testo?`Testo estratto automaticamente dal PDF (può essere incompleto o disordinato):\n"""\n${testo.slice(0,12000)}\n"""\n`:''}
+  return (foglio?`Leggi delle analisi enologiche da un foglio di calcolo (file «${nome}»): può essere il file di un laboratorio, la scheda dell'enologo o un foglio fatto dalla cantina, con qualsiasi impaginazione. Te lo passo come testo: ogni riga è «riga N: COLONNA=valore | …», le celle vuote sono omesse; le date sono già in formato AAAA-MM-GG. Ogni foglio, colonna o blocco con un vino/vasca/data diversi è un campione distinto.
+"""\n${testo.slice(0,40000)}\n"""\n`:`Leggi un referto di analisi enologiche di un laboratorio (file «${nome}»). Ti passo ${nImg} immagini: sono le pagine del referto, oppure ritagli SOVRAPPOSTI della stessa pagina (in tal caso non duplicare i campioni).
+${testo?`Testo estratto automaticamente dal PDF (può essere incompleto o disordinato):\n"""\n${testo.slice(0,12000)}\n"""\n`:''}`)+`
 Estrai TUTTI i campioni presenti. Per ogni campione: il codice/nome del campione come scritto dal laboratorio, la data (prelievo o analisi) e tutti i valori.
 Per il campo "parametro" usa, quando corrispondono, ESATTAMENTE uno di questi nomi (solo il nome, senza unità; l'unità va nel campo "udm"):
 ${cat}
@@ -5154,8 +5155,10 @@ Regole:
 - Valori scritti a mano (es. SO2 libera/totale annotate a margine come «L 45 T 134»): scritto_a_mano=true.
 - Non inventare: se un valore è illeggibile metti valore=null e incerto=true.
 - Numeri con il punto decimale. Date in formato AAAA-MM-GG.
+- Parametri senza valore: non metterli. Righe come «correzioni», «trattamenti», «giudizio organolettico», «osservazioni»: NON sono valori, riportale nel campo "note" del campione, testo come scritto (a capo con \\n), senza riassumere.
+- Se il documento indica il vino (nome/qualità) o la vasca/contenitore del campione, mettili in "vino" e "vasca" come scritti (null se non indicati). "codice" è il nome del campione; se non c'è usa il vino o la vasca.
 Rispondi SOLO con JSON in questa forma:
-{"laboratorio":"OINOS","data":"2026-10-06","campioni":[{"codice":"pr1","data":"2026-10-06","valori":[{"parametro":"pH","udm":"","valore":3.87,"sotto_limite":false,"scritto_a_mano":false,"incerto":false}],"note":null}]}`;
+{"laboratorio":"OINOS","data":"2026-10-06","campioni":[{"codice":"pr1","vino":null,"vasca":null,"data":"2026-10-06","valori":[{"parametro":"pH","udm":"","valore":3.87,"sotto_limite":false,"scritto_a_mano":false,"incerto":false}],"note":null}]}`;
 }
 /* ===================== Confronto con Maxidata ===================== */
 /* Solo controllo: legge le stampe «Giacenza prodotti» di Maxidata e le confronta con il gestionale. Non modifica nulla.
@@ -5270,11 +5273,15 @@ function maxiRisultato(b,dati){
   $('#mx-res',b).innerHTML=html; $('#mx-res',b).scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+/* foglio di calcolo → testo per Claude: «riga N: A=… | E=…», celle vuote omesse */
+function foglioTesto(fogli){ const L=n=>{ let s=''; n++; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; };
+  return fogli.map(f=>{ const righe=f.rows.map((r,i)=>{ const cs=(r||[]).map((v,c)=>String(v||'').replace(/\s+/g,' ').trim()?L(c)+'='+String(v).replace(/\r?\n/g,' / ').replace(/[ \t]+/g,' ').trim():'').filter(Boolean); return cs.length?`riga ${i+1}: ${cs.join(' | ')}`:''; }).filter(Boolean);
+    return righe.length?(fogli.length>1||f.nome?`=== Foglio «${f.nome}» ===\n`:'')+righe.join('\n'):''; }).filter(Boolean).join('\n\n'); }
 function formReferto(vidDef){
   modal('Importa referto di laboratorio',`
    <div id="rf-step1" class="row" style="flex-direction:column;align-items:stretch;gap:10px">
-     <p class="hint">Carica il PDF del laboratorio (anche scansionato) oppure una foto del referto. Claude legge campioni e valori; poi li controlli e scegli a quale vino e vasca associarli. Niente viene salvato senza la tua conferma.</p>
-     <input type="file" id="rf-file" accept="application/pdf,image/jpeg,image/png,image/webp">
+     <p class="hint">Carica il PDF del laboratorio (anche scansionato), una foto del referto oppure un file Excel (.xlsx) o CSV, anche la scheda dell'enologo. Claude legge campioni e valori; poi li controlli e scegli a quale vino e vasca associarli. Niente viene salvato senza la tua conferma.</p>
+     <input type="file" id="rf-file" accept="application/pdf,image/jpeg,image/png,image/webp,.xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
      <div class="row"><button class="btn pri" id="rf-go" disabled>Leggi referto</button><button class="btn" id="rf-stop" hidden>Interrompi</button><button class="btn ghost" id="rf-demo">Prova con l'esempio OINOS</button></div>
      <div id="rf-st" class="hint"></div>
    </div>
@@ -5287,10 +5294,21 @@ function formReferto(vidDef){
       const st=$('#rf-st',b); const go=$('#rf-go',b);
       const sample=await (window.claude?.use?window.claude.use('sample'):Promise.resolve(null)).catch(()=>null);
       if(!sample){ st.innerHTML='<span class="err">La lettura automatica non è disponibile in questa vista (serve aprire la pagina dentro Claude). Puoi inserire i valori con «Nuova analisi».</span>'; return; }
-      const lim=await sample.limits().catch(()=>null);
-      if(!lim||!lim.images){ st.innerHTML='<span class="err">In questa vista non si possono inviare immagini a Claude.</span>'; return; }
+      const foglio=/\.(xlsx|csv)$/i.test(file.name);
+      const lim=foglio?null:await sample.limits().catch(()=>null);
+      if(!foglio&&(!lim||!lim.images)){ st.innerHTML='<span class="err">In questa vista non si possono inviare immagini a Claude.</span>'; return; }
       go.disabled=true; $('#rf-stop',b).hidden=false; ctl=new AbortController();
       try{
+        if(foglio){ st.textContent='Apro il foglio…';
+          const fogli=/\.xlsx$/i.test(file.name)?await leggiXlsx(await file.arrayBuffer(),{fogli:true}):[{nome:'',rows:leggiCsv(await file.text())}];
+          const testo=foglioTesto(fogli);
+          if(!testo.trim()){ st.innerHTML='<span class="err">Il file è vuoto.</span>'; return; }
+          if(testo.length>40000){ st.innerHTML='<span class="err">Il file è troppo grande per essere letto in una volta: dividilo in più file.</span>'; return; }
+          st.textContent='Claude sta leggendo il file. Può richiedere fino a un minuto…';
+          const res=await sample.json(refertoPrompt(file.name,testo,0,true),{signal:ctl.signal,modelTier:'default'});
+          if(!res||!Array.isArray(res.campioni)||!res.campioni.length){ st.innerHTML='<span class="err">Non ho trovato analisi nel file.</span>'; return; }
+          st.textContent=`Trovat${res.campioni.length===1?'a 1 analisi':'e '+res.campioni.length+' analisi'}. Controlla qui sotto.`;
+          renderReview(b,res,file.name,close,vidDef); return; }
         st.textContent='Preparo il documento…';
         const {images,testo}=await fileToImages(file,lim.images.maxCount||6,m=>st.textContent=m);
         st.textContent=`Claude sta leggendo il referto (${images.length} immagin${images.length===1?'e':'i'}). Può richiedere fino a un paio di minuti…`;
@@ -5327,22 +5345,31 @@ function fixParams(){ if(!S||!S.parametri) return; const keep=[]; const ren={};
   save(); return true; }
 function renderReview(b,res,fonte,close,vidDef){
   const propose=code=>{const c=String(code||'').toLowerCase().trim(); const v=S.vini.find(w=>(w.alias||[]).some(a=>a.toLowerCase()===c)); return v?v.id:'';};
+  /* vino scritto nel file (es. «Piemonte Barbera»): alias o nome uguale, altrimenti un solo vino il cui nome è contenuto (o contiene) */
+  const kN=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  let dRif=today(); const daNome=t=>{ const k=kN(t); if(!k) return ''; const al=propose(t); if(al) return al;
+    const eq=S.vini.filter(w=>kN(vName(w.id))===k||kN(w.nome)===k); if(eq.length===1) return eq[0].id;
+    const pa=S.vini.filter(w=>{ const n=kN(w.nome); return n&&(k.includes(n)||n.includes(k)); }); if(pa.length===1) return pa[0].id; const inV=pa.filter(w=>vascheDelVino(w.id,dRif).length); return inV.length===1?inV[0].id:''; };
+  /* vasca scritta nel file: stesso codice breve (13 = 013), prima tra quelle del vino */
+  const kV=t=>String(t||'').toLowerCase().replace(/^(vasca|botte|barrique|serbatoio|tonneau|cont\w*)\s*(n[°.º]?\s*)?/,'').replace(/[^a-z0-9]/g,'').replace(/^0+(?=\d)/,'');
+  const vascaDa=(t,vid,d)=>{ const k=kV(t); if(!k) return ''; const ok=c=>kV(vlabS(c))===k||kV(c)===k; const vs=vid?vascheDelVino(vid,d):[]; return vs.find(ok)||''; };
   const camp=res.campioni.map(c=>({...c,valori:(c.valori||[]).map(v=>({...v,udm:v.udm||(String(v.parametro||'').match(/\(([^)]*)\)\s*$/)||[])[1]||'',parametro:normParam(v.parametro)}))}));
   const opts=sel=>`<option value="">— scegli il vino —</option>`+S.vini.map(v=>`<option value="${v.id}" ${v.id===sel?'selected':''}>${esc(vName(v.id))}</option>`).join('')+`<option value="__new">+ Nuovo vino…</option>`;
   const box=$('#rf-rev',b);
-  box.innerHTML=`<div class="box small" style="background:var(--surface-2);margin:10px 0">Referto <b>${esc(fonte)}</b>${res.laboratorio?' · laboratorio <b>'+esc(res.laboratorio)+'</b>':''}${res.data?' · '+fd(res.data):''} · ${camp.length} campioni. <span class="hand" style="padding:0 4px">Giallo</span> = scritto a mano, <span style="outline:2px solid var(--warn);padding:0 4px">bordo arancione</span> = lettura incerta: controlla.</div>
+  box.innerHTML=`<div class="box small" style="background:var(--surface-2);margin:10px 0">Referto <b>${esc(fonte)}</b>${res.laboratorio?' · laboratorio <b>'+esc(res.laboratorio)+'</b>':''}${res.data?' · '+fd(res.data):''} · ${camp.length} campion${camp.length===1?'e':'i'}. <span class="hand" style="padding:0 4px">Giallo</span> = scritto a mano, <span style="outline:2px solid var(--warn);padding:0 4px">bordo arancione</span> = lettura incerta: controlla.</div>
    <div class="row" style="flex-direction:column;align-items:stretch;gap:12px">
-   ${camp.map((c,i)=>{const pv=propose(c.codice)||(camp.length===1?vidDef:''); const d=c.data||res.data||today(); return `<div class="sample" data-i="${i}">
-     <div class="spread"><div><b style="font-family:var(--f-display);font-size:1.15rem">${esc(c.codice||'campione '+(i+1))}</b> <span class="muted small">nome sul referto</span>${c.note?` <span class="muted small">· ${esc(c.note)}</span>`:''}</div>
+   ${camp.map((c,i)=>{const pAl=propose(c.codice), pNo=pAl?'':(dRif=c.data||res.data||today(),daNome(c.vino)), pv=pAl||pNo||(camp.length===1?vidDef:''); const d=c.data||res.data||today(); const vv=vascaDa(c.vasca,pv,d); return `<div class="sample" data-i="${i}">
+     <div class="spread"><div><b style="font-family:var(--f-display);font-size:1.15rem">${esc(c.codice||'campione '+(i+1))}</b> <span class="muted small">nome sul referto</span>${c.vino&&c.vino!==c.codice?` <span class="muted small">· vino scritto: ${esc(c.vino)}</span>`:''}${c.vasca?` <span class="muted small">· vasca scritta: ${esc(c.vasca)}</span>`:''}</div>
        <label class="row small" style="gap:6px"><input type="checkbox" class="s-ign"> Ignora questa analisi</label></div>
      <div class="s-body">
      <div class="fg">
-       <label class="f">Vino ${pv&&propose(c.codice)?'<span class="chip ok">proposto dal nome</span>':'<span class="chip warn">da associare</span>'}<select class="s-v">${opts(pv)}</select></label>
+       <label class="f">Vino ${pAl?'<span class="chip ok">proposto dal nome</span>':pNo?'<span class="chip ok">proposto dal file</span>':'<span class="chip warn">da associare</span>'}<select class="s-v">${opts(pv)}</select></label>
        <label class="f">Data prelievo<input type="date" class="s-d" value="${esc(d)}"></label>
        <label class="f" style="flex-direction:row;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" class="s-al" checked> Ricorda «${esc(c.codice)}» per i prossimi referti</label>
      </div>
      <div class="s-nw fg" hidden>${vinoPicker('n'+i,null)}</div>
-     <div class="s-amb">${ambitoHTML('s'+i,pv,d)}</div>
+     <div class="s-amb">${ambitoHTML('s'+i,pv,d,vv?{ambito:'vasca',vasche:[vv]}:null)}</div>${c.vasca&&pv&&!vv?`<p class="hint">La vasca «${esc(c.vasca)}» scritta nel file non contiene questo vino a questa data: scegli tu.</p>`:''}
+     <label class="f wide">Note (correzioni, giudizio…)<textarea class="s-nt" style="min-height:${c.note?90:44}px">${esc(c.note||'')}</textarea></label>
      <div class="sv">${c.valori.map(v=>`<label class="f">${esc(v.parametro)}${v.udm&&!S.parametri.some(p=>p.nome===v.parametro)?' ('+esc(v.udm)+')':''}<input data-p="${esc(v.parametro)}" data-u="${esc(v.udm||'')}" value="${v.sotto_limite?'<'+(v.valore!=null&&v.valore>0?nfIn(v.valore,3):''):v.valore!=null?nfIn(v.valore,3):''}" inputmode="decimal" class="${v.scritto_a_mano?'hand':''}" ${v.incerto?'style="outline:2px solid var(--warn)"':''}></label>`).join('')}</div>
      </div></div>`}).join('')}
    </div>
@@ -5353,7 +5380,7 @@ function renderReview(b,res,fonte,close,vidDef){
   box.addEventListener('input',e=>{ if(!e.target.closest('#rf-conf')) rfGate.reset(); });
   $$('.sample',box).forEach(sm=>{ const i=+sm.dataset.i;
     const syncIgn=()=>{ const ig=$('.s-ign',sm).checked; sm.classList.toggle('skip',ig); $('.s-body',sm).hidden=ig; }; $('.s-ign',sm).onchange=syncIgn;
-    const reAmb=()=>{ const v=$('.s-v',sm).value; $('.s-amb',sm).innerHTML=ambitoHTML('s'+i,v&&v!=='__new'?v:'',$('.s-d',sm).value); ambitoBind(sm,'s'+i); };
+    const reAmb=()=>{ const v=$('.s-v',sm).value, vid=v&&v!=='__new'?v:'', d=$('.s-d',sm).value, vv=vascaDa(camp[i].vasca,vid,d); $('.s-amb',sm).innerHTML=ambitoHTML('s'+i,vid,d,vv?{ambito:'vasca',vasche:[vv]}:null); ambitoBind(sm,'s'+i); };
     $('.s-v',sm).onchange=()=>{ $('.s-nw',sm).hidden=$('.s-v',sm).value!=='__new'; reAmb(); };
     $('.s-d',sm).onchange=reAmb; ambitoBind(sm,'s'+i); pickerBind(sm,'n'+i);
   });
@@ -5379,7 +5406,7 @@ function renderReview(b,res,fonte,close,vidDef){
         if(!S.parametri.some(p=>p.nome===pn)) S.parametri.push({nome:pn,udm:inp.dataset.u||''});
         if(t.startsWith('<')) valori[pn]={v:num(t.slice(1)),lod:true}; else { const x=num(t); if(x!=null) valori[pn]={v:x,lod:false}; } });
       const amb=ambitoRead(sm,'s'+i);
-      const an={id:uid(),vino:v,data:$('.s-d',sm).value||res.data||today(),...amb,lab:res.laboratorio||'',fonte,note:`Campione «${c.codice}»`+(c.valori.some(x=>x.scritto_a_mano)?' · valori scritti a mano verificati':''),valori,storia:[]};
+      const an={id:uid(),vino:v,data:$('.s-d',sm).value||res.data||today(),...amb,lab:res.laboratorio||'',fonte,note:`Campione «${c.codice}»`+(c.valori.some(x=>x.scritto_a_mano)?' · valori scritti a mano verificati':'')+(($('.s-nt',sm)||{}).value||'').trim().replace(/^(.)/,'\n$1'),valori,storia:[]};
       anSegna(an,cks.get(sm)||{warn:[]}); S.analisi.push(an); n++; });
     UI.vinoTab='analisi'; close(); refresh(); toast(`${n} analisi salvate`);
   };
@@ -5678,7 +5705,7 @@ function formSposta(code){ const v=VMAP[code], c=v.rec; const dest=DEPOSITI.filt
 }
 /* ===================== Import contenitori da Excel / CSV (REG-CONT-07) =====================
    Lettore .xlsx interno (zip + XML), senza librerie esterne: funziona anche senza rete. */
-async function leggiXlsx(buf){ const u8=new Uint8Array(buf), dv=new DataView(buf); let eo=-1;
+async function leggiXlsx(buf,o){ o=o||{}; const u8=new Uint8Array(buf), dv=new DataView(buf); let eo=-1;
   for(let i=u8.length-22;i>=Math.max(0,u8.length-66000);i--){ if(dv.getUint32(i,true)===0x06054b50){ eo=i; break; } }
   if(eo<0) throw new Error('Il file non sembra un Excel (.xlsx) valido.');
   const n=dv.getUint16(eo+10,true); let p=dv.getUint32(eo+16,true); const files={};
@@ -5694,6 +5721,23 @@ async function leggiXlsx(buf){ const u8=new Uint8Array(buf), dv=new DataView(buf
     const rid=s1&&(s1.getAttribute('r:id')||s1.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id'));
     const rel=[...rels.getElementsByTagNameNS('*','Relationship')].find(r=>r.getAttribute('Id')===rid); if(rel){ const t=rel.getAttribute('Target').replace(/^\//,''); sheet=t.startsWith('xl/')?t:'xl/'+t; } }catch(e){}
   const ssT=await get('xl/sharedStrings.xml'); const ss=ssT?[...X(ssT).getElementsByTagNameNS('*','si')].map(si=>[...si.getElementsByTagNameNS('*','t')].map(t=>t.textContent).join('')):[];
+  if(o.fogli){ /* tutti i fogli, con le date scritte come date (per i referti in Excel) */
+    let dStili=new Set(); try{ const st=X(await get('xl/styles.xml')); const fmt={}; [...st.getElementsByTagNameNS('*','numFmt')].forEach(f=>fmt[f.getAttribute('numFmtId')]=f.getAttribute('formatCode')||'');
+      const xfs=st.getElementsByTagNameNS('*','cellXfs')[0]; [...(xfs?xfs.getElementsByTagNameNS('*','xf'):[])].forEach((x,i)=>{ const id=+x.getAttribute('numFmtId'); const fc=(fmt[id]||'').replace(/"[^"]*"|\[[^\]]*\]/g,'');
+        if((id>=14&&id<=22)||(id>=45&&id<=47)||/[dy]/i.test(fc)) dStili.add(i); }); }catch(e){}
+    const nomi=[]; try{ const wb=X(await get('xl/workbook.xml')), rels=X(await get('xl/_rels/workbook.xml.rels'));
+      [...wb.getElementsByTagNameNS('*','sheet')].forEach(sh=>{ const rid=sh.getAttribute('r:id')||sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id'); const rel=[...rels.getElementsByTagNameNS('*','Relationship')].find(r=>r.getAttribute('Id')===rid);
+        if(rel){ const t=rel.getAttribute('Target').replace(/^\//,''); nomi.push({nome:sh.getAttribute('name')||'',path:t.startsWith('xl/')?t:'xl/'+t}); } }); }catch(e){}
+    if(!nomi.length) nomi.push({nome:'',path:sheet});
+    const colN=r=>{ const m=/^([A-Z]+)/.exec(r||''); if(!m) return 0; let c=0; for(const ch of m[1]) c=c*26+ch.charCodeAt(0)-64; return c-1; };
+    const fogli=[]; for(const f of nomi){ const t=await get(f.path); if(!t) continue; const rows=[];
+      [...X(t).getElementsByTagNameNS('*','row')].forEach(rw=>{ const ri=(+rw.getAttribute('r')||rows.length+1)-1; const out=rows[ri]=rows[ri]||[];
+        [...rw.getElementsByTagNameNS('*','c')].forEach((c,ci)=>{ const ty=c.getAttribute('t'); const v=c.getElementsByTagNameNS('*','v')[0]; let val='';
+          if(ty==='s') val=v?ss[+v.textContent]||'':''; else if(ty==='inlineStr') val=[...c.getElementsByTagNameNS('*','t')].map(x=>x.textContent).join(''); else val=v?v.textContent:'';
+          if(val!==''&&!ty&&dStili.has(+c.getAttribute('s'))&&isFinite(+val)&&+val>20000&&+val<80000){ const d=new Date(Date.UTC(1899,11,30)+Math.round(+val)*864e5); val=d.toISOString().slice(0,10); }
+          out[c.getAttribute('r')?colN(c.getAttribute('r')):ci]=String(val).trim(); }); });
+      fogli.push({nome:f.nome,rows:[...rows].map(r=>r?[...r].map(x=>x==null?'':x):[])}); }
+    return fogli; }
   const shT=await get(sheet); if(!shT) throw new Error('Non trovo il primo foglio del file.');
   const rows=[]; const col=r=>{ const m=/^([A-Z]+)/.exec(r||''); if(!m) return 0; let c=0; for(const ch of m[1]) c=c*26+ch.charCodeAt(0)-64; return c-1; };
   [...X(shT).getElementsByTagNameNS('*','row')].forEach(rw=>{ const ri=(+rw.getAttribute('r')||rows.length+1)-1; const out=rows[ri]=rows[ri]||[];
