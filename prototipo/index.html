@@ -583,10 +583,10 @@ body.op-only #app{max-width:600px;margin:0 auto;padding:12px 14px 24px}
 .chip.mod{background:#FFF1B8;color:#6B5200;border-color:transparent}
 .vp-sel{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:30px}.vp-sel .chip{padding:3px 8px}
 .vp-dd>summary{list-style:none;display:inline-flex;cursor:pointer;margin-top:6px}.vp-dd>summary::-webkit-details-marker{display:none}
-.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.an-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin-bottom:8px}.an-bar .an-d{min-width:140px;flex:0 1 160px}.an-bar #an-pdf{margin-left:auto}
+.vp-dd[open]>summary{margin-bottom:6px}.vp-dd .vp-ch,.vp-dd[open] .vp-ap{display:none}.vp-dd[open] .vp-ch{display:inline}.an-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin-bottom:8px}.an-bar .an-d{min-width:140px;flex:0 1 160px}.an-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}.an-h h3{margin:0}.an-per{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.an-per .chip{cursor:pointer;font:inherit;font-size:13px}.an-per .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .an-vs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:4px 0}.an-vs .chip{cursor:pointer;font:inherit;font-size:13px}.an-vs .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .an-u{display:block;font-size:.75em;color:var(--muted);font-weight:400}
-table.an td.p,table.an th.p{white-space:normal;min-width:120px;max-width:200px}
+table.an{width:auto;min-width:0}.tbl-wrap:has(>table.an){width:fit-content;max-width:100%}table.an td.v{text-align:center!important}table.an thead th.r{text-align:center}table.an td.p,table.an th.p{white-space:normal;min-width:120px;max-width:200px}
 .an-box .an-fs-off{display:none}.an-box .an-fs-on{display:none;margin-bottom:6px}
 @media (max-width:899px){ .an-box .an-fs-on{display:inline-flex} table.an td.p,table.an th.p{min-width:96px;max-width:130px;font-size:.88rem} table.an td.v{min-width:62px} }
 .an-box.fs{position:fixed;inset:0;z-index:300;background:var(--surface);overflow:auto;padding:10px}
@@ -4780,12 +4780,12 @@ function viewScheda(app,code){
     ${D.uve.map(u=>`<p style="margin:4px 0"><b>${fd(u.data)}</b> · ${esc(u.lav)} · ${esc(u.uve)} → ${hL(u.L)}${u.resa?` · resa ${nf(u.resa,1)} %`:''}</p>`).join('')}
     ${D.fermEv.length||D.uve.some(u=>u.ferm)?`<p class="small" style="margin:4px 0">${[...D.uve.filter(u=>u.ferm).map(u=>'Inizio fermentazione '+fd(u.data)),...D.fermEv.map(e=>`${e.azione==='fine'?'Fine':'Inizio'} fermentazione ${fd(e.data)}`)].join(' · ')}</p>`:''}
     ${fermMis(code).length?`<div style="max-width:620px">${fermCurve(code,560,170)}</div>`:D.misure.length?`<div class="tbl-wrap" style="max-width:620px"><table><thead><tr><th>Data</th><th>Vasca</th><th>Misura</th></tr></thead><tbody>${D.misure.map(m=>`<tr><td>${fd(m.data)} ${m.ora||''}</td><td>${esc(vlab(m.vasca))}</td><td>${esc(misTxt(m))}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`:''}
-  <div class="panel"><h3>Storia della partita <span class="muted small" style="font-weight:400">· ${D.storia.length} passaggi, dal più vecchio</span></h3>
+  <div class="panel"><h3>Storia della partita <span class="muted small" style="font-weight:400">· ${D.storia.length===1?'1 passaggio':D.storia.length+' passaggi'}, dal più recente</span></h3>
     <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Operazione</th><th>Dettaglio</th></tr></thead><tbody>
-    ${D.storia.map(x=>`<tr><td style="white-space:nowrap">${fd(x.data)}</td><td><b>${esc(x.titolo)}</b></td><td class="small">${esc(x.testo)}${x.note?`<div class="muted">${notaH(x.note)}</div>`:''}</td></tr>`).join('')}</tbody></table></div></div>
+    ${D.storia.slice().reverse().map(x=>`<tr><td style="white-space:nowrap">${fd(x.data)}</td><td><b>${esc(x.titolo)}</b></td><td class="small">${esc(x.testo)}${x.note?`<div class="muted">${notaH(x.note)}</div>`:''}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="panel"><h3>Trattamenti · riepilogo</h3>${D.trattamenti.length?`<div class="tbl-wrap"><table><thead><tr><th>Prodotto</th><th class="r">Aggiunte</th><th class="r">Totale</th><th>Dosi</th></tr></thead><tbody>
     ${D.trattamenti.map(t=>`<tr><td><b>${esc(t.prodotto)}</b></td><td class="r">${t.n}</td><td class="r">${t.dosi.length?nf(t.dose,3)+' '+esc(t.udm):'—'}</td><td class="small muted">${esc(t.dosi.join(' · '))}</td></tr>`).join('')}</tbody></table></div><p class="hint">Totale = somma delle dosi aggiunte nella partita (stessa unità).</p>`:'<p class="muted small">Nessun prodotto aggiunto.</p>'}</div>
-  <div class="panel"><div class="spread"><h3>Analisi</h3>${D.ans.length?'<button type="button" class="btn sm" id="sc-anpdf">PDF analisi</button>':''}</div>${D.ans.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th>${cols.map(k=>`<th class="r">${esc(k)}</th>`).join('')}</tr></thead><tbody>
+  <div class="panel"><div class="an-h"><h3>Analisi</h3>${D.ans.length?'<button type="button" class="btn sm" id="sc-anpdf">Genera PDF</button>':''}</div>${D.ans.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th>${cols.map(k=>`<th class="r">${esc(k)}</th>`).join('')}</tr></thead><tbody>
     ${D.ans.map((a,i)=>`<tr style="${i===0?'font-weight:600':''}"><td style="white-space:nowrap">${fd(a.data)}${a.stimata?' <span class="chip warn">stimata</span>':''}${a._da?' <span class="chip">prima della certificazione</span>':''}</td>${cols.map(k=>`<td class="r">${esc(anVal(a,k))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<p class="muted small">Nessuna analisi.</p>'}</div>
   ${w.note?`<div class="panel"><h3>Note del vino</h3><p>${esc(w.note)}</p></div>`:''}`;
   $('#sc-pdf',app).onclick=()=>schedaPDF(code);
@@ -4810,8 +4810,8 @@ async function schedaPDF(code){
   y+=2;
   if(D.uve.length||D.fermEv.length||D.misure.length){ head('Vinificazione'); D.uve.forEach(u=>para(fd(u.data)+' · '+u.lav+' · '+u.uve+' → '+hL(u.L)+(u.resa?' · resa '+nf(u.resa,1)+' %':''))); const fe=[...D.uve.filter(u=>u.ferm).map(u=>'Inizio fermentazione '+fd(u.data)),...D.fermEv.map(e=>(e.azione==='fine'?'Fine':'Inizio')+' fermentazione '+fd(e.data))]; if(fe.length) para(fe.join(' · '));
     if(D.misure.length) tab(['Data','Ora','Vasca','Misura'],D.misure.slice(-20).map(m=>[fd(m.data),m.ora||'',vlab(m.vasca),misTxt(m)])); else y+=2; }
-  head('Storia della partita');
-  tab(['Data','Operazione','Dettaglio'],D.storia.map(x=>[fd(x.data),x.titolo,x.testo+(x.note?' | '+notaV(x.note):'')]),{columnStyles:{0:{cellWidth:20},1:{cellWidth:48}}});
+  head('Storia della partita (dal più recente)');
+  tab(['Data','Operazione','Dettaglio'],D.storia.slice().reverse().map(x=>[fd(x.data),x.titolo,x.testo+(x.note?' | '+notaV(x.note):'')]),{columnStyles:{0:{cellWidth:20},1:{cellWidth:48}}});
   head('Trattamenti · riepilogo');
   if(D.trattamenti.length) tab(['Prodotto','Aggiunte','Totale','Dosi'],D.trattamenti.map(t=>[t.prodotto,String(t.n),t.dosi.length?nf(t.dose,3)+' '+t.udm:'—',t.dosi.join(' · ')])); else para('Nessun prodotto aggiunto.');
   head('Analisi'); const cols=anCols(D.ans);
@@ -5076,8 +5076,9 @@ function anPanel(tc,id){
   const filtri=F.dal||F.al||F.vs.length;
   tc.innerHTML=`<div class="an-bar">
      <div class="seg" role="group" aria-label="Vista"><button type="button" aria-pressed="${vista==='tab'}" data-anv="tab">Tabella</button><button type="button" aria-pressed="${vista==='sch'}" data-anv="sch">Schede</button></div>
-     <label class="f an-d">Dal<input type="date" id="anf-dal" value="${esc(F.dal)}"></label><label class="f an-d">Al<input type="date" id="anf-al" value="${esc(F.al)}"></label>
-     <button type="button" class="btn pri" id="an-pdf" ${lista.length?'':'disabled'}>PDF analisi</button>
+     ${anPerHTML(anPeriodi(id,all),F.dal,F.al)}
+     <label class="f an-d">Dal<input type="date" id="anf-dal" data-free value="${esc(F.dal)}"></label><label class="f an-d">Al<input type="date" id="anf-al" data-free value="${esc(F.al)}"></label>
+     <button type="button" class="btn pri" id="an-pdf" ${lista.length?'':'disabled'}>Genera PDF</button>
    </div>
    ${opz.length>1?`<div class="an-vs" role="group" aria-label="Riferite a"><span class="muted small">Riferite a:</span> <button type="button" class="chip${F.vs.length?'':' on'}" data-anvs="">Tutte</button>${opz.map(([c,l])=>`<button type="button" class="chip${F.vs.includes(c)?' on':''}" data-anvs="${esc(c)}">${esc(l)}</button>`).join('')}</div>`:''}
    ${all.length?`<p class="small muted" style="margin:4px 0 8px">${lista.length===all.length?all.length+(all.length===1?' analisi':' analisi'):`${lista.length} analisi su ${all.length}`}${filtri?' · <button type="button" class="lnk" id="anf-x">togli i filtri</button>':''}</p>`:''}
@@ -5085,6 +5086,7 @@ function anPanel(tc,id){
    ${originAnalisi(id)}`;
   const re=()=>anPanel(tc,id);
   $$('[data-anv]',tc).forEach(b=>b.onclick=()=>{ UI.anVista=b.dataset.anv; try{ localStorage.setItem('cp-an-vista',b.dataset.anv); }catch(e){} re(); });
+  $$('[data-anper]',tc).forEach(x=>x.onclick=()=>{ const q=anPeriodi(id,all).find(p=>p[0]===x.dataset.anper); if(q[0]==='tut'){ F.dal='';F.al=''; } else { F.dal=q[2]; F.al=q[3]; } re(); });
   $('#anf-dal',tc).onchange=e=>{ F.dal=e.target.value; re(); }; $('#anf-al',tc).onchange=e=>{ F.al=e.target.value; re(); };
   $$('[data-anvs]',tc).forEach(b=>b.onclick=()=>{ const c=b.dataset.anvs; if(!c) F.vs=[]; else F.vs=F.vs.includes(c)?F.vs.filter(x=>x!==c):[...F.vs,c]; re(); });
   { const x=$('#anf-x',tc); if(x) x.onclick=()=>{ F.dal='';F.al='';F.vs=[]; re(); }; }
@@ -5102,16 +5104,26 @@ function analisiSchede(id,lista){
       <dl>${ps.map(k=>{ const x=a.valori[k]; return `<div><dt>${esc(k)}${anUdm(k)?` <span class="an-u">${esc(anUdm(k))}</span>`:''}</dt><dd>${x&&x.fl?`<span class="an-fl">${fmtVal(x)} !</span>`:fmtVal(x)}</dd></div>`; }).join('')||'<div class="muted small">Nessun valore.</div>'}</dl>
       ${a.note?`<div class="nt small">${esc(a.note).replace(/\n/g,'<br>')}</div>`:''}</article>`; }).join('')}</div>`;
 }
+/* scorciatoie di periodo per filtri e PDF analisi: [chiave, etichetta, dal, al] */
+function anPeriodi(id,lista){ const ds=lista.map(a=>a.data).filter(Boolean).sort(); if(!ds.length) return []; const pr=ds[0], ul=ds[ds.length-1];
+  const t=new Date(today()+'T12:00:00'); t.setMonth(t.getMonth()-3); const m3=t.toISOString().slice(0,10); const an=(vino(id)||{}).annata;
+  return [['ult','Solo l\'ultima',ul,ul],['m3','Ultimi 3 mesi',m3,today()],...(an&&+an>1900?[['ann','Da inizio annata',`${an}-08-01`,ul>today()?ul:today()]]:[]),['tut','Tutte',pr,ul]]; }
+const anPerHTML=(per,dal,al)=>`<div class="an-per" role="group" aria-label="Periodo">${per.map(([k,l,d,a])=>`<button type="button" class="chip${(dal===d&&al===a)||(k==='tut'&&!dal&&!al)?' on':''}" data-anper="${k}">${esc(l)}</button>`).join('')}</div>`;
 /* PDF analisi dalla scheda vasca: già filtrato su questa vasca, si sceglie il periodo */
 function anPDFVasca(code){ const D=schedaDati(code); if(!D) return; const vid=D.s.vino; const haV=D.ans.some(a=>a.ambito!=='vasca');
   modal('PDF analisi · '+Vnome(code),`<p class="small">Analisi di <b>${esc(vName(vid))}</b> riferite alla <b>${esc(vnome(code))}</b>.</p>
-    <div class="fg"><label class="f">Dal<input type="date" id="ap-dal"></label><label class="f">Al<input type="date" id="ap-al"></label></div>
     ${haV?'<label class="opt"><input type="checkbox" id="ap-vino" checked> Includi le analisi fatte su tutto il vino</label>':''}
+    <div id="ap-per"></div>
+    <div class="fg"><label class="f">Dal<input type="date" id="ap-dal" data-free></label><label class="f">Al<input type="date" id="ap-al" data-free></label></div>
     <div id="ap-n" class="hint"></div>
     <div class="foot"><button class="btn" data-close>Annulla</button><button class="btn pri" id="ap-go">Crea PDF</button></div>`,(b,close)=>{
     const F=()=>({dal:$('#ap-dal',b).value,al:$('#ap-al',b).value,vs:[code,...(haV&&$('#ap-vino',b).checked?['__vino']:[])]});
     const L=()=>{ const f=F(); return D.ans.filter(a=>(!f.dal||a.data>=f.dal)&&(!f.al||a.data<=f.al)&&(a.ambito!=='vasca'?f.vs.includes('__vino'):anVasche(a).includes(code))); };
-    const upd=()=>{ const n=L().length; $('#ap-n',b).textContent=n?n+(n===1?' analisi':' analisi')+' nel PDF':'Nessuna analisi con questi filtri.'; $('#ap-go',b).disabled=!n; };
+    const base=()=>{ const v=haV&&$('#ap-vino',b).checked; return D.ans.filter(a=>a.ambito!=='vasca'?v:anVasche(a).includes(code)); };
+    const per=()=>{ const ps=anPeriodi(vid,base()); $('#ap-per',b).innerHTML=anPerHTML(ps,$('#ap-dal',b).value,$('#ap-al',b).value);
+      $$('[data-anper]',b).forEach(x=>x.onclick=()=>{ const q=ps.find(p=>p[0]===x.dataset.anper); $('#ap-dal',b).value=q[2]; $('#ap-al',b).value=q[3]; upd(); }); };
+    const upd=()=>{ const n=L().length; $('#ap-n',b).textContent=n?(n===1?'1 analisi nel PDF':n+' analisi nel PDF'):'Nessuna analisi con questi filtri.'; $('#ap-go',b).disabled=!n; per(); };
+    { const q=anPeriodi(vid,base()).find(p=>p[0]==='ult'); if(q){ $('#ap-dal',b).value=q[2]; $('#ap-al',b).value=q[3]; } }
     b.addEventListener('change',upd); upd();
     $('#ap-go',b).onclick=()=>{ const l=L(), f=F(); close(); anPDF(vid,l,f); }; }); }
 async function anPDF(id,lista,F){
@@ -5122,15 +5134,17 @@ async function anPDF(id,lista,F){
   doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text(T(vName(id)),M,y); y+=5.5; doc.setFont('helvetica','normal'); doc.setFontSize(10); if(vinoSub(w)){ doc.text(T(vinoSub(w)),M,y); y+=5; }
   const fl=[F.dal||F.al?'Periodo: '+(F.dal?'dal '+fd(F.dal):'')+(F.al?(F.dal?' ':'')+'al '+fd(F.al):''):'',F.vs.length?'Riferite a: '+F.vs.map(c=>c==='__vino'?'tutto il vino':Vnome(c)).join(', '):''].filter(Boolean);
   doc.setFontSize(9); doc.setTextColor(90); doc.text(T((fl.length?fl.join(' · ')+' · ':'')+an.length+' analisi'),M,y); doc.setTextColor(0); y+=4;
+  const multi=new Set(an.map(anAmbitoTxt)).size>1;
   const PER=8; for(let i=0;i<an.length;i+=PER){ const g=an.slice(i,i+PER);
-    const head=[['Parametro',...g.map(a=>fd(a.data)+'\n'+anAmbitoTxt(a)+(a.lab?'\n'+a.lab:'')+(a.stimata?'\n(stimata)':''))]];
+    const head=[['Parametro',...g.map(a=>fd(a.data)+(multi?'\n'+anAmbitoTxt(a):'')+(a.stimata?'\n(stimata)':''))]];
     const body=ps.map(k=>[k+(anUdm(k)?' ('+anUdm(k)+')':''),...g.map(a=>{ const v=anVal(a,k); return v?v+((a.valori[k]||{}).fl?' !':''):''; })]).filter(r=>r.slice(1).some(Boolean));
     if(i>0){ doc.addPage(); y=14; }
     doc.autoTable({startY:y,head:head.map(r=>r.map(T)),body:body.map(r=>r.map(T)),margin:{left:M,right:M},styles:{fontSize:8.5,cellPadding:1.5,overflow:'linebreak'},headStyles:{fillColor:[120,25,45],textColor:255,fontStyle:'bold',fontSize:8},
-      columnStyles:{0:{cellWidth:58,fontStyle:'bold'},...Object.fromEntries(g.map((_,j)=>[j+1,{halign:'right'}]))},theme:'grid'}); y=doc.lastAutoTable.finalY+6; }
+      tableWidth:'wrap',columnStyles:{0:{cellWidth:62,fontStyle:'bold'},...Object.fromEntries(g.map((_,j)=>[j+1,{halign:'center',cellWidth:26}]))},
+      didParseCell:d=>{ if(d.section==='head'&&d.column.index>0) d.cell.styles.halign='center'; },theme:'grid'}); y=doc.lastAutoTable.finalY+6; }
   const nt=an.filter(a=>a.note); if(nt.length){ if(y>180){ doc.addPage(); y=14; } doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(120,25,45); doc.text(T('Note'),M,y); doc.setTextColor(0); y+=5;
-    nt.forEach(a=>{ doc.setFont('helvetica','bold'); doc.setFontSize(9); const h=fd(a.data)+' · '+anAmbitoTxt(a)+(a.lab?' · '+a.lab:''); if(y>195){ doc.addPage(); y=14; } doc.text(T(h),M,y); y+=4.2; doc.setFont('helvetica','normal');
-      const l=doc.splitTextToSize(T(a.note),W-2*M); l.forEach(r=>{ if(y>200){ doc.addPage(); y=14; } doc.text(r,M,y); y+=4.2; }); y+=2; }); }
+    nt.forEach(a=>{ doc.setFont('helvetica','bold'); doc.setFontSize(9); const h=fd(a.data)+(multi?' · '+anAmbitoTxt(a):''); if(y>195){ doc.addPage(); y=14; } doc.text(T(h),M,y); y+=4.2; doc.setFont('helvetica','normal');
+      const l=String(a.note).split(/\r?\n/).flatMap(r=>doc.splitTextToSize(T(r),W-2*M)); l.forEach(r=>{ if(y>200){ doc.addPage(); y=14; } doc.text(r,M,y); y+=4.2; }); y+=2; }); }
   if(an.some(a=>Object.values(a.valori||{}).some(x=>x&&x.fl))){ if(y>200){ doc.addPage(); y=14; } doc.setFontSize(8); doc.setTextColor(110); doc.text(T('«!» = valore fuori dall\'intervallo consueto, confermato da chi l\'ha inserito. «<» = sotto il limite di rilevabilità.'),M,y); doc.setTextColor(0); }
   const n=doc.getNumberOfPages(); for(let p=1;p<=n;p++){ doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.text(T('Cantina Pratica · pagina '+p+' di '+n),W-M,204,{align:'right'}); }
   const nome=('Analisi '+vName(id)+' '+today()).replace(/[^\w\-. àèéìòù]/g,'').replace(/\s+/g,'_')+'.pdf';
