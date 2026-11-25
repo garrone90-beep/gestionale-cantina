@@ -1338,7 +1338,7 @@ function analisiPercorso(G,code,focus){
   return `<div class="panel"><div class="spread"><h3>Analisi lungo il percorso</h3><a class="small" href="#vino-${vlink}" id="g-an">tabella completa →</a></div>
    <p class="hint">Analisi del vino seguito: quelle di tutto il vino e quelle fatte sulle vasche in cui si trovava, nel periodo in cui c'era. Le analisi di altre partite entrate per assemblaggio si vedono con «storia di questa porzione».</p>
    <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Riferita a</th><th>Pertinenza</th>${K.map(k=>`<th class="r">${esc(k.replace('Alcool distillazione','Alcol').replace('Solforosa','SO₂'))}</th>`).join('')}<th></th></tr></thead><tbody>
-   ${rows.map(({a,perc,share})=>`<tr><td>${fd(a.data)}</td><td>${esc(anAmbitoTxt(a))}${a.lab?' · '+esc(a.lab):''}</td><td class="small">${perc}${share!=null&&share<0.999?` <span class="chip warn">${nf(share*100,0)}% del vino ${focus?'della porzione':'attuale'}</span>`:''}</td>${K.map(k=>`<td class="r">${fmtVal(a.valori[k])||'<span class="muted">·</span>'}</td>`).join('')}<td class="r"><button type="button" class="btn sm ghost" data-paed="${esc(a.id)}" data-pav="${esc(a.vino)}">Correggi</button></td></tr>`).join('')}</tbody></table></div></div>`;
+   ${rows.map(({a,perc,share})=>`<tr><td>${fd(a.data)}</td><td>${esc(anAmbitoTxt(a))}${a.lab?' · Lab. '+esc(a.lab):''}</td><td class="small">${perc}${share!=null&&share<0.999?` <span class="chip warn">${nf(share*100,0)}% del vino ${focus?'della porzione':'attuale'}</span>`:''}</td>${K.map(k=>`<td class="r">${fmtVal(a.valori[k])||'<span class="muted">·</span>'}</td>`).join('')}<td class="r"><button type="button" class="btn sm ghost" data-paed="${esc(a.id)}" data-pav="${esc(a.vino)}">Correggi</button></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 const KEST=['Alcool distillazione','Zuccheri riduttori totali','Glucosio + Fruttosio','Acidità totale','Acidità volatile','pH','Acido malico','Acido lattico','Acido tartarico','Estratto totale','Solforosa libera','Solforosa totale'];
 function stimaTaglio(rootId,refDate){
@@ -5099,7 +5099,7 @@ function analisiSchede(id,lista){
   if(!an.length) return `<div class="empty">Nessuna analisi${anVino(id).length?' con questi filtri':'. Usa «Nuova analisi» o importa un referto.'}</div>`;
   const ord=anParams(an);
   return `<div class="an-cards">${an.map(a=>{ const ps=ord.filter(k=>fmtVal((a.valori||{})[k]));
-    return `<article class="an-card"><div class="spread"><div><b>${fd(a.data)}</b> <span class="chip">${esc(anAmbitoTxt(a))}</span>${a.lab?` <span class="muted small">${esc(a.lab)}</span>`:''}${a.stimata?' <span class="chip warn">stimata</span>':''}${a._da?' <span class="chip">prima della certificazione</span>':''}</div>
+    return `<article class="an-card"><div class="spread"><div><b>${fd(a.data)}</b> <span class="chip">${esc(anAmbitoTxt(a))}</span>${a.lab?` <span class="muted small">Lab. ${esc(a.lab)}</span>`:''}${a.stimata?' <span class="chip warn">stimata</span>':''}${a._da?' <span class="chip">prima della certificazione</span>':''}</div>
       <button type="button" class="btn sm ghost" data-aed="${a.id}" data-av="${a._da||''}">Correggi</button></div>
       <dl>${ps.map(k=>{ const x=a.valori[k]; return `<div><dt>${esc(k)}${anUdm(k)?` <span class="an-u">${esc(anUdm(k))}</span>`:''}</dt><dd>${x&&x.fl?`<span class="an-fl">${fmtVal(x)} !</span>`:fmtVal(x)}</dd></div>`; }).join('')||'<div class="muted small">Nessun valore.</div>'}</dl>
       ${a.note?`<div class="nt small">${esc(a.note).replace(/\n/g,'<br>')}</div>`:''}</article>`; }).join('')}</div>`;
@@ -5164,7 +5164,7 @@ function analisiTable(id,readonly,filt,lista){
   if(!an.length) return `<div class="empty">Nessuna analisi${lista?' con questi filtri':''}.${readonly||lista?'':' Usa «Nuova analisi» o importa un referto.'}</div>`;
   const params=anParams(an), udm=anUdm;
   return `<p class="hint">Date in colonna, parametri in riga (solo quelli con almeno un valore). Cella vuota = non determinato; «0» = misurato zero; «&lt;0,1» = sotto il limite di rilevabilità indicato (0,1); «&lt; LR» = sotto il limite, valore del limite non indicato.</p>
-  <div class="tbl-wrap"><table class="an"><thead><tr><th class="p">Parametro</th>${an.map(a=>`<th class="r">${fd(a.data)}<br><span class="chip" style="text-transform:none;letter-spacing:0">${esc(anAmbitoTxt(a))}</span>${a.lab?`<br><span style="text-transform:none;letter-spacing:0;font-weight:500">${esc(a.lab)}</span>`:''}${a.stimata?'<br><span class="chip warn" style="text-transform:none;letter-spacing:0">stimata</span>':''}${a._da?`<br><span class="chip" style="text-transform:none;letter-spacing:0" title="Analisi fatta quando il vino era ${esc(vName(a._da))}">prima della certificazione</span>`:''}${!readonly?`<br><button class="btn sm ghost" data-aed="${a.id}" data-av="${a._da||''}">Correggi</button>`:''}</th>`).join('')}</tr></thead>
+  <div class="tbl-wrap"><table class="an"><thead><tr><th class="p">Parametro</th>${an.map(a=>`<th class="r">${fd(a.data)}<br><span class="chip" style="text-transform:none;letter-spacing:0">${esc(anAmbitoTxt(a))}</span>${a.lab?`<br><span style="text-transform:none;letter-spacing:0;font-weight:500">Lab. ${esc(a.lab)}</span>`:''}${a.stimata?'<br><span class="chip warn" style="text-transform:none;letter-spacing:0">stimata</span>':''}${a._da?`<br><span class="chip" style="text-transform:none;letter-spacing:0" title="Analisi fatta quando il vino era ${esc(vName(a._da))}">prima della certificazione</span>`:''}${!readonly?`<br><button class="btn sm ghost" data-aed="${a.id}" data-av="${a._da||''}">Correggi</button>`:''}</th>`).join('')}</tr></thead>
   <tbody>${params.map(p=>`<tr><td class="p">${esc(p)}${udm(p)?`<span class="an-u">${esc(udm(p))}</span>`:''}</td>${an.map(a=>{const x=a.valori[p];const s=fmtVal(x);return `<td class="v ${s?'':'nd'}">${s?(x&&x.fl?`<span class="an-fl" title="Fuori dall'intervallo consueto: valore confermato al salvataggio">${s} !</span>`:s):'·'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
   ${an.some(a=>a.note||a.fonte||a.controlli)?`<ul class="small muted" style="margin-top:8px">${an.filter(a=>a.note||a.fonte||a.storia?.length||a.controlli).map(a=>`<li>${fd(a.data)}: ${esc([a.fonte&&'fonte '+a.fonte,a.note,a.storia?.length?`corretta ${a.storia.length} volta/e, versioni precedenti conservate`:'',a.controlli?'confermati al salvataggio, fuori dall\'intervallo consueto: '+a.controlli.avvisi.join(' · '):''].filter(Boolean).join(' · '))}</li>`).join('')}</ul>`:''}
   ${an.some(a=>a.controlli)?'<p class="hint">«!» = valore fuori dall\'intervallo consueto, confermato da chi l\'ha inserito.</p>':''}`;
@@ -5482,7 +5482,9 @@ function renderReview(b,res,fonte,close,vidDef){
   const camp=res.campioni.map(c=>({...c,valori:(c.valori||[]).map(v=>({...v,udm:v.udm||(String(v.parametro||'').match(/\(([^)]*)\)\s*$/)||[])[1]||'',parametro:normParam(v.parametro)}))}));
   const opts=sel=>`<option value="">— scegli il vino —</option>`+S.vini.map(v=>`<option value="${v.id}" ${v.id===sel?'selected':''}>${esc(vName(v.id))}</option>`).join('')+`<option value="__new">+ Nuovo vino…</option>`;
   const box=$('#rf-rev',b);
-  box.innerHTML=`<div class="box small" style="background:var(--surface-2);margin:10px 0">Referto <b>${esc(fonte)}</b>${res.laboratorio?' · laboratorio <b>'+esc(res.laboratorio)+'</b>':''}${res.data?' · '+fd(res.data):''} · ${camp.length} campion${camp.length===1?'e':'i'}. <span class="hand" style="padding:0 4px">Giallo</span> = scritto a mano, <span style="outline:2px solid var(--warn);padding:0 4px">bordo arancione</span> = lettura incerta: controlla.</div>
+  box.innerHTML=`<div class="box small" style="background:var(--surface-2);margin:10px 0">Referto <b>${esc(fonte)}</b>${res.data?' · '+fd(res.data):''} · ${camp.length} campion${camp.length===1?'e':'i'}. <span class="hand" style="padding:0 4px">Giallo</span> = scritto a mano, <span style="outline:2px solid var(--warn);padding:0 4px">bordo arancione</span> = lettura incerta: controlla.</div>
+   <div class="fg" style="margin-bottom:10px"><label class="f">Laboratorio (facoltativo)<input id="rf-lab" value="" placeholder="lascia vuoto se non serve"></label>
+     ${res.laboratorio?`<span class="hint" style="align-self:end">Nel file: <b>${esc(res.laboratorio)}</b> · <button type="button" class="lnk" id="rf-labuse">usa questo</button></span>`:''}</div>
    <div class="row" style="flex-direction:column;align-items:stretch;gap:12px">
    ${camp.map((c,i)=>{const pAl=propose(c.codice), pNo=pAl?'':(dRif=c.data||res.data||today(),daNome(c.vino)), pv=pAl||pNo||(camp.length===1?vidDef:''); const d=c.data||res.data||today(); const vv=vascaDa(c.vasca,pv,d); return `<div class="sample" data-i="${i}">
      <div class="spread"><div><b style="font-family:var(--f-display);font-size:1.15rem">${esc(c.codice||'campione '+(i+1))}</b> <span class="muted small">nome sul referto</span>${c.vino&&c.vino!==c.codice?` <span class="muted small">· vino scritto: ${esc(c.vino)}</span>`:''}${c.vasca?` <span class="muted small">· vasca scritta: ${esc(c.vasca)}</span>`:''}</div>
@@ -5502,6 +5504,7 @@ function renderReview(b,res,fonte,close,vidDef){
    <div id="rf-conf"></div><div id="rf-msg" class="err"></div>
    <div class="foot"><button class="btn" data-close2>Annulla</button><button class="btn pri" id="rf-save">Salva analisi</button></div>`;
   $('[data-close2]',box).onclick=close;
+  { const u=$('#rf-labuse',box); if(u) u.onclick=()=>{ $('#rf-lab',box).value=res.laboratorio; }; }
   const rfGate=anGate($('#rf-conf',box),$('#rf-msg',box),$('#rf-save',box),'Salva analisi');
   box.addEventListener('input',e=>{ if(!e.target.closest('#rf-conf')) rfGate.reset(); });
   $$('.sample',box).forEach(sm=>{ const i=+sm.dataset.i;
@@ -5532,7 +5535,7 @@ function renderReview(b,res,fonte,close,vidDef){
         if(!S.parametri.some(p=>p.nome===pn)) S.parametri.push({nome:pn,udm:inp.dataset.u||''});
         if(t.startsWith('<')) valori[pn]={v:num(t.slice(1)),lod:true}; else { const x=num(t); if(x!=null) valori[pn]={v:x,lod:false}; } });
       const amb=ambitoRead(sm,'s'+i);
-      const an={id:uid(),vino:v,data:$('.s-d',sm).value||res.data||today(),...amb,lab:res.laboratorio||'',fonte,note:`Campione «${c.codice}»`+(c.valori.some(x=>x.scritto_a_mano)?' · valori scritti a mano verificati':'')+(($('.s-nt',sm)||{}).value||'').trim().replace(/^(.)/,'\n$1'),valori,storia:[]};
+      const an={id:uid(),vino:v,data:$('.s-d',sm).value||res.data||today(),...amb,lab:($('#rf-lab',box).value||'').trim(),fonte,note:`Campione «${c.codice}»`+(c.valori.some(x=>x.scritto_a_mano)?' · valori scritti a mano verificati':'')+(($('.s-nt',sm)||{}).value||'').trim().replace(/^(.)/,'\n$1'),valori,storia:[]};
       anSegna(an,cks.get(sm)||{warn:[]}); S.analisi.push(an); n++; });
     UI.vinoTab='analisi'; close(); refresh(); toast(`${n} analisi salvate`);
   };
@@ -6473,7 +6476,7 @@ function movDopo(code,m){ const e0=S.eventi.find(x=>x.id===m.ev); if(!e0) return
 function anRow(a){ const K=['Alcool distillazione','Zuccheri riduttori totali','Acidità totale','Acidità volatile','pH','Acido malico','Solforosa libera','Solforosa totale'];
   const nomi={'Alcool distillazione':'alcol','Zuccheri riduttori totali':'zuccheri','Acidità totale':'AT','Acidità volatile':'AV','pH':'pH','Acido malico':'malico','Solforosa libera':'SO₂ L','Solforosa totale':'SO₂ T'};
   const vs=K.filter(k=>a.valori[k]).map(k=>`${nomi[k]} <b>${fmtVal(a.valori[k])}</b>`); const altri=Object.keys(a.valori).filter(k=>!K.includes(k)).length;
-  return `<div class="ev"><div class="d">${fd(a.data)}<small>Analisi</small></div><div class="what"><b>Analisi · ${esc(anAmbitoTxt(a))}${a.lab?' · '+esc(a.lab):''}</b><div class="row">${a.stimata?'<span class="chip warn">stimata</span>':'<span class="chip">Analisi</span>'}${a._da?' <span class="chip">prima della certificazione</span>':''}${a.controlli?' <span class="chip warn">valori confermati fuori intervallo</span>':''}</div>
+  return `<div class="ev"><div class="d">${fd(a.data)}<small>Analisi</small></div><div class="what"><b>Analisi · ${esc(anAmbitoTxt(a))}${a.lab?' · Lab. '+esc(a.lab):''}</b><div class="row">${a.stimata?'<span class="chip warn">stimata</span>':'<span class="chip">Analisi</span>'}${a._da?' <span class="chip">prima della certificazione</span>':''}${a.controlli?' <span class="chip warn">valori confermati fuori intervallo</span>':''}</div>
     <ul><li>${vs.join(' · ')||'—'}${altri?` <span class="muted">· ${altri===1?'un altro parametro':'altri '+altri+' parametri'} nella scheda Analisi</span>`:''}</li></ul>${a.note?`<div class="nt">${esc(a.note)}</div>`:''}</div>
     <div class="ops"><button class="btn sm" data-aed="${esc(a.id)}" data-av="${esc(a._da||a.vino)}">Correggi</button></div></div>`; }
 
