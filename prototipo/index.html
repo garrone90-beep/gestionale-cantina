@@ -2169,9 +2169,9 @@ function invBannerHTML(dep){ const ls=lavori().filter(l=>l.inv&&l.inv.locale===d
   return ls.map(l=>{ const n=lavCodes(l).length, pr=Object.keys(l.invPr||{}).length, chi=assLab(l); let cls='', t;
     if(l.stato==='eseguito'){ cls='warn'; t=`Inventario fatto${l.esec&&l.esec.da?' da '+esc(l.esec.da):''}${l.esec&&l.esec.il?' il '+fd(l.esec.il.slice(0,10)):''} · <b>da convalidare</b>`; }
     else if(l.stato==='noneseguito'){ cls='warn'; t=`Inventario non fatto${l.esec&&l.esec.note?' ('+esc(l.esec.note)+')':''} · <b>da riprogrammare</b>`; }
-    else if(lavScaduto(l)){ cls='scad'; t=`Inventario del ${fd(l.data)} non ancora fatto${pr?` · ${pr} di ${n} controllati`:''}${chi?' · '+esc(chi):''}`; }
-    else if(pr){ t=`Inventario in corso: <b>${pr} di ${n}</b> controllati${chi?' · '+esc(chi):''}`; }
-    else t=`Inventario ${l.data?'programmato per il '+fd(l.data):'da fare'}${l.inv.solo?' (rimisura di '+n+')':''}${chi?' · '+esc(chi):''}`;
+    else if(lavScaduto(l)){ cls='scad'; t=`Inventario del ${fd(l.data)} non ancora fatto${pr?` · ${pr} di ${n} controllati`:''}${chi?' · assegnato a '+esc(chi):' · non assegnato'}`; }
+    else if(pr){ t=`Inventario in corso: <b>${pr} di ${n}</b> controllati${chi?' · assegnato a '+esc(chi):' · non assegnato'}`; }
+    else t=`Inventario ${l.data?'programmato per il '+fd(l.data):'da fare'}${l.inv.solo?' (rimisura di '+n+')':''}${chi?' · assegnato a '+esc(chi):' · non assegnato'}`;
     return `<a class="inv-ban ${cls}" href="#inv-${esc(l.id)}"><span><svg class="inv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/></svg>${t}</span><span class="inv-ban-go">Apri →</span></a>`; }).join(''); }
 /* icona sulla pianta: lavoro da fare (blu), solo fatti da convalidare (arancio), solo segnalazioni (bandierina) */
 const lavBadge = code=>{ const pg=programmate(code); if(!pg.length) return null; if(pg.some(l=>!['eseguito','segnalato'].includes(l.stato))) return ['var(--c2)','cal','Lavoro programmato']; if(pg.some(l=>l.stato==='eseguito')) return ['var(--warn)','cal','Lavoro fatto, da convalidare']; return ['#F2C200','flag','Segnalazione da un operatore']; };
