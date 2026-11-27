@@ -3069,7 +3069,7 @@ function viewInvLav(app,id){ const l=lavori().find(x=>x.id===id); if(!l||!l.inv)
   const decTxt={acc:'Accettata',sca:'Scartata',rim:'Da rimisurare'};
   app.innerHTML=`<div class="row"><a href="#lavori" class="small">← Lavori</a></div>
    <div class="panel"><div class="spread"><div><h2 style="margin:0">${esc(lavTitolo(l))}</h2><div class="muted small">${l.num||''} · ${LSTATI[l.stato]||l.stato}${l.esec&&l.esec.da?' · fatto da '+esc(l.esec.da)+(l.esec.il?' il '+fd(l.esec.il.slice(0,10)):''):''}</div></div>
-     <div class="row" style="gap:6px"><button class="btn" id="iv-pdf">Verbale PDF</button></div></div>
+     <div class="row" style="gap:6px"><button class="btn" id="iv-xls">Scarica Excel</button><button class="btn" id="iv-pdf">Verbale PDF</button></div></div>
      ${inCorso?`<div class="box small" style="margin-top:8px">Inventario in corso: l'operatore non l'ha ancora segnato fatto. Vedi quello che ha già controllato.</div>`:''}
      <p style="margin:10px 0 4px"><b>${ok.length+df.length} contenitor${ok.length+df.length===1?'e controllato':'i controllati'}</b> · ${ok.length} giust${ok.length===1?'o':'i'} · ${df.length} divers${df.length===1?'o':'i'}${mn.length?` · <span class="err" style="display:inline">${mn.length} non controllati</span>`:''}${df.length?` · differenza totale <b>${tot>0?'+':''}${nf(tot/100,2)} hL</b>`:''}</p>
      ${l.esec&&l.esec.note?`<p class="small">Nota: ${esc(l.esec.note)}</p>`:''}
@@ -3086,7 +3086,7 @@ function viewInvLav(app,id){ const l=lavori().find(x=>x.id===id); if(!l||!l.inv)
   mapZoomBind(app,'inv-'+dep); $$('[data-invdep]',app).forEach(x=>x.onclick=()=>{ UI.invDep[l.id]=x.dataset.invdep; viewInvLav(app,id); });
   $$('[data-ivd]',app).forEach(x=>x.onclick=()=>{ const c=x.dataset.c, d=x.dataset.ivd; D[c]=D[c]===d?undefined:d; viewInvLav(app,id); });
   { const a=$('#iv-all',app); if(a) a.onclick=()=>{ df.forEach(r=>{ if(r.vid||!(r.mis>0)) D[r.c]='acc'; }); viewInvLav(app,id); }; }
-  $('#iv-pdf',app).onclick=()=>invPDF(l,R0);
+  $('#iv-pdf',app).onclick=()=>invPDF(l,R0); $('#iv-xls',app).onclick=()=>invXLSX(l);
   { const cv=$('#iv-cv',app); if(cv) cv.onclick=()=>{ const nA=df.filter(r=>D[r.c]==='acc').length, nS=df.filter(r=>D[r.c]==='sca').length, nR=df.filter(r=>D[r.c]==='rim').length, nO=df.filter(r=>!D[r.c]).length;
     modal('Convalida inventario',`<ul><li>${ok.length} contenitori giusti: registro una misura confermata con la data dell'inventario.</li>${nA?`<li>${nA} differenze accettate: il volume diventa quello misurato.</li>`:''}${nS?`<li>${nS} scartate: resta il teorico.</li>`:''}${nR?`<li>${nR} da rimisurare: creo un nuovo inventario solo per quelle, assegnato a ${esc(assLab(l)||'nessuno')}.</li>`:''}${nO?`<li>${nO} senza scelta: vanno tra le «Differenze aperte» dell'Inventario.</li>`:''}${mn.length?`<li>${mn.length} non controllati: nessuna registrazione.</li>`:''}</ul>
       <div class="foot"><button class="btn" data-close>Indietro</button><button class="btn pri" id="ivc-ok">Convalida</button></div>`,(b,close)=>{
@@ -4959,6 +4959,63 @@ function viewScheda(app,code){
   $('#sc-pdf',app).onclick=()=>schedaPDF(code);
   { const x=$('#sc-anpdf',app); if(x) x.onclick=()=>anPDFVasca(code); }
 }
+/* ---- file Excel (.xlsx) scritto qui, senza librerie: zip «stored» + fogli XML ---- */
+const _crcT=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u){ let c=0xFFFFFFFF; for(let i=0;i<u.length;i++) c=_crcT[(c^u[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zipStored(files){ const enc=new TextEncoder(), parts=[], cen=[]; let off=0;
+  const u16=n=>[n&255,(n>>>8)&255], u32=n=>[n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255];
+  files.forEach(f=>{ const nm=enc.encode(f.name), d=typeof f.data==='string'?enc.encode(f.data):f.data, c=crc32(d);
+    const loc=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(d.length),...u32(d.length),...u16(nm.length),...u16(0)]);
+    parts.push(loc,nm,d); cen.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(d.length),...u32(d.length),...u16(nm.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nm);
+    off+=loc.length+nm.length+d.length; });
+  const cs=cen.reduce((a,x)=>a+x.length,0);
+  return new Blob([...parts,...cen,new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cs),...u32(off),...u16(0)])],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); }
+/* fogli: [{nome, titolo?, cols:[{h,w,num?:decimali}], righe:[[...]]}] → Blob .xlsx (intestazione in grassetto e bloccata) */
+function xlsxBlob(fogli){ const X=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+  const col=i=>{ let s=''; i++; while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; };
+  const sheet=f=>{ const r0=f.titolo?2:0; let x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="'+(r0+1)+'" topLeftCell="A'+(r0+2)+'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>'+f.cols.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.w||14}" customWidth="1"/>`).join('')+'</cols><sheetData>';
+    const cell=(v,ref,st)=>v==null||v===''?'':typeof v==='number'&&isFinite(v)?`<c r="${ref}" s="${st}"><v>${v}</v></c>`:`<c r="${ref}" t="inlineStr" s="${st}"><is><t xml:space="preserve">${X(v)}</t></is></c>`;
+    if(f.titolo) x+=`<row r="1">${cell(f.titolo,'A1',3)}</row>`;
+    x+=`<row r="${r0+1}">`+f.cols.map((c,i)=>cell(c.h,col(i)+(r0+1),1)).join('')+'</row>';
+    f.righe.forEach((r,k)=>{ const n=r0+2+k; x+=`<row r="${n}">`+r.map((v,i)=>cell(v,col(i)+n,typeof v==='number'?(f.cols[i]&&f.cols[i].num===0?4:2):0)).join('')+'</row>'; });
+    return x+`</sheetData><autoFilter ref="A${r0+1}:${col(f.cols.length-1)}${r0+1+f.righe.length}"/></worksheet>`; };
+  const files=[{name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+fogli.map((f,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'},
+    {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+fogli.map((f,i)=>`<sheet name="${X(String(f.nome||'Foglio'+(i+1)).replace(/[\\/?*\[\]:]/g,' ').slice(0,31))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+'</sheets>'+fogli.map((f,i)=>`<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${X(String(f.nome||'Foglio'+(i+1)).replace(/[\\/?*\[\]:]/g,' ').slice(0,31))}'!$A$${(f.titolo?2:0)+1}:$${col(f.cols.length-1)}$${(f.titolo?2:0)+1+f.righe.length}</definedName></definedNames>`).slice(0,1).join('')+'</workbook>'},
+    {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+fogli.map((f,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+`<Relationship Id="rId${fogli.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:'xl/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="13"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFE6E8"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'},
+    ...fogli.map((f,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,data:sheet(f)}))];
+  return zipStored(files); }
+async function scaricaBlob(blob,nome){ let dl=null; try{ dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null; }catch(e){ dl=null; }
+  if(dl){ try{ await dl.save({filename:nome,data:blob}); toast('File salvato'); }catch(e){ if(e&&e.code!=='declined') toast('Download non riuscito: '+(e.message||e.code||'errore')); } return; }
+  const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=nome; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast('File scaricato: '+nome); }
+const nomeFile=t=>String(t).replace(/[^\w\-. àèéìòù]/g,'').replace(/\s+/g,'_');
+/* giacenze per vasca (pagina Inventario): solo le righe visibili con i filtri */
+function giacRighe(rows){ return rows.map(({v,s,l})=>{ const w=s.vino?vino(s.vino):null;
+  return [locNome(v.dep),vlabS(v.code),vkind(v.code),s.vino?vName(s.vino):'vuota',w&&w.annata?+w.annata||w.annata:'',+((s.L||0)/100).toFixed(2),+(+v.cap||0),l?fd(l.data):'',l?+((+l.L||0)/100).toFixed(2):''] }); }
+const GIAC_COLS=[{h:'Locale',w:20},{h:'Contenitore',w:12},{h:'Tipo',w:11},{h:'Vino',w:32},{h:'Annata',w:8,num:0},{h:'Teorico hL',w:12},{h:'Nominale hL',w:12},{h:'Ultima misura',w:13},{h:'Misurato hL',w:12}];
+function giacXLSX(rows,FI){ if(!rows.length) return toast('Nessuna vasca da esportare');
+  const tit=`${azNome()} · Giacenze al ${fd(asOf())}${vfAttivi(FI)?' · '+filtroTxt(FI):''}`;
+  scaricaBlob(xlsxBlob([{nome:'Giacenze',titolo:tit,cols:GIAC_COLS,righe:giacRighe(rows)}]),nomeFile('Giacenze '+asOf())+'.xlsx'); }
+async function giacPDF(rows,FI){ if(!rows.length) return toast('Nessuna vasca da esportare'); let J; try{ J=await loadJsPDF(); }catch(e){ return toast('Non riesco a caricare il generatore PDF: controlla la connessione'); }
+  const doc=new J({unit:'mm',format:'a4'}), W=210, M=12, T=pdfTxt; let y=15;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(110); doc.text(T(azNome().toUpperCase()+' · GIACENZE · stampato il '+fd(today())),M,y); doc.setTextColor(0); y+=7;
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.text(T('Giacenze per vasca al '+fd(asOf())),M,y); y+=5.5;
+  const tot=rows.reduce((a,r)=>a+(r.s.vino?r.s.L:0),0); doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+  doc.text(T(`${rows.length} vasch${rows.length===1?'a':'e'} · ${nf(tot/100,2)} hL${vfAttivi(FI)?' · filtri: '+filtroTxt(FI):''}`),M,y); y+=3;
+  doc.autoTable({startY:y,head:[GIAC_COLS.filter((_,i)=>i!==2).map(c=>T(c.h))],body:giacRighe(rows).map(r=>r.filter((_,i)=>i!==2).map((v,i)=>T(typeof v==='number'?(i===3?String(v):nf(v,2)):String(v)))),
+    margin:{left:M,right:M},styles:{fontSize:8,cellPadding:1.3},headStyles:{fillColor:[120,25,45],textColor:255,fontStyle:'bold'},columnStyles:{4:{halign:'right'},5:{halign:'right'},7:{halign:'right'}},theme:'grid'});
+  const n=doc.getNumberOfPages(); for(let p=1;p<=n;p++){ doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.text(T('Cantina Pratica · pagina '+p+' di '+n),W-M,292,{align:'right'}); }
+  pdfAnteprima(doc,'Giacenze per vasca',nomeFile('Giacenze '+asOf())+'.pdf'); }
+function pdfAnteprima(doc,titolo,nome){ const url=URL.createObjectURL(doc.output('blob'));
+  modal(titolo,`<iframe src="${url}" title="Anteprima PDF" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
+    <div class="foot"><button class="btn" data-close>Chiudi</button><button class="btn pri" id="pa-dl">Scarica PDF</button></div>`,(b)=>{ $('#pa-dl',b).onclick=()=>scaricaBlob(doc.output('blob'),nome); }); }
+/* inventario (lavoro): stesse righe del verbale */
+function invXLSX(l){ const R0=invRisultati(l), pl=invLocs(l).length>1;
+  const cols=[...(pl?[{h:'Locale',w:20}]:[]),{h:'Contenitore',w:12},{h:'Vino',w:32},{h:'Teorico hL',w:12},{h:'Misurato hL',w:12},{h:'Differenza hL',w:13},{h:'Esito',w:16},{h:'Data misura',w:12}];
+  const righe=R0.map(r=>[...(pl?[locNome(VMAP[r.c].dep)]:[]),vlabS(r.c),r.stato==='manca'?'':(r.vid?vName(r.vid):'vuota'),r.stato==='manca'?'':+(r.teo/100).toFixed(2),r.stato==='manca'?'':+(r.mis/100).toFixed(2),r.stato==='diff'?+(r.diff/100).toFixed(2):'',r.stato==='ok'?'giusto':r.stato==='diff'?'diverso':'non controllato',r.d?fd(r.d):'']);
+  const tit=`${azNome()} · ${lavTitolo(l)} · ${l.num||''}${l.esec&&l.esec.il?' · fatto il '+fd(l.esec.il.slice(0,10)):''}${l.esec&&l.esec.da?' da '+l.esec.da:''}`;
+  scaricaBlob(xlsxBlob([{nome:'Inventario',titolo:tit,cols,righe}]),nomeFile('Inventario '+invLocTxt(l)+' '+((l.esec&&l.esec.il)||today()).slice(0,10))+'.xlsx'); }
 let _jspdf=null;
 function loadJsPDF(){ if(_jspdf) return _jspdf; const add=src=>new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error('script')); document.head.append(sc); });
   _jspdf=add('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(()=>add('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')).then(()=>window.jspdf.jsPDF).catch(e=>{ _jspdf=null; throw e; });
@@ -5745,14 +5802,14 @@ function viewInventario(app){
    ${aperte.map(({v,l})=>`<tr><td class="mt-v"><b>${esc(vlab(v.code))}</b></td><td class="mt-n">${l.vino?tipoDot(l.vino)+' ':''}${esc(vName(l.vino))}</td><td data-l="Data">${fd(l.data)}</td><td class="r" data-l="Teorico">${hL(l.teorico)}</td><td class="r" data-l="Misurato">${hL(l.L)}</td><td class="r" data-l="Differenza"><span class="chip warn">${l.diff>0?'+':''}${hL(l.diff)}</span></td><td class="r mt-b"><div class="row" style="gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="btn sm pri" data-acc="${l.ev}">Accetta misura</button><button class="btn sm" data-mmod="${l.ev}">Modifica</button><button class="btn sm ghost danger" data-msc="${l.ev}">Scarta</button></div></td></tr>`).join('')}
    </tbody></table></div>`:''}${!aperte.length&&!anAp.length?'<p class="muted small">Nessuna differenza aperta.</p>':''}</div>`:''}
   <details class="inv-filtri" ${nF||!matchMedia('(max-width: 699px)').matches?'open':''}><summary class="btn sm">Filtri${nF?' ('+nF+')':''}</summary>${vfBarHTML(FI,'',{inv:true})}</details>
-  <div class="panel"><div class="spread" style="margin-bottom:8px"><h3 style="margin:0">Giacenze per vasca</h3><span class="muted small">${rows.length} vasch${rows.length===1?'a':'e'}${nF?' su '+tutteRows.length:''} · <b>${hL(rows.reduce((a,r)=>a+(r.s.vino?r.s.L:0),0))}</b>${nF&&(FI.conto||FI.dep||(FI.stato&&FI.stato!=='vuota'))?' · '+esc(filtroTxt(FI)):''}</span></div>
+  <div class="panel"><div class="spread" style="margin-bottom:8px"><h3 style="margin:0">Giacenze per vasca</h3><span class="row" style="gap:6px;align-items:center"><button class="btn sm" id="gx-xls">Scarica Excel</button><button class="btn sm" id="gx-pdf">PDF</button></span></div><div class="muted small" style="margin:-4px 0 8px">${nF?'Esporta le vasche visibili con i filtri attivi · ':''}<span>${rows.length} vasch${rows.length===1?'a':'e'}${nF?' su '+tutteRows.length:''} · <b>${hL(rows.reduce((a,r)=>a+(r.s.vino?r.s.L:0),0))}</b>${nF&&(FI.conto||FI.dep||(FI.stato&&FI.stato!=='vuota'))?' · '+esc(filtroTxt(FI)):''}</span></div>
    <div class="tbl-wrap"><table class="giac-tbl"><thead><tr><th>Vasca</th><th>Vino</th><th class="r">Teorico</th><th class="r">Nominale</th><th>Ultima misura</th><th></th></tr></thead><tbody>
    ${rows.length?'':`<tr><td colspan="6" class="muted">Nessuna vasca con questi filtri.</td></tr>`}${(()=>{ const pl=new Set(rows.map(r=>r.v.dep)).size>1; let dep0=null;
      return rows.map(({v,s,l})=>{ const hd=pl&&v.dep!==dep0?`<tr class="giac-loc"><td colspan="6">${esc(locNome(v.dep))}</td></tr>`:''; dep0=v.dep;
        return hd+`<tr><td class="gt-v"><b>${esc(vlab(v.code))}</b></td><td class="gt-n">${s.vino?tipoDot(s.vino)+' '+esc(vName(s.vino))+quotaConto(v.code):'<span class="muted">vuota</span>'}</td><td class="r" data-l="Teorico">${hL(s.L)}</td><td class="r" data-l="Nominale">${nf(v.cap)} hL</td><td data-l="Ultima misura">${l?fd(l.data)+' · '+hL(l.L):'<span class="muted">mai misurata</span>'}</td><td class="r gt-b"><button class="btn sm" data-act="misura" data-v="${esc(v.code)}">Misura</button></td></tr>`; }).join(''); })()}
    </tbody></table></div>
    <p class="hint" style="margin-top:8px">Le differenze non vengono classificate in automatico come perdite.</p></div>
-  <div class="panel"><h3>Esporta giacenze (CSV)</h3><p class="hint">Copia e incolla in Excel o Fogli Google. Colonne separate da punto e virgola, decimali con la virgola, nessun separatore delle migliaia. «Contenitore» è il codice che vedi sulla pianta; «ID contenitore» è l'identificativo interno, utile solo per le importazioni.</p>${nF?`<p class="small"><b>Esporti ${rows.filter(r=>r.s.vino).length} vasche con vino su ${tutteRows.filter(r=>r.s.vino).length}</b> (quelle dei filtri attivi).</p>`:''}<textarea id="csv" readonly style="min-height:110px;font-family:ui-monospace,monospace;font-size:.82rem">${esc(csvGiacenze(nF?rows.map(r=>r.v.code):null))}</textarea><div class="actions"><button class="btn sm" id="cpcsv">Copia</button></div></div>`;
+`;
   $('#nm',app).onclick=()=>formMisura({});
   $('#mx',app).onclick=()=>formConfrontoMaxidata();
   vfBarBind(app,live=>{ viewInventario(app); if(live){ const q=$('#vf-q',app); if(q){ q.focus(); const n=q.value.length; try{ q.setSelectionRange(n,n); }catch(e){} } } },'vfInv');
@@ -5760,7 +5817,8 @@ function viewInventario(app){
   $$('[data-acc]',app).forEach(b=>b.onclick=()=>{const e=S.eventi.find(x=>x.id===b.dataset.acc); const n={...JSON.parse(JSON.stringify(e)),id:uid(),scelta:'accetta',motivoCorr:'Differenza accettata da inventario',creatoIl:new Date().toISOString()}; delete n.stato; storeEvent(n,e.id); refresh(); toast('Misura accettata');});
   $$('[data-mmod]',app).forEach(b=>b.onclick=()=>{ const e=S.eventi.find(x=>x.id===b.dataset.mmod); if(e) formMisura(e,e.id); });
   $$('[data-msc]',app).forEach(b=>b.onclick=()=>annulla(b.dataset.msc,{titolo:'Scarta misura',testo:'La misura viene tolta dalle differenze aperte: il volume della vasca resta quello teorico. Nel registro resta come annullata.',ph:'es. misura ripetuta, tornava',btn:'Scarta misura',ok:'Misura scartata'}));
-  $('#cpcsv',app).onclick=()=>copy($('#csv',app));
+  $('#gx-xls',app).onclick=()=>giacXLSX(rows,FI);
+  $('#gx-pdf',app).onclick=()=>giacPDF(rows,FI);
 }
 /* CSV per Excel italiano: punto e virgola, virgola decimale, niente separatore delle migliaia (U03).
    Il contenitore si legge con il suo codice a video e il locale; l'identificativo interno sta in una colonna a parte (C03). */
