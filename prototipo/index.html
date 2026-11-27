@@ -1131,7 +1131,7 @@ function replay(events, stop){
       /* «vino unico»: da qui il vino della vasca conta come un'unica partita; le origini restano raggiungibili da «Da dove viene» */
       addVin(ev.id,ev.vino);
       (ev.vasche||[]).forEach(c=>{ const s=st[c]; if(!s||!s.node||s.vino!==ev.vino||!(s.L>0)) return; const prev=s.node;
-        s.node=mkNode({leaf:true,unico:true,data:ev.data,ev:ev.id,vasca:c,vino:s.vino,Ltot:s.L,descr:'vino unico dal '+fd(ev.data),orig:prev,grp:'u:'+ev.id,conto:ev.conto!=null?ev.conto:null,prov:ev.prov||null}); });
+        s.node=mkNode({leaf:true,unico:true,data:ev.data,ev:ev.id,vasca:c,vino:s.vino,Ltot:s.L,descr:'vino unico dal '+fd(ev.data),orig:prev,grp:'u:'+ev.id,conto:ev.contoPrima&&ev.conto!=null?ev.conto:null,prov:ev.prov||null}); });
     } else if(ev.tipo==='fineMan'){
       if(st[ev.vasca]) st[ev.vasca].man=null;
     } else if(ev.tipo==='fineLav'){
@@ -4862,8 +4862,12 @@ function drawCartello(f){
 }
 const NOTE_PROV_DEF={};
 const NOTE_PROV_GARRONE={'Azienda Agricola Cantine Garrone':'Conto lavorazione società agricola cantine garrone di garrone marco','Azienda Agricola Fiasa':'Conto lavorazione Fiasa società agricola a r.l.','Azienda Agricola Villa Caselli':'Conto lavorazione Villa Caselli società agricola a r.l.','Cantine Garrone S.r.l.':'Cantine Garrone S.r.l.'};
-function contoVasca(code){ const s=R.st[code]; if(!s||!s.node) return []; const c=comp(s.node), g={};
-  for(const k in c){ const n=R.nodes[k]; const e=n&&S.eventi.find(x=>x.id===n.ev); const ct=n&&n.conto!=null?(n.conto||NOSTRO):e&&(e.tipo==='carico'||e.tipo==='pigiatura')?(e.conto||NOSTRO):CONTO_ND; g[ct]=(g[ct]||0)+c[k]; }
+/* di chi è il vino: dalle origini (uve, entrate). Il «vino unico» fissa il conto solo se l'utente l'ha scelto tra conti diversi;
+   altrimenti segue le origini, così una correzione del conto su un'entrata vale anche dopo il vino unico */
+function contiNodo(nid,g,f,dep){ const c=comp(nid); for(const k in c){ const n=R.nodes[k];
+    if(n&&n.unico&&n.conto==null&&n.orig&&(dep||0)<20){ contiNodo(n.orig,g,f*c[k],(dep||0)+1); continue; }
+    const e=n&&S.eventi.find(x=>x.id===n.ev); const ct=n&&n.conto!=null?(n.conto||NOSTRO):e&&(e.tipo==='carico'||e.tipo==='pigiatura')?(e.conto||NOSTRO):CONTO_ND; g[ct]=(g[ct]||0)+f*c[k]; } return g; }
+function contoVasca(code){ const s=R.st[code]; if(!s||!s.node) return []; const g=contiNodo(s.node,{},1);
   return Object.entries(g).sort((a,b)=>b[1]-a[1]); }
 const noteConto = ct=>ct===NOSTRO?(S.notaNostro!=null?S.notaNostro:NOSTRO):ct===CONTO_ND?'':((contiList().find(x=>x.nome===ct)||{}).nota??('Conto lavorazione '+ct));
 function setNotaConto(ct,t){ if(ct===NOSTRO) S.notaNostro=t; else if(ct!==CONTO_ND){ const cl=contiList(); S.conti=cl.some(x=>x.nome===ct)?cl.map(x=>x.nome===ct?{...x,nota:t}:x):[...cl,{nome:ct,nota:t}]; } }
@@ -5160,7 +5164,7 @@ function formUnifica(vid,pre){ const w=vino(vid); if(!w) return;
     $$('.u-v',b).forEach(x=>x.onchange=upd); upd();
     $('#fu',b).onsubmit=e=>{ e.preventDefault(); const m=$('#msg',b); const vv=sel(), data=$('#u-d',b).value||today();
       if(!vv.length){ m.textContent='Scegli almeno una vasca.'; return; }
-      const cs=conti(); const ctSel=$('#u-ct',b); const conto=ctSel?ctSel.value:(cs[0]?(cs[0][0]===NOSTRO?'':cs[0][0]):'');
+      const cs=conti(); const ctSel=$('#u-ct',b); const conto=ctSel&&cs.length>1?ctSel.value:null;
       const pv={}; vv.forEach(c=>provVasca(c).forEach(([p,f])=>{ pv[p]=(pv[p]||0)+f; })); const pvs=Object.keys(pv).filter(p=>p!=='Provenienza non indicata');
       const ev={id:uid(),tipo:'unifica',data,ord:Date.now(),fase:'Affinamento',vino:vid,vasche:vv,conto,prov:pvs.length===1?pvs[0]:(pvs.length?'Più provenienze':null),
         contoPrima:cs.length>1?cs.map(([ct,L])=>contoLab(ct)+' '+hL(L)).join(', '):null,creatoIl:new Date().toISOString()};
