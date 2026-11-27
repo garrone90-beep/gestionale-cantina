@@ -4995,9 +4995,11 @@ async function scaricaBlob(blob,nome){ let dl=null; try{ dl=window.claude&&windo
   const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=nome; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast('File scaricato: '+nome); }
 const nomeFile=t=>String(t).replace(/[^\w\-. àèéìòù]/g,'').replace(/\s+/g,'_');
 /* giacenze per vasca (pagina Inventario): solo le righe visibili con i filtri */
+/* categoria, denominazione e varietà del vino, per le colonne filtrabili in Excel */
+const vinoCDV = id=>{ const w=id?vino(id):null; return w?[w.categoria?catDef(w.categoria).nome||w.categoria:'',w.denominazione||'',w.varieta||'']:['','','']; };
 function giacRighe(rows){ return rows.map(({v,s,l})=>{ const w=s.vino?vino(s.vino):null;
-  return [locNome(v.dep),vlabS(v.code),vkind(v.code),s.vino?vName(s.vino):'vuota',w&&w.annata?+w.annata||w.annata:'',+((s.L||0)/100).toFixed(2),+(+v.cap||0),l?fd(l.data):'',l?+((+l.L||0)/100).toFixed(2):''] }); }
-const GIAC_COLS=[{h:'Locale',w:20},{h:'Contenitore',w:12},{h:'Tipo',w:11},{h:'Vino',w:32},{h:'Annata',w:8,num:0},{h:'Teorico hL',w:12},{h:'Nominale hL',w:12},{h:'Ultima misura',w:13},{h:'Misurato hL',w:12}];
+  return [locNome(v.dep),vlabS(v.code),vkind(v.code),s.vino?vName(s.vino):'vuota',...vinoCDV(s.vino),w&&w.annata?+w.annata||w.annata:'',+((s.L||0)/100).toFixed(2),+(+v.cap||0),l?fd(l.data):'',l?+((+l.L||0)/100).toFixed(2):''] }); }
+const GIAC_COLS=[{h:'Locale',w:20},{h:'Contenitore',w:12},{h:'Tipo',w:11},{h:'Vino',w:32},{h:'Categoria',w:14},{h:'Denominazione',w:26},{h:'Varietà',w:16},{h:'Annata',w:8,num:0},{h:'Teorico hL',w:12},{h:'Nominale hL',w:12},{h:'Ultima misura',w:13},{h:'Misurato hL',w:12}];
 function giacXLSX(rows,FI){ if(!rows.length) return toast('Nessuna vasca da esportare');
   const tit=`${azNome()} · Giacenze al ${fd(asOf())}${vfAttivi(FI)?' · '+filtroTxt(FI):''}`;
   scaricaBlob(xlsxBlob([{nome:'Giacenze',titolo:tit,cols:GIAC_COLS,righe:giacRighe(rows)}]),nomeFile('Giacenze '+asOf())+'.xlsx'); }
@@ -5007,7 +5009,7 @@ async function giacPDF(rows,FI){ if(!rows.length) return toast('Nessuna vasca da
   doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.text(T('Giacenze per vasca al '+fd(asOf())),M,y); y+=5.5;
   const tot=rows.reduce((a,r)=>a+(r.s.vino?r.s.L:0),0); doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
   doc.text(T(`${rows.length} vasch${rows.length===1?'a':'e'} · ${nf(tot/100,2)} hL${vfAttivi(FI)?' · filtri: '+filtroTxt(FI):''}`),M,y); y+=3;
-  doc.autoTable({startY:y,head:[GIAC_COLS.filter((_,i)=>i!==2).map(c=>T(c.h))],body:giacRighe(rows).map(r=>r.filter((_,i)=>i!==2).map((v,i)=>T(typeof v==='number'?(i===3?String(v):nf(v,2)):String(v)))),
+  doc.autoTable({startY:y,head:[GIAC_COLS.filter((_,i)=>![2,4,5,6].includes(i)).map(c=>T(c.h))],body:giacRighe(rows).map(r=>r.filter((_,i)=>![2,4,5,6].includes(i)).map((v,i)=>T(typeof v==='number'?(i===3?String(v):nf(v,2)):String(v)))),
     margin:{left:M,right:M},styles:{fontSize:8,cellPadding:1.3},headStyles:{fillColor:[120,25,45],textColor:255,fontStyle:'bold'},columnStyles:{4:{halign:'right'},5:{halign:'right'},7:{halign:'right'}},theme:'grid'});
   const n=doc.getNumberOfPages(); for(let p=1;p<=n;p++){ doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.text(T('Cantina Pratica · pagina '+p+' di '+n),W-M,292,{align:'right'}); }
   pdfAnteprima(doc,'Giacenze per vasca',nomeFile('Giacenze '+asOf())+'.pdf'); }
@@ -5016,8 +5018,8 @@ function pdfAnteprima(doc,titolo,nome){ const url=URL.createObjectURL(doc.output
     <div class="foot"><button class="btn" data-close>Chiudi</button><button class="btn pri" id="pa-dl">Scarica PDF</button></div>`,(b)=>{ $('#pa-dl',b).onclick=()=>scaricaBlob(doc.output('blob'),nome); }); }
 /* inventario (lavoro): stesse righe del verbale */
 function invXLSX(l){ const R0=invRisultati(l), pl=invLocs(l).length>1;
-  const cols=[...(pl?[{h:'Locale',w:20}]:[]),{h:'Contenitore',w:12},{h:'Vino',w:32},{h:'Teorico hL',w:12},{h:'Misurato hL',w:12},{h:'Differenza hL',w:13},{h:'Esito',w:16},{h:'Data misura',w:12}];
-  const righe=R0.map(r=>[...(pl?[locNome(VMAP[r.c].dep)]:[]),vlabS(r.c),r.stato==='manca'?'':(r.vid?vName(r.vid):'vuota'),r.stato==='manca'?'':+(r.teo/100).toFixed(2),r.stato==='manca'?'':+(r.mis/100).toFixed(2),r.stato==='diff'?+(r.diff/100).toFixed(2):'',r.stato==='ok'?'giusto':r.stato==='diff'?'diverso':'non controllato',r.d?fd(r.d):'']);
+  const cols=[...(pl?[{h:'Locale',w:20}]:[]),{h:'Contenitore',w:12},{h:'Vino',w:32},{h:'Categoria',w:14},{h:'Denominazione',w:26},{h:'Varietà',w:16},{h:'Teorico hL',w:12},{h:'Misurato hL',w:12},{h:'Differenza hL',w:13},{h:'Esito',w:16},{h:'Data misura',w:12}];
+  const righe=R0.map(r=>[...(pl?[locNome(VMAP[r.c].dep)]:[]),vlabS(r.c),r.stato==='manca'?'':(r.vid?vName(r.vid):'vuota'),...vinoCDV(r.stato==='manca'?null:r.vid),r.stato==='manca'?'':+(r.teo/100).toFixed(2),r.stato==='manca'?'':+(r.mis/100).toFixed(2),r.stato==='diff'?+(r.diff/100).toFixed(2):'',r.stato==='ok'?'giusto':r.stato==='diff'?'diverso':'non controllato',r.d?fd(r.d):'']);
   const tit=`${azNome()} · ${lavTitolo(l)} · ${l.num||''}${l.esec&&l.esec.il?' · fatto il '+fd(l.esec.il.slice(0,10)):''}${l.esec&&l.esec.da?' da '+l.esec.da:''}`;
   scaricaBlob(xlsxBlob([{nome:'Inventario',titolo:tit,cols,righe}]),nomeFile('Inventario '+invLocTxt(l)+' '+((l.esec&&l.esec.il)||today()).slice(0,10))+'.xlsx'); }
 let _jspdf=null;
